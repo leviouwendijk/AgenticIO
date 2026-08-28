@@ -113,7 +113,7 @@ public struct ReadFileTool: AgentTool {
         )
 
         let read = try workspace.readSlice(
-            authorized.scopedPath,
+            authorized.path,
             startLine: decoded.startLine,
             endLine: decoded.endLine,
             maxLines: decoded.maxLines

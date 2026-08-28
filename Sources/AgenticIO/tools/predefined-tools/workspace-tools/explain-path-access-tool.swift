@@ -153,17 +153,17 @@ public struct ExplainPathAccessTool: AgentTool {
         }
 
         do {
-            let scoped = try workspace.accessController.paths.resolve(
+            let descendant = try workspace.accessController.paths.resolve(
                 decoded.path,
                 rootIdentifier: rootID,
                 type: decoded.type
             )
             let evaluation = try workspace.accessController.paths.evaluate(
-                scoped,
+                descendant,
                 rootIdentifier: rootID,
                 type: decoded.type
             )
-            let resolvedPath = scoped.presentingRelative(
+            let resolvedPath = descendant.presentingRelative(
                 filetype: true
             )
 

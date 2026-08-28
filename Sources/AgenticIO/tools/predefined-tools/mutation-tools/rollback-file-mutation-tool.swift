@@ -99,7 +99,7 @@ public struct RollbackFileMutationTool: AgentTool {
             ),
             writeResult: rollback.writeResult,
             rootID: source.rootID,
-            scopedPath: source.scopedPath,
+            path: source.path,
             context: AgentFileMutationContext(
                 toolContext: context,
                 additionalMetadata: [

@@ -176,7 +176,7 @@ private extension ScanPathsTool {
     func resolvedDirectoryForPreflight(
         from input: ScanPathsToolInput,
         workspace: AgentWorkspace?
-    ) throws -> ScopedPath? {
+    ) throws -> DescendantPath? {
         guard let trimmedPath = normalizedDirectoryPath(
             input.path
         ) else {
@@ -187,14 +187,14 @@ private extension ScanPathsTool {
             return nil
         }
 
-        let scoped = try workspace.resolve(
+        let directory = try workspace.resolve(
             rootID: input.rootID,
             trimmedPath,
             type: .directory
         )
 
         if try workspace.existingType(
-            of: scoped
+            of: directory
         ) == .file {
             throw PredefinedFileToolError.invalidValue(
                 tool: name,
@@ -203,13 +203,13 @@ private extension ScanPathsTool {
             )
         }
 
-        return scoped
+        return directory
     }
 
     func authorizedDirectoryForCall(
         from input: ScanPathsToolInput,
         workspace: AgentWorkspace
-    ) throws -> ScopedPath? {
+    ) throws -> DescendantPath? {
         guard let trimmedPath = normalizedDirectoryPath(
             input.path
         ) else {
@@ -235,7 +235,7 @@ private extension ScanPathsTool {
         )
 
         if try workspace.existingType(
-            of: authorized.scopedPath
+            of: authorized.path
         ) == .file {
             throw PredefinedFileToolError.invalidValue(
                 tool: name,
@@ -244,7 +244,7 @@ private extension ScanPathsTool {
             )
         }
 
-        return authorized.scopedPath
+        return authorized.path
     }
 
     func normalizedDirectoryPath(
@@ -263,7 +263,7 @@ private extension ScanPathsTool {
     }
 
     func includePattern(
-        directory: ScopedPath?,
+        directory: DescendantPath?,
         recursive: Bool
     ) -> String {
         guard let directory else {
@@ -281,7 +281,7 @@ private extension ScanPathsTool {
 
     func summary(
         for input: ScanPathsToolInput,
-        directory: ScopedPath?
+        directory: DescendantPath?
     ) -> String {
         if let directory {
             return input.recursive

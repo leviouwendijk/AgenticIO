@@ -32,7 +32,7 @@ public actor FileAgentFileMutationStore: AgentFileMutationStore {
             preparedIntentID: draft.preparedIntentID,
             createdAt: draft.createdAt,
             rootID: draft.rootID,
-            scopedPath: draft.scopedPath,
+            path: draft.path,
             writerRecord: storedWriterRecord,
             operationKind: draft.writerRecord.operationKind,
             resource: draft.writerRecord.surface.resource,

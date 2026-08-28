@@ -82,7 +82,7 @@ public struct EditFileTool: AgentTool {
 
         let preview = try editor.previewEdit(
             plan.operations,
-            at: plan.authorized.scopedPath,
+            at: plan.authorized.path,
             mode: plan.editMode,
             constraint: constraint
         )
@@ -159,7 +159,7 @@ public struct EditFileTool: AgentTool {
 
         _ = try editor.previewEdit(
             plan.operations,
-            at: plan.authorized.scopedPath,
+            at: plan.authorized.path,
             mode: plan.editMode,
             constraint: constraint
         )
@@ -181,7 +181,7 @@ public struct EditFileTool: AgentTool {
         if let recorder {
             let recorded = try await editor.editRecorded(
                 plan.operations,
-                at: plan.authorized.scopedPath,
+                at: plan.authorized.path,
                 constraint: constraint,
                 recorder: recorder,
                 options: .init(
@@ -203,7 +203,7 @@ public struct EditFileTool: AgentTool {
             edit = (
                 try editor.edit(
                     plan.operations,
-                    at: plan.authorized.scopedPath,
+                    at: plan.authorized.path,
                     mode: plan.editMode,
                     constraint: constraint
                 ),

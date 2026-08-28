@@ -50,14 +50,14 @@ public enum FileToolAccess {
     public static func authorize(
         workspace: AgentWorkspace,
         rootID: PathAccessRootIdentifier = .project,
-        scopedPath: ScopedPath,
+        path: DescendantPath,
         capability: PathCapability,
         toolName: String,
         type: PathSegmentType? = nil
     ) throws -> AgenticAuthorizedPath {
         try workspace.accessController.authorize(
             rootID: rootID,
-            scopedPath: scopedPath,
+            path: path,
             capability: capability,
             toolName: toolName,
             type: type

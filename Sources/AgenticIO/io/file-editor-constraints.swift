@@ -7,7 +7,7 @@ import FileTypes
 extension FileEditor {
     public func previewEdit(
         _ operation: StandardEditOperation,
-        at path: ScopedPath,
+        at path: DescendantPath,
         mode: StandardEditMode = .sequential,
         encoding: String.Encoding = .utf8,
         constraint: StandardEditConstraint
@@ -63,7 +63,7 @@ extension FileEditor {
 
     public func previewEdit(
         _ operations: [StandardEditOperation],
-        at path: ScopedPath,
+        at path: DescendantPath,
         mode: StandardEditMode = .sequential,
         encoding: String.Encoding = .utf8,
         constraint: StandardEditConstraint
@@ -121,7 +121,7 @@ extension FileEditor {
     @discardableResult
     public func edit(
         _ operation: StandardEditOperation,
-        at path: ScopedPath,
+        at path: DescendantPath,
         mode: StandardEditMode = .sequential,
         encoding: String.Encoding = .utf8,
         options: SafeWriteOptions = .overwrite,
@@ -142,7 +142,7 @@ extension FileEditor {
     @discardableResult
     public func edit(
         _ operations: [StandardEditOperation],
-        at path: ScopedPath,
+        at path: DescendantPath,
         mode: StandardEditMode = .sequential,
         encoding: String.Encoding = .utf8,
         options: SafeWriteOptions = .overwrite,
@@ -164,7 +164,7 @@ extension FileEditor {
     @discardableResult
     public func editRecorded(
         _ operations: [StandardEditOperation],
-        at path: ScopedPath,
+        at path: DescendantPath,
         constraint: StandardEditConstraint,
         recorder: AgentFileMutationRecorder,
         options: AgentFileEditOptions = .default
@@ -184,7 +184,7 @@ extension FileEditor {
         return try await recorder.record(
             editResult: editResult,
             operationKind: .edit_operations,
-            scopedPath: path,
+            path: path,
             context: options.mutation
         )
     }

@@ -73,12 +73,12 @@ public struct ReadSelectionTool: AgentTool {
             from: input
         )
 
-        let scopedPath = try workspace.resolve(
+        let path = try workspace.resolve(
             decoded.path
         )
 
         let read = try workspace.readSelections(
-            scopedPath,
+            path,
             decoded.selections
         )
 

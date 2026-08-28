@@ -25,7 +25,7 @@
       "location" : "https://github.com/leviouwendijk/AgenticWorkspace.git",
       "state" : {
         "branch" : "master",
-        "revision" : "cbeee5c224668fda39dcf451d6602046ca088c3f"
+        "revision" : "c08c0d3124446450c6074a393de87a8f3a118a00"
       }
     },
     {
@@ -97,7 +97,7 @@
       "location" : "https://github.com/leviouwendijk/Path.git",
       "state" : {
         "branch" : "master",
-        "revision" : "251aee2c44ffac5c66dd60e303ff73643d38b7ee"
+        "revision" : "c1a58e68e7dda471ecad02585b2cd340fd6d1197"
       }
     },
     {
@@ -178,7 +178,7 @@
       "location" : "https://github.com/leviouwendijk/Writers.git",
       "state" : {
         "branch" : "master",
-        "revision" : "5c0206d318a4d0b0aff7a77c353d39c5d4d2f50b"
+        "revision" : "c7ff138fa30f6daf3570a03540ab55bfae5767a3"
       }
     }
   ],

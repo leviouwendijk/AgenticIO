@@ -232,7 +232,7 @@ private extension FileMutationIntentExecutor {
             ),
             writeResult: rollback.writeResult,
             rootID: source.rootID,
-            scopedPath: source.scopedPath,
+            path: source.path,
             context: mutationContext(
                 intentID: intentID,
                 action: action

@@ -16,7 +16,7 @@ public struct FileEditor: Sendable {
     @discardableResult
     public func writeRecorded(
         _ text: String,
-        to path: ScopedPath,
+        to path: DescendantPath,
         recorder: AgentFileMutationRecorder,
         options: AgentFileEditOptions = .default
     ) async throws -> AgentFileMutationResult {
@@ -35,7 +35,7 @@ public struct FileEditor: Sendable {
         return try await recorder.record(
             editResult: editResult,
             operationKind: .write_text,
-            scopedPath: path,
+            path: path,
             context: options.mutation
         )
     }
@@ -79,7 +79,7 @@ public struct FileEditor: Sendable {
     @discardableResult
     public func editRecorded(
         _ operation: StandardEditOperation,
-        at path: ScopedPath,
+        at path: DescendantPath,
         recorder: AgentFileMutationRecorder,
         options: AgentFileEditOptions = .default
     ) async throws -> AgentFileMutationResult {
@@ -132,7 +132,7 @@ public struct FileEditor: Sendable {
     @discardableResult
     public func editRecorded(
         _ operations: [StandardEditOperation],
-        at path: ScopedPath,
+        at path: DescendantPath,
         recorder: AgentFileMutationRecorder,
         options: AgentFileEditOptions = .default
     ) async throws -> AgentFileMutationResult {
@@ -150,7 +150,7 @@ public struct FileEditor: Sendable {
         return try await recorder.record(
             editResult: editResult,
             operationKind: .edit_operations,
-            scopedPath: path,
+            path: path,
             context: options.mutation
         )
     }
@@ -194,7 +194,7 @@ public struct FileEditor: Sendable {
     @discardableResult
     public func write(
         _ text: String,
-        to path: ScopedPath,
+        to path: DescendantPath,
         encoding: String.Encoding = .utf8,
         options: SafeWriteOptions = .overwrite
     ) throws -> StandardEditResult {
@@ -243,7 +243,7 @@ public struct FileEditor: Sendable {
 
     public func previewWrite(
         _ text: String,
-        to path: ScopedPath,
+        to path: DescendantPath,
         encoding: String.Encoding = .utf8
     ) throws -> StandardEditResult {
         try StandardWriter(
@@ -285,7 +285,7 @@ public struct FileEditor: Sendable {
     @discardableResult
     public func edit(
         _ operation: StandardEditOperation,
-        at path: ScopedPath,
+        at path: DescendantPath,
         mode: StandardEditMode = .sequential,
         encoding: String.Encoding = .utf8,
         options: SafeWriteOptions = .overwrite
@@ -341,7 +341,7 @@ public struct FileEditor: Sendable {
     @discardableResult
     public func edit(
         _ operations: [StandardEditOperation],
-        at path: ScopedPath,
+        at path: DescendantPath,
         mode: StandardEditMode = .sequential,
         encoding: String.Encoding = .utf8,
         options: SafeWriteOptions = .overwrite
@@ -396,7 +396,7 @@ public struct FileEditor: Sendable {
 
     public func previewEdit(
         _ operation: StandardEditOperation,
-        at path: ScopedPath,
+        at path: DescendantPath,
         mode: StandardEditMode = .sequential,
         encoding: String.Encoding = .utf8
     ) throws -> StandardEditResult {
@@ -443,7 +443,7 @@ public struct FileEditor: Sendable {
 
     public func previewEdit(
         _ operations: [StandardEditOperation],
-        at path: ScopedPath,
+        at path: DescendantPath,
         mode: StandardEditMode = .sequential,
         encoding: String.Encoding = .utf8
     ) throws -> StandardEditResult {

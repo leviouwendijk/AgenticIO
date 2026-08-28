@@ -140,7 +140,7 @@ public struct WriteFileTool: AgentTool {
         if let recorder {
             let recorded = try await editor.writeRecorded(
                 decoded.content,
-                to: authorized.scopedPath,
+                to: authorized.path,
                 recorder: recorder,
                 options: .init(
                     mutation: mutationContext
@@ -160,7 +160,7 @@ public struct WriteFileTool: AgentTool {
             write = (
                 try editor.write(
                     decoded.content,
-                    to: authorized.scopedPath
+                    to: authorized.path
                 ),
                 nil
             )

@@ -36,7 +36,7 @@ public struct AgentFileMutationRecorder: Sendable {
         editResult: StandardEditResult,
         operationKind: WriteMutationOperationKind,
         rootID: PathAccessRootIdentifier? = nil,
-        scopedPath: ScopedPath? = nil,
+        path: DescendantPath? = nil,
         context: AgentFileMutationContext = .empty
     ) async throws -> AgentFileMutationResult {
         let writerRecord = editResult.mutationRecord(
@@ -50,7 +50,7 @@ public struct AgentFileMutationRecorder: Sendable {
             editResult: editResult,
             writeResult: editResult.writeResult,
             rootID: rootID ?? context.rootID,
-            scopedPath: scopedPath,
+            path: path,
             context: context
         )
     }
@@ -60,13 +60,13 @@ public struct AgentFileMutationRecorder: Sendable {
         editResult: StandardEditResult? = nil,
         writeResult: SafeWriteResult? = nil,
         rootID: PathAccessRootIdentifier? = nil,
-        scopedPath: ScopedPath? = nil,
+        path: DescendantPath? = nil,
         context: AgentFileMutationContext = .empty
     ) async throws -> AgentFileMutationResult {
         let emitted = try await emitDiffArtifact(
             for: writerRecord,
             rootID: rootID ?? context.rootID,
-            scopedPath: scopedPath,
+            path: path,
             metadata: context.metadata
         )
 
@@ -75,7 +75,7 @@ public struct AgentFileMutationRecorder: Sendable {
             toolCallID: context.toolCallID,
             preparedIntentID: context.preparedIntentID,
             rootID: rootID ?? context.rootID,
-            scopedPath: scopedPath,
+            path: path,
             writerRecord: writerRecord,
             artifactIDs: emitted.map(\.id),
             metadata: context.metadata
@@ -100,7 +100,7 @@ private extension AgentFileMutationRecorder {
     func emitDiffArtifact(
         for record: WriteMutationRecord,
         rootID: PathAccessRootIdentifier?,
-        scopedPath: ScopedPath?,
+        path: DescendantPath?,
         metadata: [String: String]
     ) async throws -> [AgentArtifact] {
         guard policy.emitDiffArtifact,
@@ -111,8 +111,8 @@ private extension AgentFileMutationRecorder {
             return []
         }
 
-        let oldName = "a/\(displayPath(record: record, scopedPath: scopedPath))"
-        let newName = "b/\(displayPath(record: record, scopedPath: scopedPath))"
+        let oldName = "a/\(displayPath(record: record, path: path))"
+        let newName = "b/\(displayPath(record: record, path: path))"
 
         let difference = TextDiffer.diff(
             old: before,
@@ -148,7 +148,7 @@ private extension AgentFileMutationRecorder {
                 metadata: artifactMetadata(
                     record: record,
                     rootID: rootID,
-                    scopedPath: scopedPath,
+                    path: path,
                     metadata: metadata
                 )
             )
@@ -162,7 +162,7 @@ private extension AgentFileMutationRecorder {
     func artifactMetadata(
         record: WriteMutationRecord,
         rootID: PathAccessRootIdentifier?,
-        scopedPath: ScopedPath?,
+        path: DescendantPath?,
         metadata: [String: String]
     ) -> [String: String] {
         var out = metadata
@@ -178,8 +178,8 @@ private extension AgentFileMutationRecorder {
             out["root_id"] = rootID.rawValue
         }
 
-        if let scopedPath {
-            out["scoped_path"] = scopedPath.presentingRelative(
+        if let path {
+            out["path"] = path.presentingRelative(
                 filetype: true
             )
         }
@@ -195,9 +195,9 @@ private extension AgentFileMutationRecorder {
 
     func displayPath(
         record: WriteMutationRecord,
-        scopedPath: ScopedPath?
+        path: DescendantPath?
     ) -> String {
-        scopedPath?.presentingRelative(
+        path?.presentingRelative(
             filetype: true
         ) ?? record.target.lastPathComponent
     }

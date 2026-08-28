@@ -11,7 +11,7 @@ public struct AgentFileMutationDraft: Sendable, Hashable {
     public let preparedIntentID: PreparedIntentIdentifier?
     public let createdAt: Date
     public let rootID: PathAccessRootIdentifier?
-    public let scopedPath: ScopedPath?
+    public let path: DescendantPath?
     public let writerRecord: WriteMutationRecord
     public let artifactIDs: [String]
     public let metadata: [String: String]
@@ -23,7 +23,7 @@ public struct AgentFileMutationDraft: Sendable, Hashable {
         preparedIntentID: PreparedIntentIdentifier? = nil,
         createdAt: Date = Date(),
         rootID: PathAccessRootIdentifier? = nil,
-        scopedPath: ScopedPath? = nil,
+        path: DescendantPath? = nil,
         writerRecord: WriteMutationRecord,
         artifactIDs: [String] = [],
         metadata: [String: String] = [:]
@@ -34,7 +34,7 @@ public struct AgentFileMutationDraft: Sendable, Hashable {
         self.preparedIntentID = preparedIntentID
         self.createdAt = createdAt
         self.rootID = rootID
-        self.scopedPath = scopedPath
+        self.path = path
         self.writerRecord = writerRecord
         self.artifactIDs = artifactIDs
         self.metadata = metadata
@@ -48,7 +48,7 @@ public struct AgentFileMutationRecord: Sendable, Codable, Hashable, Identifiable
     public let preparedIntentID: PreparedIntentIdentifier?
     public let createdAt: Date
     public let rootID: PathAccessRootIdentifier?
-    public let scopedPath: ScopedPath?
+    public let path: DescendantPath?
 
     public let writerRecord: WriteStoredRecord
     public let operationKind: WriteMutationOperationKind
@@ -66,7 +66,7 @@ public struct AgentFileMutationRecord: Sendable, Codable, Hashable, Identifiable
         preparedIntentID: PreparedIntentIdentifier? = nil,
         createdAt: Date = Date(),
         rootID: PathAccessRootIdentifier? = nil,
-        scopedPath: ScopedPath? = nil,
+        path: DescendantPath? = nil,
         writerRecord: WriteStoredRecord,
         operationKind: WriteMutationOperationKind,
         resource: WriteResourceChangeKind,
@@ -81,7 +81,7 @@ public struct AgentFileMutationRecord: Sendable, Codable, Hashable, Identifiable
         self.preparedIntentID = preparedIntentID
         self.createdAt = createdAt
         self.rootID = rootID
-        self.scopedPath = scopedPath
+        self.path = path
         self.writerRecord = writerRecord
         self.operationKind = operationKind
         self.resource = resource
@@ -106,7 +106,7 @@ public extension AgentFileMutationRecord {
     }
 
     var relativePath: String? {
-        scopedPath?.presentingRelative(
+        path?.presentingRelative(
             filetype: true
         )
     }
@@ -121,7 +121,7 @@ public extension AgentFileMutationRecord {
             preparedIntentID: preparedIntentID,
             createdAt: createdAt,
             rootID: rootID,
-            scopedPath: scopedPath,
+            path: path,
             writerRecord: writerRecord,
             operationKind: operationKind,
             resource: resource,
