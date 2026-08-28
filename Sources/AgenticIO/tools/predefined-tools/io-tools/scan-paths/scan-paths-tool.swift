@@ -2,6 +2,7 @@ import Agentic
 import AgenticExecution
 import AgenticWorkspace
 import Primitives
+import Schema
 import Path
 import PathParsing
 
@@ -11,7 +12,7 @@ public struct ScanPathsTool: AgentTool {
     public static let risk: ActionRisk = .observe
 
     public static var inputSchema: JSONValue? {
-        ScanPathsToolInput.schema
+        ScanPathsToolInput.jsonschema.jsonvalue
     }
 
     public var identifier: AgentToolIdentifier {

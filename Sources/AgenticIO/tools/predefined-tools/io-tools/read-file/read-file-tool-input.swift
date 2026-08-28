@@ -1,12 +1,26 @@
 import Path
-import Primitives
+import Schema
 
+@JSONSchema
 public struct ReadFileToolInput: Sendable, Codable, Hashable {
+    /// Workspace root identifier. Usually use 'project'.
+    @Schema(required: false)
     public let rootID: PathAccessRootIdentifier
+
+    /// Path to the file relative to the workspace root.
     public let path: String
+
+    /// Optional 1-based first line to read.
     public let startLine: Int?
+
+    /// Optional 1-based final line to read.
     public let endLine: Int?
+
+    /// Optional maximum number of lines to read.
     public let maxLines: Int?
+
+    /// Whether to include numbered display text in the returned display field. The content field always remains raw source text.
+    @Schema(required: false)
     public let includeLineNumbers: Bool
 
     public init(
@@ -71,37 +85,5 @@ public extension ReadFileToolInput {
                 forKey: .includeLineNumbers
             ) ?? false
         )
-    }
-}
-
-public extension ReadFileToolInput {
-    static var schema: JSONValue {
-        JSONSchema.object {
-            JSONSchema.string(
-                "rootID",
-                description: "Workspace root identifier. Usually use 'project'."
-            )
-            JSONSchema.string(
-                "path",
-                required: true,
-                description: "Path to the file relative to the workspace root."
-            )
-            JSONSchema.integer(
-                "startLine",
-                description: "Optional 1-based first line to read."
-            )
-            JSONSchema.integer(
-                "endLine",
-                description: "Optional 1-based final line to read."
-            )
-            JSONSchema.integer(
-                "maxLines",
-                description: "Optional maximum number of lines to read."
-            )
-            JSONSchema.boolean(
-                "includeLineNumbers",
-                description: "Whether to include numbered display text in the returned display field. The content field always remains raw source text."
-            )
-        }
     }
 }

@@ -3,6 +3,7 @@ import AgenticExecution
 import AgenticWorkspace
 import Position
 import Primitives
+import Schema
 import Writers
 import Difference
 import Readers
@@ -44,7 +45,7 @@ public struct EditFileTool: AgentTool {
     }
 
     public static var inputSchema: JSONValue? {
-        EditFileToolInput.schema
+        EditFileToolInput.jsonschema.jsonvalue
     }
 
     public func preflight(

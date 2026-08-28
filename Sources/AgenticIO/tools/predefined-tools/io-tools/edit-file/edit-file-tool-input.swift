@@ -1,10 +1,15 @@
 import Path
 import Position
 import Primitives
+import Schema
 import Writers
 
+@JSONSchema
 public struct EditFileLineRange: Sendable, Codable, Hashable {
+    /// 1-based first line in the inclusive line range.
     public let start: Int
+
+    /// 1-based final line in the inclusive line range.
     public let end: Int
 
     public init(
@@ -23,6 +28,7 @@ public struct EditFileLineRange: Sendable, Codable, Hashable {
     }
 }
 
+@JSONSchema
 public enum EditFileToolOperationKind: String, Sendable, Codable, Hashable, CaseIterable {
     case replace_entire_file
     case append
@@ -493,9 +499,63 @@ extension EditFileToolOperation: Codable {
     }
 }
 
+/// One edit operation. The required fields depend on kind:
+/// replace_entire_file requires content.
+/// append requires content and optional separator.
+/// prepend requires content and optional separator.
+/// replace_first requires target and replacement.
+/// replace_all requires target and replacement.
+/// replace_unique requires target and replacement.
+/// replace_line requires line and content.
+/// insert_lines requires position and lines.
+/// replace_lines requires range and lines.
+/// delete_lines requires range.
+/// The runtime derives all exact guard content from the current raw file state.
+@JSONSchema
+struct EditFileToolOperationSchemaRepresentation: Codable {
+    /// Edit operation kind.
+    let kind: EditFileToolOperationKind
+
+    /// Content for replace_entire_file, append, prepend, or replace_line. For replace_line, this is the replacement line content and must be one logical line.
+    let content: String?
+
+    /// Existing text to replace for replace_first, replace_all, or replace_unique.
+    let target: String?
+
+    /// Replacement text for replace_first, replace_all, or replace_unique. replace_line also accepts this as a compatibility alias, but content is preferred.
+    let replacement: String?
+
+    /// 1-based line number for replace_line.
+    let line: Int?
+
+    /// Lines for insert_lines, or replacement lines for replace_lines. Each entry must be one logical line with no newline characters.
+    let lines: [String]?
+
+    /// 1-based insertion position for insert_lines.
+    let position: Int?
+
+    let range: EditFileLineRange?
+
+    /// Optional separator for append/prepend.
+    let separator: String?
+}
+
+extension EditFileToolOperation: JSONSchemaProviding {
+    public static var jsonschema: JSONSchema {
+        EditFileToolOperationSchemaRepresentation.jsonschema
+    }
+}
+
+@JSONSchema
 public struct EditFileToolInput: Sendable, Codable, Hashable {
+    /// Workspace root identifier. Usually use 'project'.
+    @Schema(required: false)
     public let rootID: PathAccessRootIdentifier
+
+    /// Path to the file relative to the workspace root.
     public let path: String
+
+    /// Ordered edit intent operations to apply. Guard material is derived by the runtime, not supplied by the model.
     public let operations: [EditFileToolOperation]
 
     public init(
@@ -542,102 +602,3 @@ public extension EditFileToolInput {
     }
 }
 
-public extension EditFileLineRange {
-    static var schema: JSONValue {
-        JSONSchema.object {
-            JSONSchema.integer(
-                "start",
-                required: true,
-                description: "1-based first line in the inclusive line range."
-            )
-            JSONSchema.integer(
-                "end",
-                required: true,
-                description: "1-based final line in the inclusive line range."
-            )
-        }
-    }
-}
-
-public extension EditFileToolOperation {
-    static var schema: JSONValue {
-        JSONSchema.object(
-            description: """
-            One edit operation. The required fields depend on kind:
-            replace_entire_file requires content.
-            append requires content and optional separator.
-            prepend requires content and optional separator.
-            replace_first requires target and replacement.
-            replace_all requires target and replacement.
-            replace_unique requires target and replacement.
-            replace_line requires line and content.
-            insert_lines requires position and lines.
-            replace_lines requires range and lines.
-            delete_lines requires range.
-            The runtime derives all exact guard content from the current raw file state.
-            """
-        ) {
-            JSONSchema.string(
-                "kind",
-                required: true,
-                description: "Edit operation kind.",
-                cases: EditFileToolOperationKind.allCases.map(\.rawValue)
-            )
-            JSONSchema.string(
-                "content",
-                description: "Content for replace_entire_file, append, prepend, or replace_line. For replace_line, this is the replacement line content and must be one logical line."
-            )
-            JSONSchema.string(
-                "target",
-                description: "Existing text to replace for replace_first, replace_all, or replace_unique."
-            )
-            JSONSchema.string(
-                "replacement",
-                description: "Replacement text for replace_first, replace_all, or replace_unique. replace_line also accepts this as a compatibility alias, but content is preferred."
-            )
-            JSONSchema.integer(
-                "line",
-                description: "1-based line number for replace_line."
-            )
-            JSONSchema.array(
-                "lines",
-                description: "Lines for insert_lines, or replacement lines for replace_lines. Each entry must be one logical line with no newline characters.",
-                items: JSONSchema.Value.string()
-            )
-            JSONSchema.integer(
-                "position",
-                description: "1-based insertion position for insert_lines."
-            )
-            JSONSchema.Property(
-                name: "range",
-                schema: EditFileLineRange.schema
-            )
-            JSONSchema.string(
-                "separator",
-                description: "Optional separator for append/prepend."
-            )
-        }
-    }
-}
-
-public extension EditFileToolInput {
-    static var schema: JSONValue {
-        JSONSchema.object {
-            JSONSchema.string(
-                "rootID",
-                description: "Workspace root identifier. Usually use 'project'."
-            )
-            JSONSchema.string(
-                "path",
-                required: true,
-                description: "Path to the file relative to the workspace root."
-            )
-            JSONSchema.array(
-                "operations",
-                required: true,
-                description: "Ordered edit intent operations to apply. Guard material is derived by the runtime, not supplied by the model.",
-                items: EditFileToolOperation.schema
-            )
-        }
-    }
-}

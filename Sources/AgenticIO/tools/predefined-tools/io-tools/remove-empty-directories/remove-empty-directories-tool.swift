@@ -5,13 +5,18 @@ import Foundation
 import IO
 import Path
 import Primitives
+import Schema
 
+@JSONSchema
 public struct RemoveEmptyDirectoriesToolInput:
     Sendable,
     Codable,
     Hashable
 {
+    /// Workspace root identifier. Defaults to project.
     public let rootID: PathAccessRootIdentifier?
+
+    /// Directory paths to remove only if each is literally empty.
     public let paths: [String]
 
     public init(
@@ -22,20 +27,6 @@ public struct RemoveEmptyDirectoriesToolInput:
         self.paths = paths
     }
 
-    public static var schema: JSONValue {
-        JSONSchema.object {
-            JSONSchema.string(
-                "rootID",
-                description: "Workspace root identifier. Defaults to project."
-            )
-            JSONSchema.array(
-                "paths",
-                required: true,
-                description: "Directory paths to remove only if each is literally empty.",
-                items: JSONSchema.Value.string()
-            )
-        }
-    }
 }
 
 public struct RemoveEmptyDirectoriesToolOutput:
@@ -101,7 +92,7 @@ public struct RemoveEmptyDirectoriesTool:
     public static var inputSchema:
         JSONValue?
     {
-        RemoveEmptyDirectoriesToolInput.schema
+        RemoveEmptyDirectoriesToolInput.jsonschema.jsonvalue
     }
 
     public var identifier: AgentToolIdentifier {

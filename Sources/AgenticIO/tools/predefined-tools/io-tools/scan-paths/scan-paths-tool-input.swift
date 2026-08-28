@@ -1,16 +1,43 @@
 import Path
-import Primitives
+import Schema
 
+@JSONSchema
 public struct ScanPathsToolInput: Sendable, Codable, Hashable {
+    /// Workspace root identifier. Defaults to project.
+    @Schema(required: false)
     public let rootID: PathAccessRootIdentifier
+
+    /// Optional directory path relative to the selected workspace root. Defaults to the root.
     public let path: String?
+
+    /// Optional PathScan exclude patterns.
+    @Schema(required: false)
     public let excludes: [String]
+
+    /// Whether file matches are returned. Defaults to true.
+    @Schema(required: false)
     public let includeFiles: Bool
+
+    /// Whether directory matches are returned. Defaults to true.
+    @Schema(required: false)
     public let includeDirectories: Bool
+
+    /// Optional literal directory-state filter for emitted directories: 'empty' or 'nonempty'. Hidden entries still make a directory nonempty. File matches are unaffected.
     public let directoryState: PathDirectoryState?
+
+    /// Whether to scan recursively. Defaults to false.
+    @Schema(required: false)
     public let recursive: Bool
+
+    /// Whether hidden paths are included in traversal output. This does not change literal directory emptiness.
+    @Schema(required: false)
     public let includeHidden: Bool
+
+    /// Whether directory symlinks are followed. Defaults to false.
+    @Schema(required: false)
     public let followSymlinks: Bool
+
+    /// Optional maximum number of returned entries.
     public let maxEntries: Int?
 
     public init(
@@ -103,51 +130,5 @@ public extension ScanPathsToolInput {
                 forKey: .maxEntries
             )
         )
-    }
-
-    static var schema: JSONValue {
-        JSONSchema.object {
-            JSONSchema.string(
-                "rootID",
-                description: "Workspace root identifier. Defaults to project."
-            )
-            JSONSchema.string(
-                "path",
-                description: "Optional directory path relative to the selected workspace root. Defaults to the root."
-            )
-            JSONSchema.array(
-                "excludes",
-                description: "Optional PathScan exclude patterns.",
-                items: JSONSchema.Value.string()
-            )
-            JSONSchema.boolean(
-                "includeFiles",
-                description: "Whether file matches are returned. Defaults to true."
-            )
-            JSONSchema.boolean(
-                "includeDirectories",
-                description: "Whether directory matches are returned. Defaults to true."
-            )
-            JSONSchema.string(
-                "directoryState",
-                description: "Optional literal directory-state filter for emitted directories: 'empty' or 'nonempty'. Hidden entries still make a directory nonempty. File matches are unaffected."
-            )
-            JSONSchema.boolean(
-                "recursive",
-                description: "Whether to scan recursively. Defaults to false."
-            )
-            JSONSchema.boolean(
-                "includeHidden",
-                description: "Whether hidden paths are included in traversal output. This does not change literal directory emptiness."
-            )
-            JSONSchema.boolean(
-                "followSymlinks",
-                description: "Whether directory symlinks are followed. Defaults to false."
-            )
-            JSONSchema.integer(
-                "maxEntries",
-                description: "Optional maximum number of returned entries."
-            )
-        }
     }
 }

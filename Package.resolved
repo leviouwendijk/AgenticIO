@@ -1,5 +1,5 @@
 {
-  "originHash" : "2cfe498e79809580bc818869af96ad915f4da03d9ce740c9a3ba48ef10998c4f",
+  "originHash" : "2b8ce57e519d1f7d64faf275581a505abe4ebf55aaad5e8d52ab132c62958362",
   "pins" : [
     {
       "identity" : "agentic",
@@ -7,7 +7,7 @@
       "location" : "https://github.com/leviouwendijk/Agentic.git",
       "state" : {
         "branch" : "master",
-        "revision" : "c2a33c78e2348a982a45dbbda7170ec5890fff90"
+        "revision" : "b8cb0d1746dc2e2a40d64a91dd6c84967be08dcd"
       }
     },
     {
@@ -16,7 +16,7 @@
       "location" : "https://github.com/leviouwendijk/AgenticExecution.git",
       "state" : {
         "branch" : "master",
-        "revision" : "41ba0a05e9a3672454f1cef645c17216acc3bdd4"
+        "revision" : "619e296a04fae3e9fdcc888457738e127b794a1f"
       }
     },
     {
@@ -25,7 +25,7 @@
       "location" : "https://github.com/leviouwendijk/AgenticWorkspace.git",
       "state" : {
         "branch" : "master",
-        "revision" : "c08c0d3124446450c6074a393de87a8f3a118a00"
+        "revision" : "49fa47b13403ae7e9eb1653ac5e730f17c2ca1b3"
       }
     },
     {
@@ -97,7 +97,7 @@
       "location" : "https://github.com/leviouwendijk/Path.git",
       "state" : {
         "branch" : "master",
-        "revision" : "c1a58e68e7dda471ecad02585b2cd340fd6d1197"
+        "revision" : "8f99bc23b206ce37b81dcedf86142e795932cb19"
       }
     },
     {
@@ -115,7 +115,7 @@
       "location" : "https://github.com/leviouwendijk/Primitives.git",
       "state" : {
         "branch" : "master",
-        "revision" : "7992ebc66ba098758e574befc1b869978b38e82c"
+        "revision" : "685ba8ee4bc678c957502e7dde25c59d0c192d4a"
       }
     },
     {
@@ -137,6 +137,15 @@
       }
     },
     {
+      "identity" : "schema",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/leviouwendijk/Schema.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "4fb4eba584de6e6714790655d602b6daa3ae4a01"
+      }
+    },
+    {
       "identity" : "selection",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/leviouwendijk/Selection.git",
@@ -152,6 +161,15 @@
       "state" : {
         "branch" : "master",
         "revision" : "86a939d7bbb3e25808f88fbcedcee4069a5a5ae1"
+      }
+    },
+    {
+      "identity" : "swift-syntax",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/swiftlang/swift-syntax.git",
+      "state" : {
+        "revision" : "79e4b74a295b6eb74a8b585e3a39d29e70c1dbd1",
+        "version" : "603.0.2"
       }
     },
     {

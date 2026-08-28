@@ -2,6 +2,7 @@ import Agentic
 import AgenticExecution
 import AgenticWorkspace
 import Primitives
+import Schema
 
 public struct ReadFileTool: AgentTool {
     public static let identifier: AgentToolIdentifier = "read_file"
@@ -27,7 +28,7 @@ public struct ReadFileTool: AgentTool {
     public init() {}
 
     public static var inputSchema: JSONValue? {
-        ReadFileToolInput.schema
+        ReadFileToolInput.jsonschema.jsonvalue
     }
 
     public func preflight(

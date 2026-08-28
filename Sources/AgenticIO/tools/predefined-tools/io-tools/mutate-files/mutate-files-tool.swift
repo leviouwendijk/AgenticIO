@@ -5,8 +5,10 @@ import Difference
 import Foundation
 import Path
 import Primitives
+import Schema
 import Writers
 
+@JSONSchema
 public enum MutateFilesToolEntryKind: String, Sendable, Codable, Hashable, CaseIterable {
     case create_text
     case replace_text
@@ -15,15 +17,39 @@ public enum MutateFilesToolEntryKind: String, Sendable, Codable, Hashable, CaseI
     case delete
 }
 
+/// One file mutation entry.
+/// create_text requires path and content and fails if the file exists.
+/// replace_text requires path and content and defaults replacePolicy to upsert.
+/// edit_text requires path and operations using the same operation schema as edit_file.
+/// move requires path as the source and destination as the destination path.
+/// delete requires path and defaults deletePolicy to existing.
+@JSONSchema
 public struct MutateFilesToolEntry: Sendable, Codable, Hashable {
+    /// Mutation kind.
     public let kind: MutateFilesToolEntryKind
+
+    /// Workspace root identifier. Usually use 'project'.
     public let rootID: PathAccessRootIdentifier?
+
+    /// Path relative to the workspace root.
     public let path: String
+
+    /// Text content for create_text or replace_text.
     public let content: String?
+
+    /// Policy for replace_text.
     public let replacePolicy: StandardReplacePolicy?
+
+    /// Policy for delete.
     public let deletePolicy: StandardDeletePolicy?
+
+    /// Structured edit operations for edit_text.
     public let operations: [EditFileToolOperation]?
+
+    /// Destination path for move.
     public let destination: String?
+
+    /// For move, create missing destination parent directories. Defaults to true.
     public let createParentDirectories: Bool?
 
     public init(
@@ -49,10 +75,20 @@ public struct MutateFilesToolEntry: Sendable, Codable, Hashable {
     }
 }
 
+@JSONSchema
 public struct MutateFilesToolInput: Sendable, Codable, Hashable {
+    /// Brief reason for this coherent mutation pass.
     public let reason: String?
+
+    /// Default workspace root identifier. Usually use 'project'.
+    @Schema(required: false)
     public let rootID: PathAccessRootIdentifier
+
+    /// Failure behavior for the pass.
+    @Schema(required: false)
     public let failurePolicy: StandardMutationFailurePolicy
+
+    /// Ordered file mutation entries. All entries are planned and applied as one pass.
     public let entries: [MutateFilesToolEntry]
 
     public init(
@@ -244,7 +280,7 @@ public struct MutateFilesTool: AgentTool {
     }
 
     public static var inputSchema: JSONValue? {
-        MutateFilesToolInput.schema
+        MutateFilesToolInput.jsonschema.jsonvalue
     }
 
     public func preflight(
@@ -958,90 +994,6 @@ private extension EditFileToolOperation {
         case .delete_lines(let operation):
             return StandardEditOperation.lines.delete(
                 try operation.range.lineRange()
-            )
-        }
-    }
-}
-
-public extension MutateFilesToolEntry {
-    static var schema: JSONValue {
-        JSONSchema.object(
-            description: """
-            One file mutation entry.
-            create_text requires path and content and fails if the file exists.
-            replace_text requires path and content and defaults replacePolicy to upsert.
-            edit_text requires path and operations using the same operation schema as edit_file.
-            move requires path as the source and destination as the destination path.
-            delete requires path and defaults deletePolicy to existing.
-            """
-        ) {
-            JSONSchema.string(
-                "kind",
-                required: true,
-                description: "Mutation kind.",
-                cases: MutateFilesToolEntryKind.allCases.map(\.rawValue)
-            )
-            JSONSchema.string(
-                "rootID",
-                description: "Workspace root identifier. Usually use 'project'."
-            )
-            JSONSchema.string(
-                "path",
-                required: true,
-                description: "Path relative to the workspace root."
-            )
-            JSONSchema.string(
-                "content",
-                description: "Text content for create_text or replace_text."
-            )
-            JSONSchema.string(
-                "replacePolicy",
-                description: "Policy for replace_text.",
-                cases: StandardReplacePolicy.allCases.map(\.rawValue)
-            )
-            JSONSchema.string(
-                "deletePolicy",
-                description: "Policy for delete.",
-                cases: StandardDeletePolicy.allCases.map(\.rawValue)
-            )
-            JSONSchema.string(
-                "destination",
-                description: "Destination path for move."
-            )
-            JSONSchema.boolean(
-                "createParentDirectories",
-                description: "For move, create missing destination parent directories. Defaults to true."
-            )
-            JSONSchema.array(
-                "operations",
-                description: "Structured edit operations for edit_text.",
-                items: EditFileToolOperation.schema
-            )
-        }
-    }
-}
-
-public extension MutateFilesToolInput {
-    static var schema: JSONValue {
-        JSONSchema.object {
-            JSONSchema.string(
-                "reason",
-                description: "Brief reason for this coherent mutation pass."
-            )
-            JSONSchema.string(
-                "rootID",
-                description: "Default workspace root identifier. Usually use 'project'."
-            )
-            JSONSchema.string(
-                "failurePolicy",
-                description: "Failure behavior for the pass.",
-                cases: StandardMutationFailurePolicy.allCases.map(\.rawValue)
-            )
-            JSONSchema.array(
-                "entries",
-                required: true,
-                description: "Ordered file mutation entries. All entries are planned and applied as one pass.",
-                items: MutateFilesToolEntry.schema
             )
         }
     }
