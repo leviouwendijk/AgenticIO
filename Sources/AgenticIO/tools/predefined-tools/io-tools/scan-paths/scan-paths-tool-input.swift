@@ -1,4 +1,5 @@
 import Path
+import Primitives
 
 public struct ScanPathsToolInput: Sendable, Codable, Hashable {
     public let rootID: PathAccessRootIdentifier
@@ -6,6 +7,7 @@ public struct ScanPathsToolInput: Sendable, Codable, Hashable {
     public let excludes: [String]
     public let includeFiles: Bool
     public let includeDirectories: Bool
+    public let directoryState: PathDirectoryState?
     public let recursive: Bool
     public let includeHidden: Bool
     public let followSymlinks: Bool
@@ -17,6 +19,7 @@ public struct ScanPathsToolInput: Sendable, Codable, Hashable {
         excludes: [String] = [],
         includeFiles: Bool = true,
         includeDirectories: Bool = true,
+        directoryState: PathDirectoryState? = nil,
         recursive: Bool = false,
         includeHidden: Bool = false,
         followSymlinks: Bool = false,
@@ -27,6 +30,7 @@ public struct ScanPathsToolInput: Sendable, Codable, Hashable {
         self.excludes = excludes
         self.includeFiles = includeFiles
         self.includeDirectories = includeDirectories
+        self.directoryState = directoryState
         self.recursive = recursive
         self.includeHidden = includeHidden
         self.followSymlinks = followSymlinks
@@ -41,6 +45,7 @@ private extension ScanPathsToolInput {
         case excludes
         case includeFiles
         case includeDirectories
+        case directoryState
         case recursive
         case includeHidden
         case followSymlinks
@@ -77,6 +82,10 @@ public extension ScanPathsToolInput {
                 Bool.self,
                 forKey: .includeDirectories
             ) ?? true,
+            directoryState: try container.decodeIfPresent(
+                PathDirectoryState.self,
+                forKey: .directoryState
+            ),
             recursive: try container.decodeIfPresent(
                 Bool.self,
                 forKey: .recursive
@@ -94,5 +103,51 @@ public extension ScanPathsToolInput {
                 forKey: .maxEntries
             )
         )
+    }
+
+    static var schema: JSONValue {
+        JSONSchema.object {
+            JSONSchema.string(
+                "rootID",
+                description: "Workspace root identifier. Defaults to project."
+            )
+            JSONSchema.string(
+                "path",
+                description: "Optional directory path relative to the selected workspace root. Defaults to the root."
+            )
+            JSONSchema.array(
+                "excludes",
+                description: "Optional PathScan exclude patterns.",
+                items: JSONSchema.Value.string()
+            )
+            JSONSchema.boolean(
+                "includeFiles",
+                description: "Whether file matches are returned. Defaults to true."
+            )
+            JSONSchema.boolean(
+                "includeDirectories",
+                description: "Whether directory matches are returned. Defaults to true."
+            )
+            JSONSchema.string(
+                "directoryState",
+                description: "Optional literal directory-state filter for emitted directories: 'empty' or 'nonempty'. Hidden entries still make a directory nonempty. File matches are unaffected."
+            )
+            JSONSchema.boolean(
+                "recursive",
+                description: "Whether to scan recursively. Defaults to false."
+            )
+            JSONSchema.boolean(
+                "includeHidden",
+                description: "Whether hidden paths are included in traversal output. This does not change literal directory emptiness."
+            )
+            JSONSchema.boolean(
+                "followSymlinks",
+                description: "Whether directory symlinks are followed. Defaults to false."
+            )
+            JSONSchema.integer(
+                "maxEntries",
+                description: "Optional maximum number of returned entries."
+            )
+        }
     }
 }

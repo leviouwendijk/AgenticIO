@@ -7,8 +7,12 @@ import PathParsing
 
 public struct ScanPathsTool: AgentTool {
     public static let identifier: AgentToolIdentifier = "scan_paths"
-    public static let description = "Scan paths inside an authorized workspace root using PathScan."
+    public static let description = "Scan paths inside an authorized workspace root using PathScan, with optional literal directory-state filtering."
     public static let risk: ActionRisk = .observe
+
+    public static var inputSchema: JSONValue? {
+        ScanPathsToolInput.schema
+    }
 
     public var identifier: AgentToolIdentifier {
         Self.identifier
@@ -19,7 +23,7 @@ public struct ScanPathsTool: AgentTool {
     }
 
     public var inputSchema: JSONValue? {
-        nil
+        Self.inputSchema
     }
 
     public var risk: ActionRisk {
@@ -123,7 +127,8 @@ public struct ScanPathsTool: AgentTool {
                 includeHidden: decoded.includeHidden,
                 followSymlinks: decoded.followSymlinks,
                 emitDirectories: decoded.includeDirectories,
-                emitFiles: decoded.includeFiles
+                emitFiles: decoded.includeFiles,
+                directoryState: decoded.directoryState
             )
         )
 
