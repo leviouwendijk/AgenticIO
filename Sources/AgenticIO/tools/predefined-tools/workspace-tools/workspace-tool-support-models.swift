@@ -1,9 +1,11 @@
+import Schema
 import Agentic
 import AgenticWorkspace
 import Foundation
 
 public struct WorkspaceRootToolSummary: Sendable, Codable, Hashable {
     public let rootID: String
+    /// Optional human-readable root label.
     public let label: String
     public let details: String?
     public let rootPath: String
@@ -36,9 +38,13 @@ public struct WorkspaceRootToolSummary: Sendable, Codable, Hashable {
 public struct WorkspaceGrantToolSummary: Sendable, Codable, Hashable {
     public let id: String
     public let rootID: String
+    /// Optional requested grant mode.
     public let mode: PathGrantMode
+    /// Optional explicit path capabilities.
     public let capabilities: [PathCapability]
+    /// Optional tool allowlist for the grant.
     public let allowedTools: [String]
+    /// Reason the additional path grant is needed.
     public let reason: String?
     public let expiresAt: Date?
     public let isExpired: Bool
@@ -86,16 +92,23 @@ public struct PathGrantSuggestion: Sendable, Codable, Hashable {
     }
 }
 
+/// Model-facing input for Request pathGrant.
+@JSONSchema
 public struct RequestPathGrantToolInput: Sendable, Codable, Hashable {
+    /// Optional session identifier associated with the request.
     public let sessionID: String?
+    /// Absolute directory path proposed as a new workspace root.
     public let requestedRootPath: String
+    /// Optional preferred identifier for the proposed root.
     public let suggestedRootID: String?
     public let label: String?
     public let mode: PathGrantMode?
     public let capabilities: [PathCapability]?
     public let allowedTools: [String]?
     public let reason: String
+    /// Optional policy profile for the requested root.
     public let policyProfile: String?
+    /// Optional grant lifetime in seconds.
     public let expiresInSeconds: TimeInterval?
 
     public init(
@@ -156,4 +169,3 @@ public struct PathGrantReviewExactInputs: Sendable, Codable, Hashable {
         self.expiresAt = expiresAt
     }
 }
-

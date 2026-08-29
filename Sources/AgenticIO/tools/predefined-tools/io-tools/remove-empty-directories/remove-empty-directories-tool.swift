@@ -75,8 +75,9 @@ public enum RemoveEmptyDirectoriesToolError:
 }
 
 public struct RemoveEmptyDirectoriesTool:
-    AgentTool
+    TypedInstanceAgentTool
 {
+    public typealias Input = RemoveEmptyDirectoriesToolInput
     public static let identifier:
         AgentToolIdentifier =
             "remove_empty_directories"
@@ -89,11 +90,6 @@ public struct RemoveEmptyDirectoriesTool:
     public static let risk:
         ActionRisk = .boundedmutate
 
-    public static var inputSchema:
-        JSONValue?
-    {
-        RemoveEmptyDirectoriesToolInput.jsonschema.jsonvalue
-    }
 
     public var identifier: AgentToolIdentifier {
         Self.identifier
@@ -103,9 +99,6 @@ public struct RemoveEmptyDirectoriesTool:
         Self.description
     }
 
-    public var inputSchema: JSONValue? {
-        Self.inputSchema
-    }
 
     public var risk: ActionRisk {
         Self.risk

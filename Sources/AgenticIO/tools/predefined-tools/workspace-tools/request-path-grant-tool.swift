@@ -25,7 +25,9 @@ public struct RequestPathGrantToolOutput: Sendable, Codable, Hashable {
     }
 }
 
-public struct RequestPathGrantTool: AgentTool {
+public struct RequestPathGrantTool: TypedInstanceAgentTool {
+    public typealias Input = RequestPathGrantToolInput
+
     public static let identifier: AgentToolIdentifier = "request_path_grant"
     public static let description = "Create a prepared intent requesting a new named workspace path grant. This does not install access."
     public static let risk: ActionRisk = .observe
@@ -38,9 +40,6 @@ public struct RequestPathGrantTool: AgentTool {
         Self.description
     }
 
-    public var inputSchema: JSONValue? {
-        nil
-    }
 
     public var risk: ActionRisk {
         Self.risk

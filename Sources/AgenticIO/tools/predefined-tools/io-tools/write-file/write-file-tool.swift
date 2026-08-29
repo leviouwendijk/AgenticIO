@@ -6,7 +6,9 @@ import Foundation
 import Primitives
 import Writers
 
-public struct WriteFileTool: AgentTool {
+public struct WriteFileTool: TypedInstanceAgentTool {
+    public typealias Input = WriteFileToolInput
+
     public static let identifier: AgentToolIdentifier = "write_file"
     public static let description = "Replace the entire contents of a file in the workspace."
     public static let risk: ActionRisk = .boundedmutate
@@ -19,9 +21,6 @@ public struct WriteFileTool: AgentTool {
         Self.description
     }
 
-    public var inputSchema: JSONValue? {
-        nil
-    }
 
     public var risk: ActionRisk {
         Self.risk

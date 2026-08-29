@@ -1,4 +1,5 @@
 import Path
+import AgenticWorkspace
 import Schema
 import Writers
 
@@ -45,5 +46,29 @@ extension StandardDeletePolicy:
         .string(
             cases: allCases.map(\.rawValue)
         )
+    }
+}
+
+extension PathCapability:
+    @retroactive JSONSchemaProviding
+{
+    public static var jsonschema: JSONSchema {
+        .string(cases: allCases.map(\.rawValue))
+    }
+}
+
+extension PathGrantMode:
+    @retroactive JSONSchemaProviding
+{
+    public static var jsonschema: JSONSchema {
+        .string(cases: allCases.map(\.rawValue))
+    }
+}
+
+extension PathSegmentType:
+    @retroactive JSONSchemaProviding
+{
+    public static var jsonschema: JSONSchema {
+        .string(cases: ["directory", "file"])
     }
 }

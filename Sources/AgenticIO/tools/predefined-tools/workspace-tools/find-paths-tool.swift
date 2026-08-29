@@ -2,19 +2,32 @@ import Agentic
 import AgenticExecution
 import AgenticWorkspace
 import Primitives
+import Schema
 import Path
 import PathParsing
 
+/// Model-facing input for Find paths.
+@JSONSchema
 public struct FindPathsToolInput: Sendable, Codable, Hashable {
+    /// Optional workspace root identifier.
     public let rootID: PathAccessRootIdentifier?
+    /// Optional path-name query.
     public let query: String?
+    /// Optional include patterns.
     public let includes: [String]?
+    /// Optional exclude patterns.
     public let excludes: [String]?
+    /// Whether to scan recursively.
     public let recursive: Bool?
+    /// Whether hidden paths are included.
     public let includeHidden: Bool?
+    /// Whether directory symlinks are followed.
     public let followSymlinks: Bool?
+    /// Whether files are returned.
     public let includeFiles: Bool?
+    /// Whether directories are returned.
     public let includeDirectories: Bool?
+    /// Optional maximum number of returned paths.
     public let maxEntries: Int?
 
     public init(
@@ -74,7 +87,9 @@ public struct FindPathsToolOutput: Sendable, Codable, Hashable {
     }
 }
 
-public struct FindPathsTool: AgentTool {
+public struct FindPathsTool: TypedInstanceAgentTool {
+    public typealias Input = FindPathsToolInput
+
     public static let identifier: AgentToolIdentifier = "find_paths"
     public static let description = "Find path names inside an authorized workspace root without reading file contents."
     public static let risk: ActionRisk = .observe
@@ -87,9 +102,6 @@ public struct FindPathsTool: AgentTool {
         Self.description
     }
 
-    public var inputSchema: JSONValue? {
-        nil
-    }
 
     public var risk: ActionRisk {
         Self.risk

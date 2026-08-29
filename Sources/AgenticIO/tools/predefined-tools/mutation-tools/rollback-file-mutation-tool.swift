@@ -6,7 +6,9 @@ import Foundation
 import Primitives
 import Writers
 
-public struct RollbackFileMutationTool: AgentTool {
+public struct RollbackFileMutationTool: TypedInstanceAgentTool {
+    public typealias Input = AgentFileMutationRollbackInput
+
     public let identifier: AgentToolIdentifier = .rollback_file_mutation
     public let description = "Roll back a recorded file mutation."
     public let risk: ActionRisk = .boundedmutate

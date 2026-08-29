@@ -6,14 +6,13 @@ import Schema
 import Path
 import PathParsing
 
-public struct ScanPathsTool: AgentTool {
+public struct ScanPathsTool: TypedInstanceAgentTool {
+    public typealias Input = ScanPathsToolInput
+
     public static let identifier: AgentToolIdentifier = "scan_paths"
     public static let description = "Scan paths inside an authorized workspace root using PathScan, with optional literal directory-state filtering."
     public static let risk: ActionRisk = .observe
 
-    public static var inputSchema: JSONValue? {
-        ScanPathsToolInput.jsonschema.jsonvalue
-    }
 
     public var identifier: AgentToolIdentifier {
         Self.identifier
@@ -23,9 +22,6 @@ public struct ScanPathsTool: AgentTool {
         Self.description
     }
 
-    public var inputSchema: JSONValue? {
-        Self.inputSchema
-    }
 
     public var risk: ActionRisk {
         Self.risk

@@ -250,7 +250,9 @@ public struct MutateFilesToolOutput: Sendable, Codable, Hashable {
     }
 }
 
-public struct MutateFilesTool: AgentTool {
+public struct MutateFilesTool: TypedInstanceAgentTool {
+    public typealias Input = MutateFilesToolInput
+
     public static let identifier: AgentToolIdentifier = .mutate_files
     public static let description = "Apply one coherent pass of file mutations in the workspace."
     public static let risk: ActionRisk = .boundedmutate
@@ -263,9 +265,6 @@ public struct MutateFilesTool: AgentTool {
         Self.description
     }
 
-    public var inputSchema: JSONValue? {
-        Self.inputSchema
-    }
 
     public var risk: ActionRisk {
         Self.risk
@@ -279,9 +278,6 @@ public struct MutateFilesTool: AgentTool {
         self.context = context
     }
 
-    public static var inputSchema: JSONValue? {
-        MutateFilesToolInput.jsonschema.jsonvalue
-    }
 
     public func preflight(
         input: JSONValue,

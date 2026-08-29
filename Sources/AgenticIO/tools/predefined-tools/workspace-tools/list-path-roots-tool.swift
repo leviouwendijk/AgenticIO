@@ -2,8 +2,12 @@ import Agentic
 import AgenticExecution
 import AgenticWorkspace
 import Primitives
+import Schema
 
+/// Model-facing input for List pathRoots.
+@JSONSchema
 public struct ListPathRootsToolInput: Sendable, Codable, Hashable {
+    /// Whether root diagnostics are included.
     public let includeDiagnostics: Bool?
 
     public init(
@@ -26,7 +30,9 @@ public struct ListPathRootsToolOutput: Sendable, Codable, Hashable {
     }
 }
 
-public struct ListPathRootsTool: AgentTool {
+public struct ListPathRootsTool: TypedInstanceAgentTool {
+    public typealias Input = ListPathRootsToolInput
+
     public static let identifier: AgentToolIdentifier = "list_path_roots"
     public static let description = "List named workspace path roots without scanning or reading file contents."
     public static let risk: ActionRisk = .observe
@@ -39,9 +45,6 @@ public struct ListPathRootsTool: AgentTool {
         Self.description
     }
 
-    public var inputSchema: JSONValue? {
-        nil
-    }
 
     public var risk: ActionRisk {
         Self.risk

@@ -5,6 +5,7 @@ import Difference
 import Foundation
 import Path
 import Primitives
+import Schema
 import Writers
 
 public enum AgentFileMutationRollbackError: Error, Sendable, LocalizedError {
@@ -30,8 +31,14 @@ public enum AgentFileMutationRollbackError: Error, Sendable, LocalizedError {
     }
 }
 
+/// Roll back one previously recorded file mutation.
+@JSONSchema
 public struct AgentFileMutationRollbackInput: Sendable, Codable, Hashable {
+    /// Recorded mutation identifier to roll back.
     public let mutationID: String
+
+    /// Verify that the current target still matches the recorded rollback guard. Defaults to true.
+    @Schema(required: false)
     public let checkTarget: Bool
 
     public init(
@@ -40,6 +47,34 @@ public struct AgentFileMutationRollbackInput: Sendable, Codable, Hashable {
     ) {
         self.mutationID = mutationID
         self.checkTarget = checkTarget
+    }
+}
+
+private extension AgentFileMutationRollbackInput {
+    enum CodingKeys: String, CodingKey {
+        case mutationID
+        case checkTarget
+    }
+}
+
+public extension AgentFileMutationRollbackInput {
+    init(
+        from decoder: any Decoder
+    ) throws {
+        let container = try decoder.container(
+            keyedBy: CodingKeys.self
+        )
+
+        self.init(
+            mutationID: try container.decode(
+                String.self,
+                forKey: .mutationID
+            ),
+            checkTarget: try container.decodeIfPresent(
+                Bool.self,
+                forKey: .checkTarget
+            ) ?? true
+        )
     }
 }
 

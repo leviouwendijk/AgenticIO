@@ -3,9 +3,14 @@ import AgenticExecution
 import AgenticWorkspace
 import Foundation
 import Primitives
+import Schema
 
+/// Model-facing input for Inspect fileMutation.
+@JSONSchema
 public struct InspectFileMutationToolInput: Sendable, Codable, Hashable {
+    /// Exact recorded mutation identifier.
     public let id: String
+    /// Whether to load the referenced diff artifact when available.
     public let loadDiffArtifact: Bool
 
     public init(
@@ -17,7 +22,9 @@ public struct InspectFileMutationToolInput: Sendable, Codable, Hashable {
     }
 }
 
-public struct InspectFileMutationTool: AgentTool {
+public struct InspectFileMutationTool: TypedInstanceAgentTool {
+    public typealias Input = InspectFileMutationToolInput
+
     public static let identifier: AgentToolIdentifier = .inspect_file_mutation
     public static let description = "Inspect one recorded file mutation and optionally load its diff artifact."
     public static let risk: ActionRisk = .observe
@@ -30,9 +37,6 @@ public struct InspectFileMutationTool: AgentTool {
         Self.description
     }
 
-    public var inputSchema: JSONValue? {
-        nil
-    }
 
     public var risk: ActionRisk {
         Self.risk

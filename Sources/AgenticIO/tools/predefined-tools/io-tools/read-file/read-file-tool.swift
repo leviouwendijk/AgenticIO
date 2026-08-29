@@ -4,7 +4,9 @@ import AgenticWorkspace
 import Primitives
 import Schema
 
-public struct ReadFileTool: AgentTool {
+public struct ReadFileTool: TypedInstanceAgentTool {
+    public typealias Input = ReadFileToolInput
+
     public static let identifier: AgentToolIdentifier = "read_file"
     public static let description = "Read a file from the workspace, optionally constrained to a line window."
     public static let risk: ActionRisk = .observe
@@ -17,9 +19,6 @@ public struct ReadFileTool: AgentTool {
         Self.description
     }
 
-    public var inputSchema: JSONValue? {
-        Self.inputSchema
-    }
 
     public var risk: ActionRisk {
         Self.risk
@@ -27,9 +26,6 @@ public struct ReadFileTool: AgentTool {
 
     public init() {}
 
-    public static var inputSchema: JSONValue? {
-        ReadFileToolInput.jsonschema.jsonvalue
-    }
 
     public func preflight(
         input: JSONValue,

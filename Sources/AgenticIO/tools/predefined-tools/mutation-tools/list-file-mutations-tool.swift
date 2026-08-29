@@ -3,13 +3,22 @@ import AgenticExecution
 import AgenticWorkspace
 import Foundation
 import Primitives
+import Schema
 
+/// Model-facing input for List fileMutations.
+@JSONSchema
 public struct ListFileMutationsToolInput: Sendable, Codable, Hashable {
+    /// Optional workspace path used to filter mutation history.
     public let path: String?
+    /// Optional prepared intent identifier used to filter mutation history.
     public let preparedIntentID: String?
+    /// Whether to return only rollbackable mutations.
     public let rollbackableOnly: Bool
+    /// Whether to include recorded mutations that produced no content change.
     public let includeUnchanged: Bool
+    /// Whether to return newest mutations first.
     public let latestFirst: Bool
+    /// Optional maximum number of mutation records to return.
     public let limit: Int?
 
     public init(
@@ -29,7 +38,9 @@ public struct ListFileMutationsToolInput: Sendable, Codable, Hashable {
     }
 }
 
-public struct ListFileMutationsTool: AgentTool {
+public struct ListFileMutationsTool: TypedInstanceAgentTool {
+    public typealias Input = ListFileMutationsToolInput
+
     public static let identifier: AgentToolIdentifier = .list_file_mutations
     public static let description = "List recorded file mutations for the current Agentic session mutation store."
     public static let risk: ActionRisk = .observe
@@ -42,9 +53,6 @@ public struct ListFileMutationsTool: AgentTool {
         Self.description
     }
 
-    public var inputSchema: JSONValue? {
-        nil
-    }
 
     public var risk: ActionRisk {
         Self.risk

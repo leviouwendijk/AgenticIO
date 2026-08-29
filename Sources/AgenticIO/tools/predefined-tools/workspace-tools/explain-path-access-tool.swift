@@ -2,13 +2,21 @@ import Agentic
 import AgenticExecution
 import AgenticWorkspace
 import Primitives
+import Schema
 import Path
 
+/// Model-facing input for Explain pathAccess.
+@JSONSchema
 public struct ExplainPathAccessToolInput: Sendable, Codable, Hashable {
+    /// Optional workspace root identifier.
     public let rootID: PathAccessRootIdentifier?
+    /// Root-relative path whose access should be explained.
     public let path: String
+    /// Requested path capability to evaluate.
     public let capability: PathCapability
+    /// Optional tool name to evaluate against grant restrictions.
     public let toolName: String?
+    /// Optional expected path segment type.
     public let type: PathSegmentType?
 
     public init(
@@ -66,7 +74,9 @@ public struct ExplainPathAccessToolOutput: Sendable, Codable, Hashable {
     }
 }
 
-public struct ExplainPathAccessTool: AgentTool {
+public struct ExplainPathAccessTool: TypedInstanceAgentTool {
+    public typealias Input = ExplainPathAccessToolInput
+
     public static let identifier: AgentToolIdentifier = "explain_path_access"
     public static let description = "Explain whether a root-relative path is accessible for a requested capability and why."
     public static let risk: ActionRisk = .observe
@@ -79,9 +89,6 @@ public struct ExplainPathAccessTool: AgentTool {
         Self.description
     }
 
-    public var inputSchema: JSONValue? {
-        nil
-    }
 
     public var risk: ActionRisk {
         Self.risk

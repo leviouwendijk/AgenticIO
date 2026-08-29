@@ -1,8 +1,17 @@
 import Path
+import Schema
 
+/// Replace the entire contents of one workspace file.
+@JSONSchema
 public struct WriteFileToolInput: Sendable, Codable, Hashable {
+    /// Workspace root identifier. Usually use 'project'.
+    @Schema(required: false)
     public let rootID: PathAccessRootIdentifier
+
+    /// Path to the file relative to the workspace root.
     public let path: String
+
+    /// Complete replacement file contents.
     public let content: String
 
     public init(

@@ -9,7 +9,9 @@ import Difference
 import Readers
 import Foundation
 
-public struct EditFileTool: AgentTool {
+public struct EditFileTool: TypedInstanceAgentTool {
+    public typealias Input = EditFileToolInput
+
     public static let identifier: AgentToolIdentifier = "edit_file"
     public static let description = "Apply one or more structured edit operations to a file in the workspace."
     public static let risk: ActionRisk = .boundedmutate
@@ -22,9 +24,6 @@ public struct EditFileTool: AgentTool {
         Self.description
     }
 
-    public var inputSchema: JSONValue? {
-        Self.inputSchema
-    }
 
     public var risk: ActionRisk {
         Self.risk
@@ -44,9 +43,6 @@ public struct EditFileTool: AgentTool {
         self.policy = policy
     }
 
-    public static var inputSchema: JSONValue? {
-        EditFileToolInput.jsonschema.jsonvalue
-    }
 
     public func preflight(
         input: JSONValue,

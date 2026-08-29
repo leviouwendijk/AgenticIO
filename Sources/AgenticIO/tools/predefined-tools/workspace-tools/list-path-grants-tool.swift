@@ -3,10 +3,15 @@ import AgenticExecution
 import AgenticWorkspace
 import Foundation
 import Primitives
+import Schema
 import Path
 
+/// Model-facing input for List pathGrants.
+@JSONSchema
 public struct ListPathGrantsToolInput: Sendable, Codable, Hashable {
+    /// Optional root identifier used to filter grants.
     public let rootID: PathAccessRootIdentifier?
+    /// Whether expired grants are included.
     public let includeExpired: Bool?
 
     public init(
@@ -28,7 +33,9 @@ public struct ListPathGrantsToolOutput: Sendable, Codable, Hashable {
     }
 }
 
-public struct ListPathGrantsTool: AgentTool {
+public struct ListPathGrantsTool: TypedInstanceAgentTool {
+    public typealias Input = ListPathGrantsToolInput
+
     public static let identifier: AgentToolIdentifier = "list_path_grants"
     public static let description = "List active workspace path grants and their capabilities."
     public static let risk: ActionRisk = .observe
@@ -41,9 +48,6 @@ public struct ListPathGrantsTool: AgentTool {
         Self.description
     }
 
-    public var inputSchema: JSONValue? {
-        nil
-    }
 
     public var risk: ActionRisk {
         Self.risk

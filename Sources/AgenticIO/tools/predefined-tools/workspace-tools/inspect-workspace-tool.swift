@@ -2,9 +2,14 @@ import Agentic
 import AgenticExecution
 import AgenticWorkspace
 import Primitives
+import Schema
 
+/// Model-facing input for InspectWorkspace.
+@JSONSchema
 public struct InspectWorkspaceToolInput: Sendable, Codable, Hashable {
+    /// Whether workspace diagnostics are included.
     public let includeDiagnostics: Bool?
+    /// Whether current path grants are included.
     public let includeGrants: Bool?
 
     public init(
@@ -44,7 +49,9 @@ public struct InspectWorkspaceToolOutput: Sendable, Codable, Hashable {
     }
 }
 
-public struct InspectWorkspaceTool: AgentTool {
+public struct InspectWorkspaceTool: TypedInstanceAgentTool {
+    public typealias Input = InspectWorkspaceToolInput
+
     public static let identifier: AgentToolIdentifier = "inspect_workspace"
     public static let description = "Inspect attached workspace roots, grants, and diagnostics without reading file contents."
     public static let risk: ActionRisk = .observe
@@ -57,9 +64,6 @@ public struct InspectWorkspaceTool: AgentTool {
         Self.description
     }
 
-    public var inputSchema: JSONValue? {
-        nil
-    }
 
     public var risk: ActionRisk {
         Self.risk
