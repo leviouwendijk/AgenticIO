@@ -14,6 +14,12 @@ let package = Package(
                 "AgenticIO",
             ]
         ),
+        .executable(
+            name: "aiotest",
+            targets: [
+                "AgenticIOTestFlows",
+            ]
+        ),
     ],
     dependencies: [
         .package(
@@ -34,6 +40,10 @@ let package = Package(
         ),
         .package(
             url: "https://github.com/leviouwendijk/Schema.git",
+            branch: "master"
+        ),
+        .package(
+            url: "https://github.com/leviouwendijk/SchemaMacros.git",
             branch: "master"
         ),
         .package(
@@ -68,6 +78,18 @@ let package = Package(
             url: "https://github.com/leviouwendijk/Difference.git",
             branch: "master"
         ),
+        .package(
+            url: "https://github.com/leviouwendijk/Concatenation.git",
+            branch: "master"
+        ),
+        .package(
+            url: "https://github.com/leviouwendijk/Search.git",
+            branch: "master"
+        ),
+        .package(
+            url: "https://github.com/leviouwendijk/TestFlows.git",
+            branch: "master"
+        ),
     ],
     targets: [
         .target(
@@ -92,6 +114,10 @@ let package = Package(
                 .product(
                     name: "Schema",
                     package: "Schema"
+                ),
+                .product(
+                    name: "SchemaMacros",
+                    package: "SchemaMacros"
                 ),
                 .product(
                     name: "IO",
@@ -128,6 +154,64 @@ let package = Package(
                 .product(
                     name: "Difference",
                     package: "Difference"
+                ),
+                .product(
+                    name: "Concatenation",
+                    package: "Concatenation"
+                ),
+                .product(
+                    name: "Search",
+                    package: "Search"
+                ),
+            ]
+        ),
+        .executableTarget(
+            name: "AgenticIOTestFlows",
+            dependencies: [
+                "AgenticIO",
+                .product(
+                    name: "Agentic",
+                    package: "Agentic"
+                ),
+                .product(
+                    name: "AgenticExecution",
+                    package: "AgenticExecution"
+                ),
+                .product(
+                    name: "AgenticWorkspace",
+                    package: "AgenticWorkspace"
+                ),
+                .product(
+                    name: "Concatenation",
+                    package: "Concatenation"
+                ),
+                .product(
+                    name: "Path",
+                    package: "Path"
+                ),
+                .product(
+                    name: "PathParsing",
+                    package: "Path"
+                ),
+                .product(
+                    name: "Position",
+                    package: "Position"
+                ),
+                .product(
+                    name: "Schema",
+                    package: "Schema"
+                ),
+                .product(
+                    name: "Search",
+                    package: "Search"
+                ),
+                .product(
+                    name: "Selection",
+                    package: "Selection"
+                ),
+                .product(
+                    name: "TestFlows",
+                    package: "TestFlows"
                 ),
             ]
         ),

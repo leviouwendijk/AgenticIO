@@ -1,5 +1,6 @@
 import Path
 import Schema
+import SchemaMacros
 
 /// Replace the entire contents of one workspace file.
 @JSONSchema

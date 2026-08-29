@@ -4,6 +4,7 @@ import AgenticWorkspace
 import Foundation
 import Primitives
 import Schema
+import SchemaMacros
 import Path
 
 /// Model-facing input for List pathGrants.

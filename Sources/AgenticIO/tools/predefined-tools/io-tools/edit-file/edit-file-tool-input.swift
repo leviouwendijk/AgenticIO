@@ -2,6 +2,7 @@ import Path
 import Position
 import Primitives
 import Schema
+import SchemaMacros
 import Writers
 
 @JSONSchema

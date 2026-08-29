@@ -1,4 +1,5 @@
 import Schema
+import SchemaMacros
 import Agentic
 import AgenticWorkspace
 import Foundation

@@ -6,6 +6,7 @@ import IO
 import Path
 import Primitives
 import Schema
+import SchemaMacros
 
 @JSONSchema
 public struct RemoveEmptyDirectoriesToolInput:

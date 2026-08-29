@@ -1,6 +1,7 @@
 import Foundation
 import Position
 import Schema
+import SchemaMacros
 import Selection
 
 /// One model-facing content selection for read_selection.

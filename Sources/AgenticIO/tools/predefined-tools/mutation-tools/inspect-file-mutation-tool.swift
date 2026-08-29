@@ -4,6 +4,7 @@ import AgenticWorkspace
 import Foundation
 import Primitives
 import Schema
+import SchemaMacros
 
 /// Model-facing input for Inspect fileMutation.
 @JSONSchema

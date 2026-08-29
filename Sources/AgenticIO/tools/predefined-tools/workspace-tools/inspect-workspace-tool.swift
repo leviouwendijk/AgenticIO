@@ -3,6 +3,7 @@ import AgenticExecution
 import AgenticWorkspace
 import Primitives
 import Schema
+import SchemaMacros
 
 /// Model-facing input for InspectWorkspace.
 @JSONSchema

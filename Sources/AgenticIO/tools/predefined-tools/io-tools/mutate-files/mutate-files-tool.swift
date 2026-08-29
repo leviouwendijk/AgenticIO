@@ -6,6 +6,7 @@ import Foundation
 import Path
 import Primitives
 import Schema
+import SchemaMacros
 import Writers
 
 @JSONSchema
