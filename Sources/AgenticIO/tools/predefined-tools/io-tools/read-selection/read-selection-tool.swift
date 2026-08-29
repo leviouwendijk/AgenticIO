@@ -4,7 +4,9 @@ import AgenticWorkspace
 import Position
 import Primitives
 
-public struct ReadSelectionTool: AgentTool {
+public struct ReadSelectionTool: TypedInstanceAgentTool {
+    public typealias Input = ReadSelectionToolInput
+
     public static let identifier: AgentToolIdentifier = "read_selection"
     public static let description = "Read one or more content selections from a file in the workspace."
     public static let risk: ActionRisk = .observe
@@ -15,10 +17,6 @@ public struct ReadSelectionTool: AgentTool {
 
     public var description: String {
         Self.description
-    }
-
-    public var inputSchema: JSONValue? {
-        nil
     }
 
     public var risk: ActionRisk {
@@ -35,6 +33,7 @@ public struct ReadSelectionTool: AgentTool {
             ReadSelectionToolInput.self,
             from: input
         )
+        _ = try decoded.contentSelections()
 
         let targetPath: String
         if let workspace {
@@ -79,7 +78,7 @@ public struct ReadSelectionTool: AgentTool {
 
         let read = try workspace.readSelections(
             path,
-            decoded.selections
+            try decoded.contentSelections()
         )
 
         let slices = read.slices.map { slice in

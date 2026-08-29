@@ -43,7 +43,7 @@
       "location" : "https://github.com/leviouwendijk/Difference.git",
       "state" : {
         "branch" : "master",
-        "revision" : "cf346412c40419e9661d3627cde3bcebba03a090"
+        "revision" : "3fa70acbc0b96bbaf5a5021e362b48e399ca6c1e"
       }
     },
     {
@@ -142,7 +142,7 @@
       "location" : "https://github.com/leviouwendijk/Schema.git",
       "state" : {
         "branch" : "master",
-        "revision" : "4fb4eba584de6e6714790655d602b6daa3ae4a01"
+        "revision" : "7b037d74a1c99a1eca9dc14701e53bac028b7079"
       }
     },
     {
@@ -178,7 +178,7 @@
       "location" : "https://github.com/leviouwendijk/Terminal.git",
       "state" : {
         "branch" : "master",
-        "revision" : "e06373d224cae5570a4ef42dddb281ea3d33ec2d"
+        "revision" : "d11451d89d1617ce912e33723d6194acad384838"
       }
     },
     {
