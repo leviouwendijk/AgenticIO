@@ -1,0 +1,50 @@
+{
+  "failed" : 0,
+  "failed_names" : [
+
+  ],
+  "generated_at" : "2026-08-30T23:45:45Z",
+  "passed" : 3,
+  "results" : [
+    {
+      "display_name" : "path-search",
+      "duration_seconds" : 0.02701699733734131,
+      "name" : "path-search",
+      "status" : "passed",
+      "tags" : [
+        "agentic-io",
+        "authorization",
+        "path",
+        "search"
+      ]
+    },
+    {
+      "display_name" : "source-search",
+      "duration_seconds" : 0.007256031036376953,
+      "name" : "source-search",
+      "status" : "passed",
+      "tags" : [
+        "agentic-io",
+        "authorization",
+        "concatenation",
+        "search"
+      ]
+    },
+    {
+      "display_name" : "search-context",
+      "duration_seconds" : 0.0058699846267700195,
+      "name" : "search-context",
+      "status" : "passed",
+      "tags" : [
+        "agentic-io",
+        "authorization",
+        "freshness",
+        "search",
+        "selection"
+      ]
+    }
+  ],
+  "skipped" : 0,
+  "title" : "AgenticIO flow tests",
+  "total" : 3
+}

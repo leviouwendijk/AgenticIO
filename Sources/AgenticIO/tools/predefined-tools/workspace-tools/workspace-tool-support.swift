@@ -72,6 +72,8 @@ enum WorkspaceToolSupport {
             tools = [
                 "scan_paths",
                 "find_paths",
+                "search_sources",
+                "load_search_context",
                 "read_file",
                 "compose_context"
             ]
@@ -80,6 +82,8 @@ enum WorkspaceToolSupport {
             tools = [
                 "scan_paths",
                 "find_paths",
+                "search_sources",
+                "load_search_context",
                 "read_file",
                 "compose_context",
                 "write_file",

@@ -26,6 +26,7 @@ public struct CoreFileToolSet: AgentToolSet {
             RemoveEmptyDirectoriesTool()
             ScanPathsTool()
             SearchSourcesTool()
+            LoadSearchContextTool()
         }
     }
 }

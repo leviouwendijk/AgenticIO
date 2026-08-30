@@ -14,6 +14,17 @@ enum AgenticIOFlowSuite: TestFlowRegistry {
 
     static let flows: [TestFlow] = [
         TestFlow(
+            "path-search",
+            tags: [
+                "agentic-io",
+                "search",
+                "path",
+                "authorization",
+            ]
+        ) {
+            try await AgenticIOFlowTesting.runPathSearch()
+        },
+        TestFlow(
             "source-search",
             tags: [
                 "agentic-io",
@@ -23,6 +34,18 @@ enum AgenticIOFlowSuite: TestFlowRegistry {
             ]
         ) {
             try await AgenticIOFlowTesting.runSourceSearch()
+        },
+        TestFlow(
+            "search-context",
+            tags: [
+                "agentic-io",
+                "search",
+                "selection",
+                "authorization",
+                "freshness",
+            ]
+        ) {
+            try await AgenticIOFlowTesting.runSearchContext()
         },
     ]
 }
