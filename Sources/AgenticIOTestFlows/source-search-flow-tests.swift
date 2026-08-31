@@ -34,6 +34,7 @@ enum AgenticIOFlowTesting {
         try await proveIdentifierStrategy(
             fixture
         )
+        try await proveRichProbeSemantics()
         try await proveStatelessContinuation(
             fixture
         )

@@ -10,10 +10,34 @@ import Search
 public struct SourceSearchRequest: Sendable {
     public let rootID: PathAccessRootIdentifier
     public let definition: ConcatenationCorpusDefinition
-    public let queries: [SearchQuery]
+    public let probes: [SearchProbe]
     public let options: SearchOptions
     public let frontierOptions: SearchFrontierOptions
     public let expectedCorpusFingerprint: ContentFingerprint?
+
+    public var queries: [SearchQuery] {
+        probes.map(\.query)
+    }
+
+    public init(
+        rootID: PathAccessRootIdentifier = .project,
+        definition: ConcatenationCorpusDefinition,
+        probes: [SearchProbe],
+        options: SearchOptions = .defaults,
+        frontierOptions: SearchFrontierOptions = .defaults,
+        expectedCorpusFingerprint: ContentFingerprint? = nil
+    ) {
+        self.rootID = rootID
+        self.definition = definition
+        self.probes = probes
+
+        var completeOptions = options
+        completeOptions.maximumResults = nil
+
+        self.options = completeOptions
+        self.frontierOptions = frontierOptions
+        self.expectedCorpusFingerprint = expectedCorpusFingerprint
+    }
 
     public init(
         rootID: PathAccessRootIdentifier = .project,
@@ -23,16 +47,20 @@ public struct SourceSearchRequest: Sendable {
         frontierOptions: SearchFrontierOptions = .defaults,
         expectedCorpusFingerprint: ContentFingerprint? = nil
     ) {
-        self.rootID = rootID
-        self.definition = definition
-        self.queries = queries
-
-        var completeOptions = options
-        completeOptions.maximumResults = nil
-
-        self.options = completeOptions
-        self.frontierOptions = frontierOptions
-        self.expectedCorpusFingerprint = expectedCorpusFingerprint
+        self.init(
+            rootID: rootID,
+            definition: definition,
+            probes: queries.map { query in
+                SearchProbe(
+                    query,
+                    role: .preferred,
+                    strategy: options.strategy
+                )
+            },
+            options: options,
+            frontierOptions: frontierOptions,
+            expectedCorpusFingerprint: expectedCorpusFingerprint
+        )
     }
 }
 
@@ -69,6 +97,7 @@ public struct SourceSearchEvidence:
 {
     public let queryID: String?
     public let query: String
+    public let role: String
     public let strategy: String
     public let score: Int
     public let lineRanges: [LineRange]
@@ -76,12 +105,14 @@ public struct SourceSearchEvidence:
     public init(
         queryID: String?,
         query: String,
+        role: String,
         strategy: String,
         score: Int,
         lineRanges: [LineRange]
     ) {
         self.queryID = queryID
         self.query = query
+        self.role = role
         self.strategy = strategy
         self.score = score
         self.lineRanges = lineRanges
@@ -185,7 +216,7 @@ public enum SourceSearchError:
     public var errorDescription: String? {
         switch self {
         case .emptyQueries:
-            return "Source search requires at least one non-empty query."
+            return "Source search requires at least one non-empty probe."
 
         case .sourceOutsideAuthorizedRoot(let source):
             return "Resolved source is outside the authorized workspace root: \(source.path)"
@@ -213,11 +244,11 @@ public actor SourceSearcher {
         workspace: AgentWorkspace,
         toolName: String = "search_sources"
     ) throws -> SourceSearchResult {
-        let queries = request.queries.filter {
+        let probes = request.probes.filter {
             !$0.isEmpty
         }
 
-        guard !queries.isEmpty else {
+        guard !probes.isEmpty else {
             throw SourceSearchError.emptyQueries
         }
 
@@ -289,7 +320,7 @@ public actor SourceSearcher {
             materialization
         )
         let result = TextSearch.search(
-            queries,
+            probes: probes,
             in: searchCorpus,
             options: request.options
         )
@@ -393,6 +424,7 @@ private extension SourceSearcher {
                 SourceSearchEvidence(
                     queryID: evidence.queryID,
                     query: evidence.query,
+                    role: evidence.role.rawValue,
                     strategy: evidence.strategy.rawValue,
                     score: evidence.score.value,
                     lineRanges: evidence.spans.map { span in
