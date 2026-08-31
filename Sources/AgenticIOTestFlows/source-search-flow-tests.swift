@@ -20,6 +20,8 @@ enum AgenticIOFlowTesting {
             fixture.remove()
         }
 
+        try proveCompleteHitUniverseContract()
+
         try await proveToolSurface(
             fixture
         )
@@ -39,6 +41,33 @@ enum AgenticIOFlowTesting {
 }
 
 private extension AgenticIOFlowTesting {
+    static func proveCompleteHitUniverseContract() throws {
+        let request = SourceSearchRequest(
+            definition: ConcatenationCorpusDefinition(
+                selections: []
+            ),
+            queries: [
+                SearchQuery(
+                    "needle",
+                    id: "needle"
+                ),
+            ],
+            options: SearchOptions(
+                mode: .ranked,
+                strategy: .contains,
+                caseSensitive: true,
+                minimumScore: 1,
+                maximumResults: 0
+            )
+        )
+
+        try Expect.equal(
+            request.options.maximumResults == nil,
+            true,
+            "SourceSearchRequest preserves the complete admitted Search hit universe before frontier construction"
+        )
+    }
+
     static func proveToolSurface(
         _ fixture: SourceSearchFixture
     ) async throws {
@@ -74,6 +103,21 @@ private extension AgenticIOFlowTesting {
             "maximumCandidatesPerDocument",
             "search_sources schema exposes per-document frontier diversity"
         )
+        try Expect.contains(
+            schema,
+            "mode",
+            "search_sources schema exposes search mode"
+        )
+        try Expect.contains(
+            schema,
+            "exhaustive",
+            "search_sources schema derives exhaustive mode"
+        )
+        try Expect.equal(
+            schema.contains("maximumResults"),
+            false,
+            "search_sources does not expose a pre-frontier Search hit delivery limit"
+        )
 
         let tool = SearchSourcesTool()
         let input = SearchSourcesToolInput(
@@ -86,9 +130,9 @@ private extension AgenticIOFlowTesting {
                     id: "needle"
                 ),
             ],
+            mode: .ranked,
             strategy: .contains,
             caseSensitive: true,
-            maximumResults: 16,
             mergeDistanceLines: 1,
             maximumCandidates: 8
         )
@@ -105,9 +149,39 @@ private extension AgenticIOFlowTesting {
         )
 
         try Expect.equal(
+            result.mode,
+            .ranked,
+            "source search defaults to ranked mode"
+        )
+        try Expect.equal(
             result.sourceCount,
             2,
             "source search retained file count"
+        )
+        try Expect.equal(
+            result.matchedDocumentCount,
+            1,
+            "source search reports the complete matching document count"
+        )
+        try Expect.equal(
+            result.totalCandidateCount,
+            1,
+            "source search reports the semantic candidate universe"
+        )
+        try Expect.equal(
+            result.returnedCandidateCount,
+            1,
+            "source search reports delivered candidate count"
+        )
+        try Expect.equal(
+            result.truncated,
+            false,
+            "source search reports complete candidate delivery"
+        )
+        try Expect.equal(
+            result.hasMore,
+            false,
+            "source search reports no hidden candidate page"
         )
         try Expect.equal(
             result.candidates.count,
@@ -187,9 +261,9 @@ private extension AgenticIOFlowTesting {
                             weight: 4
                         ),
                     ],
+                    mode: .ranked,
                     strategy: .contains,
                     caseSensitive: true,
-                    maximumResults: 8,
                     mergeDistanceLines: 0,
                     maximumCandidates: 3
                 )
@@ -257,7 +331,7 @@ private extension AgenticIOFlowTesting {
                     strategy: .contains,
                     caseSensitive: true,
                     minimumScore: 1,
-                    maximumResults: 8
+                    maximumResults: 0
                 ),
                 frontierOptions: SearchFrontierOptions(
                     mergeDistanceLines: 0,

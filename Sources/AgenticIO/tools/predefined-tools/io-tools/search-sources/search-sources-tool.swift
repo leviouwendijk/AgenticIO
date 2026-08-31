@@ -40,6 +40,29 @@ public enum SourceSearchStrategy:
     }
 }
 
+/// Search candidate selection semantics.
+@JSONSchema
+public enum SourceSearchMode:
+    String,
+    Sendable,
+    Codable,
+    Hashable,
+    CaseIterable
+{
+    case ranked
+    case exhaustive
+
+    var searchMode: SearchMode {
+        switch self {
+        case .ranked:
+            return .ranked
+
+        case .exhaustive:
+            return .exhaustive
+        }
+    }
+}
+
 /// One deterministic source-search probe.
 @JSONSchema
 public struct SourceSearchQueryInput:
@@ -130,6 +153,10 @@ public struct SearchSourcesToolInput:
     /// One or more deterministic search probes.
     public let queries: [SourceSearchQueryInput]
 
+    /// Search mode. Ranked applies ranking and source diversity before delivery; exhaustive preserves every matching region. Defaults to ranked.
+    @Schema(required: false)
+    public let mode: SourceSearchMode
+
     /// Text matching strategy. Defaults to fuzzy.
     @Schema(required: false)
     public let strategy: SourceSearchStrategy
@@ -141,10 +168,6 @@ public struct SearchSourcesToolInput:
     /// Minimum raw Search score accepted. Defaults to 1.
     @Schema(required: false)
     public let minimumScore: Int
-
-    /// Maximum raw Search hits retained before frontier convergence. Defaults to 32.
-    @Schema(required: false)
-    public let maximumResults: Int
 
     /// Maximum source-line distance used to merge nearby evidence into one frontier candidate. Defaults to 3.
     @Schema(required: false)
@@ -164,10 +187,10 @@ public struct SearchSourcesToolInput:
         excludes: [String] = [],
         selections: [String] = [],
         queries: [SourceSearchQueryInput],
+        mode: SourceSearchMode = .ranked,
         strategy: SourceSearchStrategy = .fuzzy,
         caseSensitive: Bool = false,
         minimumScore: Int = 1,
-        maximumResults: Int = 32,
         mergeDistanceLines: Int = 3,
         maximumCandidates: Int = 16,
         maximumCandidatesPerDocument: Int = 2
@@ -179,13 +202,10 @@ public struct SearchSourcesToolInput:
         self.excludes = excludes
         self.selections = selections
         self.queries = queries
+        self.mode = mode
         self.strategy = strategy
         self.caseSensitive = caseSensitive
         self.minimumScore = minimumScore
-        self.maximumResults = max(
-            0,
-            maximumResults
-        )
         self.mergeDistanceLines = max(
             0,
             mergeDistanceLines
@@ -208,10 +228,10 @@ private extension SearchSourcesToolInput {
         case excludes
         case selections
         case queries
+        case mode
         case strategy
         case caseSensitive
         case minimumScore
-        case maximumResults
         case mergeDistanceLines
         case maximumCandidates
         case maximumCandidatesPerDocument
@@ -247,6 +267,10 @@ public extension SearchSourcesToolInput {
                 [SourceSearchQueryInput].self,
                 forKey: .queries
             ),
+            mode: try container.decodeIfPresent(
+                SourceSearchMode.self,
+                forKey: .mode
+            ) ?? .ranked,
             strategy: try container.decodeIfPresent(
                 SourceSearchStrategy.self,
                 forKey: .strategy
@@ -259,10 +283,6 @@ public extension SearchSourcesToolInput {
                 Int.self,
                 forKey: .minimumScore
             ) ?? 1,
-            maximumResults: try container.decodeIfPresent(
-                Int.self,
-                forKey: .maximumResults
-            ) ?? 32,
             mergeDistanceLines: try container.decodeIfPresent(
                 Int.self,
                 forKey: .mergeDistanceLines
@@ -283,7 +303,7 @@ public struct SearchSourcesTool: TypedInstanceAgentTool {
     public typealias Input = SearchSourcesToolInput
 
     public static let identifier: AgentToolIdentifier = "search_sources"
-    public static let description = "Search content inside an authorized workspace source universe and return compact ranked source ranges without returning source contents."
+    public static let description = "Search content inside an authorized workspace source universe and return compact ranked or exhaustive source ranges without returning source contents."
     public static let risk: ActionRisk = .observe
 
     public let searcher: SourceSearcher
@@ -399,10 +419,11 @@ public struct SearchSourcesTool: TypedInstanceAgentTool {
                 )
             },
             options: SearchOptions(
+                mode: decoded.mode.searchMode,
                 strategy: decoded.strategy.searchStrategy,
                 caseSensitive: decoded.caseSensitive,
                 minimumScore: decoded.minimumScore,
-                maximumResults: decoded.maximumResults
+                maximumResults: nil
             ),
             frontierOptions: SearchFrontierOptions(
                 mergeDistanceLines: decoded.mergeDistanceLines,
@@ -437,8 +458,12 @@ public struct SearchSourcesTool: TypedInstanceAgentTool {
         return .init(
             projection: .init(
                 status: "passed",
-                summary: "Source search returned \(result.candidates.count) ranked candidate region(s) across \(result.sourceCount) retained source(s).",
+                summary: "Source search (\(result.mode.rawValue)) returned \(result.returnedCandidateCount) of \(result.totalCandidateCount) candidate region(s) across \(result.sourceCount) retained source(s).",
                 facts: [
+                    .init(
+                        label: "mode",
+                        value: result.mode.rawValue
+                    ),
                     .init(
                         label: "sources",
                         value: String(
@@ -452,9 +477,39 @@ public struct SearchSourcesTool: TypedInstanceAgentTool {
                         )
                     ),
                     .init(
-                        label: "candidates",
+                        label: "matched_documents",
                         value: String(
-                            result.candidates.count
+                            result.matchedDocumentCount
+                        )
+                    ),
+                    .init(
+                        label: "candidate_regions",
+                        value: String(
+                            result.candidateCount
+                        )
+                    ),
+                    .init(
+                        label: "total_candidate_regions",
+                        value: String(
+                            result.totalCandidateCount
+                        )
+                    ),
+                    .init(
+                        label: "returned_candidates",
+                        value: String(
+                            result.returnedCandidateCount
+                        )
+                    ),
+                    .init(
+                        label: "truncated",
+                        value: String(
+                            result.truncated
+                        )
+                    ),
+                    .init(
+                        label: "has_more",
+                        value: String(
+                            result.hasMore
                         )
                     ),
                     .init(

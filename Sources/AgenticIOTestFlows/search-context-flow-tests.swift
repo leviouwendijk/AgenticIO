@@ -61,7 +61,6 @@ extension AgenticIOFlowTesting {
                     ],
                     strategy: .contains,
                     caseSensitive: true,
-                    maximumResults: 16,
                     mergeDistanceLines: 1,
                     maximumCandidates: 8
                 )

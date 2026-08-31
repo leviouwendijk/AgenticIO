@@ -24,7 +24,11 @@ public struct SourceSearchRequest: Sendable {
         self.rootID = rootID
         self.definition = definition
         self.queries = queries
-        self.options = options
+
+        var completeOptions = options
+        completeOptions.maximumResults = nil
+
+        self.options = completeOptions
         self.frontierOptions = frontierOptions
     }
 }
@@ -117,20 +121,41 @@ public struct SourceSearchResult:
     Sendable,
     Codable
 {
+    public let mode: SearchMode
     public let corpusFingerprint: ContentFingerprint
     public let sourceCount: Int
     public let searchedDocumentCount: Int
+    public let matchedDocumentCount: Int
+    public let candidateCount: Int
+    public let totalCandidateCount: Int
+    public let returnedCandidateCount: Int
+    public let truncated: Bool
+    public let hasMore: Bool
     public let candidates: [SourceSearchCandidate]
 
     public init(
+        mode: SearchMode,
         corpusFingerprint: ContentFingerprint,
         sourceCount: Int,
         searchedDocumentCount: Int,
+        matchedDocumentCount: Int,
+        candidateCount: Int,
+        totalCandidateCount: Int,
+        returnedCandidateCount: Int,
+        truncated: Bool,
+        hasMore: Bool,
         candidates: [SourceSearchCandidate]
     ) {
+        self.mode = mode
         self.corpusFingerprint = corpusFingerprint
         self.sourceCount = sourceCount
         self.searchedDocumentCount = searchedDocumentCount
+        self.matchedDocumentCount = matchedDocumentCount
+        self.candidateCount = candidateCount
+        self.totalCandidateCount = totalCandidateCount
+        self.returnedCandidateCount = returnedCandidateCount
+        self.truncated = truncated
+        self.hasMore = hasMore
         self.candidates = candidates
     }
 }
@@ -246,9 +271,16 @@ public actor SourceSearcher {
         )
 
         return SourceSearchResult(
+            mode: frontier.mode,
             corpusFingerprint: materialization.snapshot.fingerprint,
             sourceCount: materialization.sources.count,
             searchedDocumentCount: searchCorpus.count,
+            matchedDocumentCount: frontier.matchedDocumentCount,
+            candidateCount: frontier.candidateCount,
+            totalCandidateCount: frontier.totalCandidateCount,
+            returnedCandidateCount: frontier.returnedCandidateCount,
+            truncated: frontier.truncated,
+            hasMore: frontier.hasMore,
             candidates: frontier.candidates.map(
                 sourceCandidate
             )
