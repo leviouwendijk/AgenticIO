@@ -19,6 +19,7 @@ public enum FindPathsStrategy:
     case exact
     case prefix
     case contains
+    case identifier
     case subsequence
     case fuzzy
 
@@ -30,6 +31,8 @@ public enum FindPathsStrategy:
             return .prefix
         case .contains:
             return .contains
+        case .identifier:
+            return .identifier
         case .subsequence:
             return .subsequence
         case .fuzzy:
@@ -47,6 +50,8 @@ public enum FindPathsStrategy:
             self = .prefix
         case .contains:
             self = .contains
+        case .identifier:
+            self = .identifier
         case .subsequence:
             self = .subsequence
         case .fuzzy:
