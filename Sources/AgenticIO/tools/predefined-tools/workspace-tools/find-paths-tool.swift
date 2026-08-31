@@ -36,6 +36,23 @@ public enum FindPathsStrategy:
             return .fuzzy
         }
     }
+
+    init(
+        searchStrategy: SearchStrategy
+    ) {
+        switch searchStrategy {
+        case .exact:
+            self = .exact
+        case .prefix:
+            self = .prefix
+        case .contains:
+            self = .contains
+        case .subsequence:
+            self = .subsequence
+        case .fuzzy:
+            self = .fuzzy
+        }
+    }
 }
 
 @JSONSchema
@@ -123,13 +140,32 @@ public struct FindPathsToolInput: Sendable, Codable, Hashable {
     }
 }
 
+public struct FindPathsToolEvidence: Sendable, Codable, Hashable {
+    public let queryID: String?
+    public let query: String
+    public let strategy: FindPathsStrategy
+    public let score: Int
+
+    public init(
+        queryID: String? = nil,
+        query: String,
+        strategy: FindPathsStrategy,
+        score: Int
+    ) {
+        self.queryID = queryID
+        self.query = query
+        self.strategy = strategy
+        self.score = score
+    }
+}
+
 public struct FindPathsToolEntry: Sendable, Codable, Hashable {
     public let rootID: String
     public let path: String
     public let isDirectory: Bool
     public let score: Int?
     public let probeCount: Int?
-    public let evidence: [SearchEvidence]?
+    public let evidence: [FindPathsToolEvidence]?
 
     public init(
         rootID: String,
@@ -137,7 +173,7 @@ public struct FindPathsToolEntry: Sendable, Codable, Hashable {
         isDirectory: Bool,
         score: Int? = nil,
         probeCount: Int? = nil,
-        evidence: [SearchEvidence]? = nil
+        evidence: [FindPathsToolEvidence]? = nil
     ) {
         self.rootID = rootID
         self.path = path
@@ -340,7 +376,16 @@ public struct FindPathsTool: TypedInstanceAgentTool {
                         isDirectory: hit.documentID.isDirectory,
                         score: hit.score.value,
                         probeCount: hit.evidence.count,
-                        evidence: hit.evidence
+                        evidence: hit.evidence.map { evidence in
+                            FindPathsToolEvidence(
+                                queryID: evidence.queryID,
+                                query: evidence.query,
+                                strategy: FindPathsStrategy(
+                                    searchStrategy: evidence.strategy
+                                ),
+                                score: evidence.score.value
+                            )
+                        }
                     )
                 },
                 truncated: result.candidateCount > result.hits.count,

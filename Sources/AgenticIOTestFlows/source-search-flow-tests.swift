@@ -26,10 +26,13 @@ enum AgenticIOFlowTesting {
         try await proveSelectedSliceRebasing(
             fixture
         )
+        try await proveSourceFrontierDiversity(
+            fixture
+        )
 
         return [
             .message(
-                "search_sources is schema-derived, workspace-authorized, retained through Concatenation, and rebases Search slice lines to source coordinates"
+                "search_sources is schema-derived, workspace-authorized, retained through Concatenation, rebases source coordinates, and bounds repeated candidate regions per source document"
             ),
         ]
     }
@@ -65,6 +68,11 @@ private extension AgenticIOFlowTesting {
             schema,
             "subsequence",
             "search_sources schema derives strategy enum cases"
+        )
+        try Expect.contains(
+            schema,
+            "maximumCandidatesPerDocument",
+            "search_sources schema exposes per-document frontier diversity"
         )
 
         let tool = SearchSourcesTool()
@@ -126,6 +134,94 @@ private extension AgenticIOFlowTesting {
             candidate.lineRange.end,
             4,
             "source search merged candidate end line"
+        )
+    }
+
+    static func proveSourceFrontierDiversity(
+        _ fixture: SourceSearchFixture
+    ) async throws {
+        let sources = fixture.root.appendingPathComponent(
+            "Sources",
+            isDirectory: true
+        )
+
+        try """
+        needle alpha
+        gap
+        needle beta
+        gap
+        needle gamma
+        """.write(
+            to: sources.appendingPathComponent(
+                "DiversityA.swift"
+            ),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        try """
+        needle delta
+        """.write(
+            to: sources.appendingPathComponent(
+                "DiversityB.swift"
+            ),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let output = try await SearchSourcesTool().call(
+            input: try JSONToolBridge.encode(
+                SearchSourcesToolInput(
+                    includes: [
+                        "Sources/DiversityA.swift",
+                        "Sources/DiversityB.swift",
+                    ],
+                    queries: [
+                        .init(
+                            text: "needle",
+                            id: "needle"
+                        ),
+                        .init(
+                            text: "alpha",
+                            id: "alpha",
+                            weight: 4
+                        ),
+                    ],
+                    strategy: .contains,
+                    caseSensitive: true,
+                    maximumResults: 8,
+                    mergeDistanceLines: 0,
+                    maximumCandidates: 3
+                )
+            ),
+            workspace: fixture.workspace
+        )
+        let result = try JSONToolBridge.decode(
+            SourceSearchResult.self,
+            from: output
+        )
+
+        try Expect.equal(
+            result.candidates.count,
+            3,
+            "source search fills the bounded diversified frontier"
+        )
+
+        let counts = Dictionary(
+            grouping: result.candidates,
+            by: \.path
+        )
+        .mapValues(\.count)
+
+        try Expect.equal(
+            counts["Sources/DiversityA.swift"] ?? 0,
+            2,
+            "source search defaults to at most two candidate regions per document"
+        )
+        try Expect.equal(
+            counts["Sources/DiversityB.swift"] ?? 0,
+            1,
+            "source search admits another matching document after the dominant document reaches its cap"
         )
     }
 

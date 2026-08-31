@@ -154,6 +154,10 @@ public struct SearchSourcesToolInput:
     @Schema(required: false)
     public let maximumCandidates: Int
 
+    /// Maximum candidate regions retained from any one Search document. Defaults to 2.
+    @Schema(required: false)
+    public let maximumCandidatesPerDocument: Int
+
     public init(
         rootID: PathAccessRootIdentifier = .project,
         includes: [String] = ["**"],
@@ -165,7 +169,8 @@ public struct SearchSourcesToolInput:
         minimumScore: Int = 1,
         maximumResults: Int = 32,
         mergeDistanceLines: Int = 3,
-        maximumCandidates: Int = 16
+        maximumCandidates: Int = 16,
+        maximumCandidatesPerDocument: Int = 2
     ) {
         self.rootID = rootID
         self.includes = includes.isEmpty
@@ -189,6 +194,10 @@ public struct SearchSourcesToolInput:
             0,
             maximumCandidates
         )
+        self.maximumCandidatesPerDocument = max(
+            0,
+            maximumCandidatesPerDocument
+        )
     }
 }
 
@@ -205,6 +214,7 @@ private extension SearchSourcesToolInput {
         case maximumResults
         case mergeDistanceLines
         case maximumCandidates
+        case maximumCandidatesPerDocument
     }
 }
 
@@ -260,7 +270,11 @@ public extension SearchSourcesToolInput {
             maximumCandidates: try container.decodeIfPresent(
                 Int.self,
                 forKey: .maximumCandidates
-            ) ?? 16
+            ) ?? 16,
+            maximumCandidatesPerDocument: try container.decodeIfPresent(
+                Int.self,
+                forKey: .maximumCandidatesPerDocument
+            ) ?? 2
         )
     }
 }
@@ -392,7 +406,8 @@ public struct SearchSourcesTool: TypedInstanceAgentTool {
             ),
             frontierOptions: SearchFrontierOptions(
                 mergeDistanceLines: decoded.mergeDistanceLines,
-                maximumCandidates: decoded.maximumCandidates
+                maximumCandidates: decoded.maximumCandidates,
+                maximumCandidatesPerDocument: decoded.maximumCandidatesPerDocument
             )
         )
 

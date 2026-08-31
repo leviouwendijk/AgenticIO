@@ -106,9 +106,19 @@ extension AgenticIOFlowTesting {
             "path evidence retains probe identity"
         )
         try Expect.equal(
-            (first.evidence ?? []).flatMap(\.spans).isEmpty,
-            false,
-            "path evidence retains exact Search spans"
+            (first.evidence ?? []).map(\.strategy),
+            [
+                .contains,
+                .contains,
+            ],
+            "path evidence retains compact matching strategy"
+        )
+        try Expect.equal(
+            (first.evidence ?? []).allSatisfy {
+                $0.score > 0
+            },
+            true,
+            "path evidence retains scalar probe scores without Search ranking internals"
         )
 
         let legacyOutput = try await FindPathsTool().call(
@@ -179,7 +189,7 @@ extension AgenticIOFlowTesting {
 
         return [
             .message(
-                "find_paths preserves its workspace scan surface while adapting path names into weighted Search ranking, evidence, and exact match spans"
+                "find_paths preserves its workspace scan surface while adapting path names into weighted Search ranking with compact model-facing evidence"
             ),
         ]
     }
