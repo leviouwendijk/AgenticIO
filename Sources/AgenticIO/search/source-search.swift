@@ -13,13 +13,15 @@ public struct SourceSearchRequest: Sendable {
     public let queries: [SearchQuery]
     public let options: SearchOptions
     public let frontierOptions: SearchFrontierOptions
+    public let expectedCorpusFingerprint: ContentFingerprint?
 
     public init(
         rootID: PathAccessRootIdentifier = .project,
         definition: ConcatenationCorpusDefinition,
         queries: [SearchQuery],
         options: SearchOptions = .defaults,
-        frontierOptions: SearchFrontierOptions = .defaults
+        frontierOptions: SearchFrontierOptions = .defaults,
+        expectedCorpusFingerprint: ContentFingerprint? = nil
     ) {
         self.rootID = rootID
         self.definition = definition
@@ -30,6 +32,7 @@ public struct SourceSearchRequest: Sendable {
 
         self.options = completeOptions
         self.frontierOptions = frontierOptions
+        self.expectedCorpusFingerprint = expectedCorpusFingerprint
     }
 }
 
@@ -126,9 +129,11 @@ public struct SourceSearchResult:
     public let sourceCount: Int
     public let searchedDocumentCount: Int
     public let matchedDocumentCount: Int
-    public let candidateCount: Int
+    public let discoveredCandidateCount: Int
     public let totalCandidateCount: Int
+    public let offset: Int
     public let returnedCandidateCount: Int
+    public let nextOffset: Int?
     public let truncated: Bool
     public let hasMore: Bool
     public let candidates: [SourceSearchCandidate]
@@ -139,9 +144,11 @@ public struct SourceSearchResult:
         sourceCount: Int,
         searchedDocumentCount: Int,
         matchedDocumentCount: Int,
-        candidateCount: Int,
+        discoveredCandidateCount: Int,
         totalCandidateCount: Int,
+        offset: Int,
         returnedCandidateCount: Int,
+        nextOffset: Int?,
         truncated: Bool,
         hasMore: Bool,
         candidates: [SourceSearchCandidate]
@@ -151,9 +158,11 @@ public struct SourceSearchResult:
         self.sourceCount = sourceCount
         self.searchedDocumentCount = searchedDocumentCount
         self.matchedDocumentCount = matchedDocumentCount
-        self.candidateCount = candidateCount
+        self.discoveredCandidateCount = discoveredCandidateCount
         self.totalCandidateCount = totalCandidateCount
+        self.offset = offset
         self.returnedCandidateCount = returnedCandidateCount
+        self.nextOffset = nextOffset
         self.truncated = truncated
         self.hasMore = hasMore
         self.candidates = candidates
@@ -168,6 +177,10 @@ public enum SourceSearchError:
     case emptyQueries
     case sourceOutsideAuthorizedRoot(URL)
     case missingMaterialization(URL)
+    case staleCorpus(
+        expected: ContentFingerprint,
+        actual: ContentFingerprint
+    )
 
     public var errorDescription: String? {
         switch self {
@@ -179,6 +192,9 @@ public enum SourceSearchError:
 
         case .missingMaterialization(let root):
             return "Source search refresh did not produce retained materialization for \(root.path)."
+
+        case .staleCorpus(let expected, let actual):
+            return "Source search continuation is stale. Expected corpus fingerprint \(expected), but current corpus fingerprint is \(actual). Restart from offset 0."
         }
     }
 }
@@ -258,6 +274,17 @@ public actor SourceSearcher {
             )
         }
 
+        let corpusFingerprint = materialization.snapshot.fingerprint
+
+        if let expectedCorpusFingerprint = request.expectedCorpusFingerprint,
+           expectedCorpusFingerprint != corpusFingerprint
+        {
+            throw SourceSearchError.staleCorpus(
+                expected: expectedCorpusFingerprint,
+                actual: corpusFingerprint
+            )
+        }
+
         let searchCorpus = makeSearchCorpus(
             materialization
         )
@@ -272,13 +299,15 @@ public actor SourceSearcher {
 
         return SourceSearchResult(
             mode: frontier.mode,
-            corpusFingerprint: materialization.snapshot.fingerprint,
+            corpusFingerprint: corpusFingerprint,
             sourceCount: materialization.sources.count,
             searchedDocumentCount: searchCorpus.count,
             matchedDocumentCount: frontier.matchedDocumentCount,
-            candidateCount: frontier.candidateCount,
+            discoveredCandidateCount: frontier.discoveredCandidateCount,
             totalCandidateCount: frontier.totalCandidateCount,
+            offset: frontier.offset,
             returnedCandidateCount: frontier.returnedCandidateCount,
+            nextOffset: frontier.nextOffset,
             truncated: frontier.truncated,
             hasMore: frontier.hasMore,
             candidates: frontier.candidates.map(

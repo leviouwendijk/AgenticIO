@@ -127,7 +127,7 @@ public extension SourceSearchQueryInput {
     }
 }
 
-/// Search file content inside one authorized workspace source universe and return compact ranked source ranges without returning file contents.
+/// Search file content inside one authorized workspace source universe and return compact ranked or exhaustive source ranges without returning file contents.
 @JSONSchema
 public struct SearchSourcesToolInput:
     Sendable,
@@ -169,6 +169,14 @@ public struct SearchSourcesToolInput:
     @Schema(required: false)
     public let minimumScore: Int
 
+    /// Zero-based position in the deterministic semantic candidate universe. Defaults to 0.
+    @Schema(required: false)
+    public let offset: Int
+
+    /// Optional corpus fingerprint from a previous page. Continuation fails if the current source universe changed.
+    @Schema(required: false)
+    public let expectedCorpusFingerprint: SourceFingerprintInput?
+
     /// Maximum source-line distance used to merge nearby evidence into one frontier candidate. Defaults to 3.
     @Schema(required: false)
     public let mergeDistanceLines: Int
@@ -191,6 +199,8 @@ public struct SearchSourcesToolInput:
         strategy: SourceSearchStrategy = .fuzzy,
         caseSensitive: Bool = false,
         minimumScore: Int = 1,
+        offset: Int = 0,
+        expectedCorpusFingerprint: SourceFingerprintInput? = nil,
         mergeDistanceLines: Int = 3,
         maximumCandidates: Int = 16,
         maximumCandidatesPerDocument: Int = 2
@@ -206,6 +216,11 @@ public struct SearchSourcesToolInput:
         self.strategy = strategy
         self.caseSensitive = caseSensitive
         self.minimumScore = minimumScore
+        self.offset = max(
+            0,
+            offset
+        )
+        self.expectedCorpusFingerprint = expectedCorpusFingerprint
         self.mergeDistanceLines = max(
             0,
             mergeDistanceLines
@@ -232,6 +247,8 @@ private extension SearchSourcesToolInput {
         case strategy
         case caseSensitive
         case minimumScore
+        case offset
+        case expectedCorpusFingerprint
         case mergeDistanceLines
         case maximumCandidates
         case maximumCandidatesPerDocument
@@ -283,6 +300,14 @@ public extension SearchSourcesToolInput {
                 Int.self,
                 forKey: .minimumScore
             ) ?? 1,
+            offset: try container.decodeIfPresent(
+                Int.self,
+                forKey: .offset
+            ) ?? 0,
+            expectedCorpusFingerprint: try container.decodeIfPresent(
+                SourceFingerprintInput.self,
+                forKey: .expectedCorpusFingerprint
+            ),
             mergeDistanceLines: try container.decodeIfPresent(
                 Int.self,
                 forKey: .mergeDistanceLines
@@ -428,8 +453,10 @@ public struct SearchSourcesTool: TypedInstanceAgentTool {
             frontierOptions: SearchFrontierOptions(
                 mergeDistanceLines: decoded.mergeDistanceLines,
                 maximumCandidates: decoded.maximumCandidates,
-                maximumCandidatesPerDocument: decoded.maximumCandidatesPerDocument
-            )
+                maximumCandidatesPerDocument: decoded.maximumCandidatesPerDocument,
+                offset: decoded.offset
+            ),
+            expectedCorpusFingerprint: decoded.expectedCorpusFingerprint?.fingerprint
         )
 
         let result = try await searcher.search(
@@ -458,7 +485,7 @@ public struct SearchSourcesTool: TypedInstanceAgentTool {
         return .init(
             projection: .init(
                 status: "passed",
-                summary: "Source search (\(result.mode.rawValue)) returned \(result.returnedCandidateCount) of \(result.totalCandidateCount) candidate region(s) across \(result.sourceCount) retained source(s).",
+                summary: "Source search (\(result.mode.rawValue)) returned \(result.returnedCandidateCount) of \(result.totalCandidateCount) candidate region(s) from offset \(result.offset) across \(result.sourceCount) retained source(s).",
                 facts: [
                     .init(
                         label: "mode",
@@ -483,9 +510,9 @@ public struct SearchSourcesTool: TypedInstanceAgentTool {
                         )
                     ),
                     .init(
-                        label: "candidate_regions",
+                        label: "discovered_candidate_regions",
                         value: String(
-                            result.candidateCount
+                            result.discoveredCandidateCount
                         )
                     ),
                     .init(
@@ -495,10 +522,24 @@ public struct SearchSourcesTool: TypedInstanceAgentTool {
                         )
                     ),
                     .init(
+                        label: "offset",
+                        value: String(
+                            result.offset
+                        )
+                    ),
+                    .init(
                         label: "returned_candidates",
                         value: String(
                             result.returnedCandidateCount
                         )
+                    ),
+                    .init(
+                        label: "next_offset",
+                        value: result.nextOffset.map {
+                            String(
+                                $0
+                            )
+                        } ?? "none"
                     ),
                     .init(
                         label: "truncated",

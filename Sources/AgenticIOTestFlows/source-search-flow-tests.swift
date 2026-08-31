@@ -31,6 +31,9 @@ enum AgenticIOFlowTesting {
         try await proveSourceFrontierDiversity(
             fixture
         )
+        try await proveStatelessContinuation(
+            fixture
+        )
 
         return [
             .message(
@@ -117,6 +120,16 @@ private extension AgenticIOFlowTesting {
             schema.contains("maximumResults"),
             false,
             "search_sources does not expose a pre-frontier Search hit delivery limit"
+        )
+        try Expect.contains(
+            schema,
+            "offset",
+            "search_sources schema exposes stateless continuation offset"
+        )
+        try Expect.contains(
+            schema,
+            "expectedCorpusFingerprint",
+            "search_sources schema exposes continuation freshness guard"
         )
 
         let tool = SearchSourcesTool()
@@ -296,6 +309,196 @@ private extension AgenticIOFlowTesting {
             counts["Sources/DiversityB.swift"] ?? 0,
             1,
             "source search admits another matching document after the dominant document reaches its cap"
+        )
+    }
+
+    static func proveStatelessContinuation(
+        _ fixture: SourceSearchFixture
+    ) async throws {
+        let definition = ConcatenationCorpusDefinition(
+            selections: [
+                PathSelectionExpression(
+                    path: try PathParse.expression(
+                        "Sources/A.swift"
+                    ),
+                    content: .lines(
+                        LineRange(
+                            uncheckedStart: 1,
+                            uncheckedEnd: 5
+                        )
+                    )
+                ),
+            ]
+        )
+        let queries = [
+            SearchQuery(
+                "needle",
+                id: "needle"
+            ),
+        ]
+        let options = SearchOptions(
+            mode: .exhaustive,
+            strategy: .contains,
+            caseSensitive: true,
+            minimumScore: 1,
+            maximumResults: nil
+        )
+        let searcher = SourceSearcher()
+
+        let first = try await searcher.search(
+            SourceSearchRequest(
+                definition: definition,
+                queries: queries,
+                options: options,
+                frontierOptions: SearchFrontierOptions(
+                    mergeDistanceLines: 0,
+                    maximumCandidates: 1,
+                    maximumCandidatesPerDocument: 1,
+                    offset: 0
+                )
+            ),
+            workspace: fixture.workspace
+        )
+
+        try Expect.equal(
+            first.discoveredCandidateCount,
+            2,
+            "source continuation discovers both candidate regions"
+        )
+        try Expect.equal(
+            first.totalCandidateCount,
+            2,
+            "source continuation semantic universe contains both regions"
+        )
+        try Expect.equal(
+            first.offset,
+            0,
+            "source continuation first page starts at zero"
+        )
+        try Expect.equal(
+            first.returnedCandidateCount,
+            1,
+            "source continuation first page is bounded"
+        )
+        try Expect.equal(
+            first.nextOffset ?? -1,
+            1,
+            "source continuation first page exposes next offset"
+        )
+        try Expect.equal(
+            first.hasMore,
+            true,
+            "source continuation first page reports more results"
+        )
+
+        let second = try await searcher.search(
+            SourceSearchRequest(
+                definition: definition,
+                queries: queries,
+                options: options,
+                frontierOptions: SearchFrontierOptions(
+                    mergeDistanceLines: 0,
+                    maximumCandidates: 1,
+                    maximumCandidatesPerDocument: 1,
+                    offset: first.nextOffset ?? -1
+                ),
+                expectedCorpusFingerprint: first.corpusFingerprint
+            ),
+            workspace: fixture.workspace
+        )
+
+        try Expect.equal(
+            second.corpusFingerprint.description,
+            first.corpusFingerprint.description,
+            "source continuation keeps the same corpus fingerprint"
+        )
+        try Expect.equal(
+            second.offset,
+            1,
+            "source continuation second page preserves requested offset"
+        )
+        try Expect.equal(
+            second.returnedCandidateCount,
+            1,
+            "source continuation second page returns the remaining region"
+        )
+        try Expect.equal(
+            second.hasMore,
+            false,
+            "source continuation final page reports no later page"
+        )
+        try Expect.equal(
+            second.nextOffset == nil,
+            true,
+            "source continuation final page has no next offset"
+        )
+        try Expect.equal(
+            second.truncated,
+            true,
+            "source continuation final page remains a partial response"
+        )
+        try Expect.equal(
+            first.candidates[0].lineRange.start,
+            2,
+            "source continuation first page returns the first region"
+        )
+        try Expect.equal(
+            second.candidates[0].lineRange.start,
+            4,
+            "source continuation second page returns the next region"
+        )
+
+        let sourceA = fixture.root
+            .appendingPathComponent(
+                "Sources",
+                isDirectory: true
+            )
+            .appendingPathComponent(
+                "A.swift"
+            )
+
+        try "changed header\nneedle alpha\nmiddle\nneedle beta\nfooter\n".write(
+            to: sourceA,
+            atomically: true,
+            encoding: .utf8
+        )
+
+        var staleRejected = false
+
+        do {
+            _ = try await searcher.search(
+                SourceSearchRequest(
+                    definition: definition,
+                    queries: queries,
+                    options: options,
+                    frontierOptions: SearchFrontierOptions(
+                        mergeDistanceLines: 0,
+                        maximumCandidates: 1,
+                        maximumCandidatesPerDocument: 1,
+                        offset: 1
+                    ),
+                    expectedCorpusFingerprint: first.corpusFingerprint
+                ),
+                workspace: fixture.workspace
+            )
+        } catch let error as SourceSearchError {
+            switch error {
+            case .staleCorpus(let expected, let actual):
+                staleRejected =
+                    expected.description
+                        == first.corpusFingerprint.description
+                    && actual.description
+                        != expected.description
+
+            default:
+                throw error
+            }
+        }
+
+        try Expect.equal(
+            staleRejected,
+            true,
+            "source continuation rejects a page request after the corpus changes"
         )
     }
 
