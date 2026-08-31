@@ -31,6 +31,9 @@ enum AgenticIOFlowTesting {
         try await proveSourceFrontierDiversity(
             fixture
         )
+        try await proveIdentifierStrategy(
+            fixture
+        )
         try await proveStatelessContinuation(
             fixture
         )
@@ -100,6 +103,11 @@ private extension AgenticIOFlowTesting {
             schema,
             "subsequence",
             "search_sources schema derives strategy enum cases"
+        )
+        try Expect.contains(
+            schema,
+            "identifier",
+            "search_sources schema exposes identifier-boundary matching"
         )
         try Expect.contains(
             schema,
@@ -499,6 +507,98 @@ private extension AgenticIOFlowTesting {
             staleRejected,
             true,
             "source continuation rejects a page request after the corpus changes"
+        )
+    }
+
+    static func proveIdentifierStrategy(
+        _ fixture: SourceSearchFixture
+    ) async throws {
+        let source = fixture.root
+            .appendingPathComponent(
+                "Sources",
+                isDirectory: true
+            )
+            .appendingPathComponent(
+                "Identifier.swift"
+            )
+
+        try """
+        Foo
+        FooBar
+        MyFoo
+        Foo()
+        _Foo
+        Foo_
+        """.write(
+            to: source,
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let output = try await SearchSourcesTool().call(
+            input: try JSONToolBridge.encode(
+                SearchSourcesToolInput(
+                    includes: [
+                        "Sources/Identifier.swift",
+                    ],
+                    queries: [
+                        .init(
+                            text: "Foo",
+                            id: "Foo"
+                        ),
+                    ],
+                    mode: .exhaustive,
+                    strategy: .identifier,
+                    caseSensitive: true,
+                    mergeDistanceLines: 0,
+                    maximumCandidates: 16,
+                    maximumCandidatesPerDocument: 16
+                )
+            ),
+            workspace: fixture.workspace
+        )
+        let result = try JSONToolBridge.decode(
+            SourceSearchResult.self,
+            from: output
+        )
+
+        try Expect.equal(
+            result.matchedDocumentCount,
+            1,
+            "identifier source search matches the fixture document"
+        )
+        try Expect.equal(
+            result.discoveredCandidateCount,
+            2,
+            "identifier source search discovers only bounded Foo occurrences"
+        )
+        try Expect.equal(
+            result.totalCandidateCount,
+            2,
+            "identifier exhaustive search preserves both bounded occurrences"
+        )
+        try Expect.equal(
+            result.returnedCandidateCount,
+            2,
+            "identifier source search returns both bounded occurrences"
+        )
+        try Expect.equal(
+            result.candidates.map {
+                $0.lineRange.start
+            },
+            [
+                1,
+                4,
+            ],
+            "identifier source search excludes FooBar, MyFoo, _Foo, and Foo_"
+        )
+        try Expect.equal(
+            result.candidates.flatMap(\.evidence).map(\.strategy),
+            [
+                "identifier",
+                "identifier",
+            ],
+            "identifier source search preserves strategy provenance"
         )
     }
 

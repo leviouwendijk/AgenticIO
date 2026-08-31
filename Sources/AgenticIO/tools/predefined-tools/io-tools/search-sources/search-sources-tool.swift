@@ -21,6 +21,7 @@ public enum SourceSearchStrategy:
     case exact
     case prefix
     case contains
+    case identifier
     case subsequence
     case fuzzy
 
@@ -32,6 +33,8 @@ public enum SourceSearchStrategy:
             return .prefix
         case .contains:
             return .contains
+        case .identifier:
+            return .identifier
         case .subsequence:
             return .subsequence
         case .fuzzy:
