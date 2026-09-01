@@ -97,8 +97,8 @@ private extension AgenticIOFlowTesting {
 
         try Expect.contains(
             schema,
-            "queries",
-            "search_sources schema exposes queries"
+            "probes",
+            "search_sources schema exposes canonical probes"
         )
         try Expect.contains(
             schema,

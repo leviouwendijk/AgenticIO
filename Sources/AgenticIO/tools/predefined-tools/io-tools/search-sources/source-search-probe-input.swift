@@ -128,45 +128,17 @@ extension SearchSourcesToolInput {
     func resolvedSearchProbes(
         toolName: String
     ) throws -> [SearchProbe] {
-        let rich = probes
+        let resolved = probes
             .map(\.searchProbe)
             .filter {
                 !$0.isEmpty
             }
 
-        let legacy = queries
-            .map { query in
-                SearchProbe(
-                    SearchQuery(
-                        query.text,
-                        id: query.id,
-                        weight: query.weight
-                    ),
-                    role: .preferred,
-                    strategy: strategy.searchStrategy
-                )
-            }
-            .filter {
-                !$0.isEmpty
-            }
-
-        guard rich.isEmpty || legacy.isEmpty else {
-            throw PredefinedFileToolError.invalidValue(
-                tool: toolName,
-                field: "probes",
-                reason: "cannot be combined with non-empty legacy queries"
-            )
-        }
-
-        let resolved = rich.isEmpty
-            ? legacy
-            : rich
-
         guard !resolved.isEmpty else {
             throw PredefinedFileToolError.invalidValue(
                 tool: toolName,
                 field: "probes",
-                reason: "must contain at least one non-empty rich probe or legacy query"
+                reason: "must contain at least one non-empty search probe"
             )
         }
 

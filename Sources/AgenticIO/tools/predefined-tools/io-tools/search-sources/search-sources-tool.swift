@@ -153,21 +153,12 @@ public struct SearchSourcesToolInput:
     @Schema(required: false)
     public let selections: [String]
 
-    /// Rich deterministic search probes. Each probe owns its admission role and matching strategy. Do not combine with non-empty legacy queries.
-    @Schema(required: false)
+    /// Deterministic source-search probes. Each probe owns its admission role and matching strategy.
     public let probes: [SourceSearchProbeInput]
-
-    /// Legacy preferred probes using the shared top-level strategy. Do not combine with non-empty rich probes.
-    @Schema(required: false)
-    public let queries: [SourceSearchQueryInput]
 
     /// Search mode. Ranked applies ranking and source diversity before delivery; exhaustive preserves every matching region. Defaults to ranked.
     @Schema(required: false)
     public let mode: SourceSearchMode
-
-    /// Legacy shared text matching strategy used by queries. Rich probes own their strategies independently. Defaults to fuzzy.
-    @Schema(required: false)
-    public let strategy: SourceSearchStrategy
 
     /// Whether matching is case-sensitive. Defaults to false.
     @Schema(required: false)
@@ -202,10 +193,8 @@ public struct SearchSourcesToolInput:
         includes: [String] = ["**"],
         excludes: [String] = [],
         selections: [String] = [],
-        probes: [SourceSearchProbeInput] = [],
-        queries: [SourceSearchQueryInput] = [],
+        probes: [SourceSearchProbeInput],
         mode: SourceSearchMode = .ranked,
-        strategy: SourceSearchStrategy = .fuzzy,
         caseSensitive: Bool = false,
         minimumScore: Int = 1,
         offset: Int = 0,
@@ -221,9 +210,7 @@ public struct SearchSourcesToolInput:
         self.excludes = excludes
         self.selections = selections
         self.probes = probes
-        self.queries = queries
         self.mode = mode
-        self.strategy = strategy
         self.caseSensitive = caseSensitive
         self.minimumScore = minimumScore
         self.offset = max(
@@ -253,9 +240,7 @@ private extension SearchSourcesToolInput {
         case excludes
         case selections
         case probes
-        case queries
         case mode
-        case strategy
         case caseSensitive
         case minimumScore
         case offset
@@ -291,22 +276,14 @@ public extension SearchSourcesToolInput {
                 [String].self,
                 forKey: .selections
             ) ?? [],
-            probes: try container.decodeIfPresent(
+            probes: try container.decode(
                 [SourceSearchProbeInput].self,
                 forKey: .probes
-            ) ?? [],
-            queries: try container.decodeIfPresent(
-                [SourceSearchQueryInput].self,
-                forKey: .queries
-            ) ?? [],
+            ),
             mode: try container.decodeIfPresent(
                 SourceSearchMode.self,
                 forKey: .mode
             ) ?? .ranked,
-            strategy: try container.decodeIfPresent(
-                SourceSearchStrategy.self,
-                forKey: .strategy
-            ) ?? .fuzzy,
             caseSensitive: try container.decodeIfPresent(
                 Bool.self,
                 forKey: .caseSensitive
@@ -449,7 +426,6 @@ public struct SearchSourcesTool: TypedInstanceAgentTool {
             probes: probes,
             options: SearchOptions(
                 mode: decoded.mode.searchMode,
-                strategy: decoded.strategy.searchStrategy,
                 caseSensitive: decoded.caseSensitive,
                 minimumScore: decoded.minimumScore,
                 maximumResults: nil

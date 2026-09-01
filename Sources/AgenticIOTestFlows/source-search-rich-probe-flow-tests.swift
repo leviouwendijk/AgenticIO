@@ -36,10 +36,10 @@ extension AgenticIOFlowTesting {
             "excluded",
             "search_sources schema exposes excluded probe role"
         )
-        try Expect.contains(
-            schema,
-            "queries",
-            "search_sources schema retains legacy query compatibility"
+        try Expect.equal(
+            schema.contains("queries"),
+            false,
+            "search_sources schema omits the legacy queries representation"
         )
 
         let output = try await SearchSourcesTool().call(
