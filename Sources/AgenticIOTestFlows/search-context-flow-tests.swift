@@ -53,13 +53,14 @@ extension AgenticIOFlowTesting {
                     includes: [
                         "Sources/**",
                     ],
-                    queries: [
+                    probes: [
                         .init(
                             text: "needle",
-                            id: "needle"
+                            id: "needle",
+                            role: .preferred,
+                            strategy: .contains
                         ),
                     ],
-                    strategy: .contains,
                     caseSensitive: true,
                     mergeDistanceLines: 1,
                     maximumCandidates: 8

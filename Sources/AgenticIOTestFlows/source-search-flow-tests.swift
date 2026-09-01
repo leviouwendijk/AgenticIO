@@ -146,14 +146,15 @@ private extension AgenticIOFlowTesting {
             includes: [
                 "Sources/**",
             ],
-            queries: [
+            probes: [
                 .init(
                     text: "needle",
-                    id: "needle"
+                    id: "needle",
+                    role: .preferred,
+                    strategy: .contains
                 ),
             ],
             mode: .ranked,
-            strategy: .contains,
             caseSensitive: true,
             mergeDistanceLines: 1,
             maximumCandidates: 8
@@ -272,19 +273,22 @@ private extension AgenticIOFlowTesting {
                         "Sources/DiversityA.swift",
                         "Sources/DiversityB.swift",
                     ],
-                    queries: [
+                    probes: [
                         .init(
                             text: "needle",
-                            id: "needle"
+                            id: "needle",
+                            role: .preferred,
+                            strategy: .contains
                         ),
                         .init(
                             text: "alpha",
                             id: "alpha",
-                            weight: 4
+                            weight: 4,
+                            role: .preferred,
+                            strategy: .contains
                         ),
                     ],
                     mode: .ranked,
-                    strategy: .contains,
                     caseSensitive: true,
                     mergeDistanceLines: 0,
                     maximumCandidates: 3
@@ -542,14 +546,15 @@ private extension AgenticIOFlowTesting {
                     includes: [
                         "Sources/Identifier.swift",
                     ],
-                    queries: [
+                    probes: [
                         .init(
                             text: "Foo",
-                            id: "Foo"
+                            id: "Foo",
+                            role: .preferred,
+                            strategy: .identifier
                         ),
                     ],
                     mode: .exhaustive,
-                    strategy: .identifier,
                     caseSensitive: true,
                     mergeDistanceLines: 0,
                     maximumCandidates: 16,
