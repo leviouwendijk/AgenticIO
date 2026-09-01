@@ -27,6 +27,7 @@ public struct CoreFileToolSet: AgentToolSet {
             ScanPathsTool()
             SearchSourcesTool()
             LoadSearchContextTool()
+            ProveSearchResultsTool()
         }
     }
 }

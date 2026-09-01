@@ -36,6 +36,18 @@ enum AgenticIOFlowSuite: TestFlowRegistry {
             try await AgenticIOFlowTesting.runSourceSearch()
         },
         TestFlow(
+            "search-proof",
+            tags: [
+                "agentic-io",
+                "search",
+                "parsing",
+                "proof",
+                "freshness",
+            ]
+        ) {
+            try await AgenticIOFlowTesting.runSearchProof()
+        },
+        TestFlow(
             "search-context",
             tags: [
                 "agentic-io",

@@ -87,6 +87,10 @@ let package = Package(
             branch: "master"
         ),
         .package(
+            url: "https://github.com/leviouwendijk/Parsing.git",
+            branch: "master"
+        ),
+        .package(
             url: "https://github.com/leviouwendijk/TestFlows.git",
             branch: "master"
         ),
@@ -162,6 +166,10 @@ let package = Package(
                 .product(
                     name: "Search",
                     package: "Search"
+                ),
+                .product(
+                    name: "Parsing",
+                    package: "Parsing"
                 ),
             ]
         ),
