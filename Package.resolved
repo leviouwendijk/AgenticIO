@@ -1,5 +1,5 @@
 {
-  "originHash" : "ded87785ff19a7ef197e75cd23f48bf68e8fc146ff402d4e6c78875a76dd38ff",
+  "originHash" : "5418e5d11fb694eb53508f58c1145a946ae1535bf352d0d0f62d9b88c4a7a487",
   "pins" : [
     {
       "identity" : "agentic",
@@ -16,7 +16,7 @@
       "location" : "https://github.com/leviouwendijk/AgenticExecution.git",
       "state" : {
         "branch" : "master",
-        "revision" : "b019d936fcc69522b24f00d3ff3049ff26597d64"
+        "revision" : "1bd03cd15c2cae75ad95b70ba3beb8b11cc32b81"
       }
     },
     {
@@ -74,6 +74,15 @@
       }
     },
     {
+      "identity" : "dsl",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/leviouwendijk/DSL.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "9efff74e61ff3679fce19f3cbf6df09c3bc23691"
+      }
+    },
+    {
       "identity" : "filetypes",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/leviouwendijk/FileTypes.git",
@@ -97,7 +106,7 @@
       "location" : "https://github.com/leviouwendijk/Guidelines.git",
       "state" : {
         "branch" : "master",
-        "revision" : "a39e1130e31588a1f21dc24aeeb8fb0a1357c7f1"
+        "revision" : "0a5bd3f30af7eaeb79c0ac37007f10322920f95a"
       }
     },
     {

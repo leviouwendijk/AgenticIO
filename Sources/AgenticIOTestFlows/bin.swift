@@ -59,5 +59,17 @@ enum AgenticIOFlowSuite: TestFlowRegistry {
         ) {
             try await AgenticIOFlowTesting.runSearchContext()
         },
+        TestFlow(
+            "read-file-policy",
+            tags: [
+                "agentic-io",
+                "read-file",
+                "policy",
+                "sensitivity",
+                "approval",
+            ]
+        ) {
+            try await AgenticIOFlowTesting.runReadFilePolicy()
+        },
     ]
 }

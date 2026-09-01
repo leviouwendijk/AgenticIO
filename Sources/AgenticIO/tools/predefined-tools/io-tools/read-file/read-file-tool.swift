@@ -1,6 +1,7 @@
 import Agentic
 import AgenticExecution
 import AgenticWorkspace
+import Path
 import Primitives
 import Schema
 
@@ -31,6 +32,10 @@ public struct ReadFileTool: TypedInstanceAgentTool {
         input: JSONValue,
         workspace: AgentWorkspace?
     ) async throws -> ToolPreflight {
+        let workspace = try FileToolSupport.requireWorkspace(
+            workspace,
+            toolName: name
+        )
         let decoded = try JSONToolBridge.decode(
             ReadFileToolInput.self,
             from: input
@@ -42,13 +47,17 @@ public struct ReadFileTool: TypedInstanceAgentTool {
             maxLines: decoded.maxLines
         )
 
-        let targetPath = try FileToolAccess.presentationPath(
+        let authorized = try FileToolAccess.authorize(
             workspace: workspace,
             rootID: decoded.rootID,
             path: decoded.path,
+            capability: .read,
+            toolName: name,
             type: .file
         )
-
+        let sensitivity = sensitivityAssessment(
+            for: authorized
+        )
         let estimatedReadLines = estimatedLineCount(
             for: decoded
         )
@@ -56,13 +65,14 @@ public struct ReadFileTool: TypedInstanceAgentTool {
         return .init(
             toolName: name,
             risk: risk,
-            workspaceRoot: workspace?.rootURL.path,
+            workspaceRoot: workspace.rootURL.path,
             targetPaths: [
-                targetPath
+                authorized.presentationPath
             ],
             summary: summary(
                 for: decoded,
-                renderedPath: targetPath
+                renderedPath: authorized.presentationPath,
+                sensitivityReason: sensitivity.summaryReason
             ),
             rootIDs: [
                 decoded.rootID.rawValue
@@ -74,9 +84,13 @@ public struct ReadFileTool: TypedInstanceAgentTool {
             estimatedFileReadCount: 1,
             policyChecks: [
                 "workspace_required",
-                "root_path_resolved",
-                "read_window_validated"
-            ]
+                "root_path_authorized",
+                "read_capability_authorized",
+                "read_window_validated",
+                "path_sensitivity_profile:\(PathSensitivityProfile.agenticConservative.id)"
+            ] + sensitivity.policyChecks,
+            warnings: sensitivity.warnings,
+            policyDirectives: sensitivity.directives
         )
     }
 
@@ -164,9 +178,17 @@ public struct ReadFileTool: TypedInstanceAgentTool {
 }
 
 private extension ReadFileTool {
+    struct SensitivityAssessment {
+        let directives: [ToolPolicyDirective]
+        let policyChecks: [String]
+        let warnings: [String]
+        let summaryReason: String?
+    }
+
     func summary(
         for input: ReadFileToolInput,
-        renderedPath: String
+        renderedPath: String,
+        sensitivityReason: String?
     ) -> String {
         var parts: [String] = []
 
@@ -197,11 +219,66 @@ private extension ReadFileTool {
             )
         }
 
-        guard !parts.isEmpty else {
-            return "Read file \(renderedPath)"
+        let base: String
+
+        if parts.isEmpty {
+            base = "Read file \(renderedPath)"
+        } else {
+            base = "Read file \(renderedPath) (\(parts.joined(separator: ", ")))"
         }
 
-        return "Read file \(renderedPath) (\(parts.joined(separator: ", ")))"
+        guard let sensitivityReason else {
+            return base
+        }
+
+        return "\(base). Sensitive path: \(sensitivityReason)"
+    }
+
+    func sensitivityAssessment(
+        for authorized: AgenticAuthorizedPath
+    ) -> SensitivityAssessment {
+        let rules = PathSensitivityProfile.agenticConservative
+            .matchedRules(
+                for: authorized.path,
+                type: .file
+            )
+        let strongest = PathSensitivityAction.strongest(
+            rules.map(\.action)
+        )
+
+        let directives: [ToolPolicyDirective]
+
+        switch strongest {
+        case .warn_only:
+            directives = []
+
+        case .suggest_deny:
+            directives = [
+                .require_human_review,
+            ]
+
+        case .require_deny:
+            directives = [
+                .require_deny,
+            ]
+        }
+
+        let primaryRule = rules.max {
+            $0.action.priority < $1.action.priority
+        }
+
+        return .init(
+            directives: directives,
+            policyChecks: rules.map {
+                "path_sensitivity_rule:\($0.id)"
+            },
+            warnings: rules.map {
+                "Path sensitivity: \($0.reason)"
+            },
+            summaryReason: strongest == .warn_only
+                ? nil
+                : primaryRule?.reason
+        )
     }
 
     func estimatedLineCount(
