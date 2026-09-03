@@ -251,7 +251,10 @@ public struct MutateFilesToolOutput: Sendable, Codable, Hashable {
     }
 }
 
-public struct MutateFilesTool: TypedInstanceAgentTool {
+public struct MutateFilesTool:
+    TypedInstanceAgentTool,
+    WorkspaceTargetableTool
+{
     public typealias Input = MutateFilesToolInput
 
     public static let identifier: AgentToolIdentifier = .mutate_files
@@ -360,6 +363,31 @@ public struct MutateFilesTool: TypedInstanceAgentTool {
         )
     }
 
+    public func preflight(
+        input: JSONValue,
+        context toolContext: AgentToolExecutionContext
+    ) async throws -> ToolPreflight {
+        let decoded = try JSONToolBridge.decode(
+            MutateFilesToolInput.self,
+            from: input
+        )
+        let targetedInput = try workspaceTargetedInput(
+            decoded,
+            context: toolContext
+        )
+
+        return try await Self(
+            context: mergedMutationContext(
+                toolContext: toolContext
+            )
+        ).preflight(
+            input: try JSONToolBridge.encode(
+                targetedInput
+            ),
+            workspace: toolContext.workspace
+        )
+    }
+
     public func call(
         input: JSONValue,
         workspace: AgentWorkspace?
@@ -409,22 +437,26 @@ public struct MutateFilesTool: TypedInstanceAgentTool {
 
     public func call(
         input: JSONValue,
-        context: AgentToolExecutionContext
+        context toolContext: AgentToolExecutionContext
     ) async throws -> JSONValue {
         let decoded = try JSONToolBridge.decode(
             MutateFilesToolInput.self,
             from: input
         )
+        let targetedInput = try workspaceTargetedInput(
+            decoded,
+            context: toolContext
+        )
 
         return try await Self(
             context: mergedMutationContext(
-                toolContext: context
+                toolContext: toolContext
             )
         ).call(
             input: try JSONToolBridge.encode(
-                decoded
+                targetedInput
             ),
-            workspace: context.workspace
+            workspace: toolContext.workspace
         )
     }
 
@@ -568,6 +600,66 @@ public struct MutateFilesTool: TypedInstanceAgentTool {
 }
 
 private extension MutateFilesTool {
+    func workspaceTargetedInput(
+        _ input: MutateFilesToolInput,
+        context toolContext: AgentToolExecutionContext
+    ) throws -> MutateFilesToolInput {
+        guard let location = toolContext.workspaceLocation else {
+            return input
+        }
+
+        let workspace = try FileToolSupport.requireWorkspace(
+            toolContext.workspace,
+            toolName: name
+        )
+        let entries = try input.entries.map { entry in
+            let rootID = entry.rootID ?? input.rootID
+            let path = try workspace.resolve(
+                entry.path,
+                relativeTo: location,
+                rootID: rootID,
+                type: .file
+            ).presentingRelative(
+                filetype: true
+            )
+            let destination: String?
+
+            if entry.kind == .move {
+                destination = try workspace.resolve(
+                    entry.requiredDestination(
+                        toolName: name
+                    ),
+                    relativeTo: location,
+                    rootID: rootID,
+                    type: .file
+                ).presentingRelative(
+                    filetype: true
+                )
+            } else {
+                destination = entry.destination
+            }
+
+            return MutateFilesToolEntry(
+                kind: entry.kind,
+                rootID: entry.rootID,
+                path: path,
+                content: entry.content,
+                replacePolicy: entry.replacePolicy,
+                deletePolicy: entry.deletePolicy,
+                operations: entry.operations,
+                destination: destination,
+                createParentDirectories: entry.createParentDirectories
+            )
+        }
+
+        return MutateFilesToolInput(
+            reason: input.reason,
+            rootID: input.rootID,
+            failurePolicy: input.failurePolicy,
+            entries: entries
+        )
+    }
+
     func workspaceWriter(
         _ workspace: AgentWorkspace
     ) -> WorkspaceWriter {

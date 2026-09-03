@@ -14,6 +14,18 @@ enum AgenticIOFlowSuite: TestFlowRegistry {
 
     static let flows: [TestFlow] = [
         TestFlow(
+            "mutate-files-workspace-targeting",
+            tags: [
+                "agentic-io",
+                "mutation",
+                "workspace-targeting",
+                "authorization",
+            ]
+        ) {
+            try await AgenticIOFlowTesting
+                .runMutateFilesWorkspaceTargeting()
+        },
+        TestFlow(
             "path-search",
             tags: [
                 "agentic-io",
