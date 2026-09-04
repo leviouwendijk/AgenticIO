@@ -23,8 +23,9 @@ public struct InspectFileMutationToolInput: Sendable, Codable, Hashable {
     }
 }
 
-public struct InspectFileMutationTool: TypedInstanceAgentTool {
+public struct InspectFileMutationTool: AgentTool {
     public typealias Input = InspectFileMutationToolInput
+    public typealias Output = AgentFileMutationInspection
 
     public static let identifier: AgentToolIdentifier = .inspect_file_mutation
     public static let description = "Inspect one recorded file mutation and optionally load its diff artifact."
@@ -55,21 +56,17 @@ public struct InspectFileMutationTool: TypedInstanceAgentTool {
     }
 
     public func preflight(
-        input: JSONValue,
-        workspace: AgentWorkspace?
+        _ input: Input,
+        context: AgentToolExecutionContext
     ) async throws -> ToolPreflight {
-        let decoded = try JSONToolBridge.decode(
-            InspectFileMutationToolInput.self,
-            from: input
-        )
 
         return .init(
             toolName: name,
             risk: risk,
-            workspaceRoot: workspace?.rootURL.path,
+            workspaceRoot: context.workspace?.rootURL.path,
             summary: """
-            Inspect recorded file mutation \(decoded.id).
-            loadDiffArtifact: \(decoded.loadDiffArtifact)
+            Inspect recorded file mutation \(input.id).
+            loadDiffArtifact: \(input.loadDiffArtifact)
             """,
             estimatedRuntimeSeconds: 1,
             sideEffects: []
@@ -77,26 +74,19 @@ public struct InspectFileMutationTool: TypedInstanceAgentTool {
     }
 
     public func call(
-        input: JSONValue,
-        workspace: AgentWorkspace?
-    ) async throws -> JSONValue {
-        _ = workspace
-
-        let decoded = try JSONToolBridge.decode(
-            InspectFileMutationToolInput.self,
-            from: input
-        )
+        _ input: Input,
+        context: AgentToolExecutionContext
+    ) async throws -> Output {
         let history = AgentFileMutationHistory(
             store: store,
             artifactStore: artifactStore
         )
         let inspection = try await history.inspect(
-            id: decoded.id,
-            loadDiffArtifact: decoded.loadDiffArtifact
+            id: input.id,
+            loadDiffArtifact: input.loadDiffArtifact
         )
 
-        return try JSONToolBridge.encode(
-            inspection
-        )
+        return inspection
+        
     }
 }

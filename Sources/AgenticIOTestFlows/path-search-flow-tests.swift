@@ -20,7 +20,7 @@ extension AgenticIOFlowTesting {
         )
 
         _ = try Expect.notNil(
-            registry.tool(
+            registry.registeredTool(
                 named: "find_paths"
             ),
             "AgenticIO registers find_paths in the workspace tool set"
@@ -46,35 +46,32 @@ extension AgenticIOFlowTesting {
         }
 
         let rankedOutput = try await FindPathsTool().call(
-            input: try JSONToolBridge.encode(
-                FindPathsToolInput(
-                    queries: [
-                        .init(
-                            text: "A.swift",
-                            id: "filename",
-                            weight: 4
-                        ),
-                        .init(
-                            text: "Sources",
-                            id: "directory"
-                        ),
-                    ],
-                    includes: [
-                        "Sources/**",
-                    ],
-                    includeFiles: true,
-                    includeDirectories: false,
-                    strategy: .contains,
-                    caseSensitive: true,
-                    maxEntries: 8
-                )
-            ),
-            workspace: fixture.workspace
+            FindPathsToolInput(
+                                queries: [
+                                    .init(
+                                        text: "A.swift",
+                                        id: "filename",
+                                        weight: 4
+                                    ),
+                                    .init(
+                                        text: "Sources",
+                                        id: "directory"
+                                    ),
+                                ],
+                                includes: [
+                                    "Sources/**",
+                                ],
+                                includeFiles: true,
+                                includeDirectories: false,
+                                strategy: .contains,
+                                caseSensitive: true,
+                                maxEntries: 8
+                            ),
+            context: .init(
+                workspace: fixture.workspace
+            )
         )
-        let ranked = try JSONToolBridge.decode(
-            FindPathsToolOutput.self,
-            from: rankedOutput
-        )
+        let ranked = rankedOutput
 
         try Expect.equal(
             ranked.searchedPathCount ?? -1,
@@ -122,22 +119,19 @@ extension AgenticIOFlowTesting {
         )
 
         let legacyOutput = try await FindPathsTool().call(
-            input: try JSONToolBridge.encode(
-                FindPathsToolInput(
-                    query: "a.SWIFT",
-                    includes: [
-                        "Sources/**",
-                    ],
-                    includeFiles: true,
-                    includeDirectories: false
-                )
-            ),
-            workspace: fixture.workspace
+            FindPathsToolInput(
+                                query: "a.SWIFT",
+                                includes: [
+                                    "Sources/**",
+                                ],
+                                includeFiles: true,
+                                includeDirectories: false
+                            ),
+            context: .init(
+                workspace: fixture.workspace
+            )
         )
-        let legacy = try JSONToolBridge.decode(
-            FindPathsToolOutput.self,
-            from: legacyOutput
-        )
+        let legacy = legacyOutput
 
         try Expect.equal(
             legacy.entries.map(\.path),
@@ -148,31 +142,28 @@ extension AgenticIOFlowTesting {
         )
 
         let excludedOutput = try await FindPathsTool().call(
-            input: try JSONToolBridge.encode(
-                FindPathsToolInput(
-                    queries: [
-                        .init(
-                            text: "Sources"
-                        ),
-                    ],
-                    includes: [
-                        "Sources/**",
-                    ],
-                    excludes: [
-                        "Sources/B.swift",
-                    ],
-                    includeFiles: true,
-                    includeDirectories: false,
-                    strategy: .contains,
-                    caseSensitive: true
-                )
-            ),
-            workspace: fixture.workspace
+            FindPathsToolInput(
+                                queries: [
+                                    .init(
+                                        text: "Sources"
+                                    ),
+                                ],
+                                includes: [
+                                    "Sources/**",
+                                ],
+                                excludes: [
+                                    "Sources/B.swift",
+                                ],
+                                includeFiles: true,
+                                includeDirectories: false,
+                                strategy: .contains,
+                                caseSensitive: true
+                            ),
+            context: .init(
+                workspace: fixture.workspace
+            )
         )
-        let excluded = try JSONToolBridge.decode(
-            FindPathsToolOutput.self,
-            from: excludedOutput
-        )
+        let excluded = excludedOutput
 
         try Expect.equal(
             excluded.searchedPathCount ?? -1,

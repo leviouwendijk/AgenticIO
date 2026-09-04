@@ -14,7 +14,11 @@ extension AgenticIOFlowTesting {
         }
 
         let tool = MutateFilesTool()
-        let _: any WorkspaceTargetableTool = tool
+        try Expect.equal(
+            tool.execution.workingLocation,
+            .targetable,
+            "mutate_files declares targetable working-location execution"
+        )
         let location = try fixture.workspace.location(
             for: WorkspaceTarget(
                 subpath: "Package"
@@ -24,20 +28,18 @@ extension AgenticIOFlowTesting {
             workspace: fixture.workspace,
             workspaceLocation: location
         )
-        let input = try JSONToolBridge.encode(
-            MutateFilesToolInput(
-                entries: [
-                    .init(
-                        kind: .replace_text,
-                        path: "target.txt",
-                        content: "targeted\n"
-                    ),
-                ]
-            )
-        )
+        let input = MutateFilesToolInput(
+                        entries: [
+                            .init(
+                                kind: .replace_text,
+                                path: "target.txt",
+                                content: "targeted\n"
+                            ),
+                        ]
+                    )
 
         let preflight = try await tool.preflight(
-            input: input,
+            input,
             context: context
         )
 
@@ -50,7 +52,7 @@ extension AgenticIOFlowTesting {
         )
 
         _ = try await tool.call(
-            input: input,
+            input,
             context: context
         )
 
@@ -71,22 +73,20 @@ extension AgenticIOFlowTesting {
             "workspace-targeted mutate_files does not reinterpret the path at the authority root"
         )
 
-        let escapingInput = try JSONToolBridge.encode(
-            MutateFilesToolInput(
-                entries: [
-                    .init(
-                        kind: .replace_text,
-                        path: "../../outside.txt",
-                        content: "escaped\n"
-                    ),
-                ]
-            )
-        )
+        let escapingInput = MutateFilesToolInput(
+                        entries: [
+                            .init(
+                                kind: .replace_text,
+                                path: "../../outside.txt",
+                                content: "escaped\n"
+                            ),
+                        ]
+                    )
         var escapeRejected = false
 
         do {
             _ = try await tool.preflight(
-                input: escapingInput,
+                escapingInput,
                 context: context
             )
         } catch {

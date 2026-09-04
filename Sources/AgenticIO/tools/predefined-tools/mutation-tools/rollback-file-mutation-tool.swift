@@ -6,8 +6,9 @@ import Foundation
 import Primitives
 import Writers
 
-public struct RollbackFileMutationTool: TypedInstanceAgentTool {
+public struct RollbackFileMutationTool: AgentTool {
     public typealias Input = AgentFileMutationRollbackInput
+    public typealias Output = AgentFileMutationRollbackOutput
 
     public let identifier: AgentToolIdentifier = .rollback_file_mutation
     public let description = "Roll back a recorded file mutation."
@@ -25,44 +26,26 @@ public struct RollbackFileMutationTool: TypedInstanceAgentTool {
     }
 
     public func preflight(
-        input: JSONValue,
-        workspace: AgentWorkspace?
+        _ input: Input,
+        context: AgentToolExecutionContext
     ) async throws -> ToolPreflight {
-        let decoded = try JSONToolBridge.decode(
-            AgentFileMutationRollbackInput.self,
-            from: input
-        )
 
         return try await AgentFileMutationPreflight.rollback(
-            decoded,
+            input,
             store: store,
-            workspace: workspace,
+            workspace: context.workspace,
             recorder: recorder
         ).toolPreflight
     }
 
-    public func call(
-        input: JSONValue,
-        workspace: AgentWorkspace?
-    ) async throws -> JSONValue {
-        try await call(
-            input: input,
-            context: .init(
-                workspace: workspace
-            )
-        )
-    }
+    
 
     public func call(
-        input: JSONValue,
+        _ input: Input,
         context: AgentToolExecutionContext
-    ) async throws -> JSONValue {
-        let decoded = try JSONToolBridge.decode(
-            AgentFileMutationRollbackInput.self,
-            from: input
-        )
+    ) async throws -> Output {
 
-        let sourceID = try decoded.normalizedMutationUUID()
+        let sourceID = try input.normalizedMutationUUID()
         let sourceIDString = sourceID.uuidString.lowercased()
 
         guard let source = try await store.load(
@@ -92,7 +75,7 @@ public struct RollbackFileMutationTool: TypedInstanceAgentTool {
         ).rollback(
             writerRecord,
             options: try recorder.writeOptions(),
-            checkTarget: decoded.checkTarget
+            checkTarget: input.checkTarget
         )
 
         let recorded = try await recorder.record(
@@ -115,16 +98,15 @@ public struct RollbackFileMutationTool: TypedInstanceAgentTool {
             )
         )
 
-        return try JSONToolBridge.encode(
-            AgentFileMutationRollbackOutput(
-                sourceMutationID: source.id,
-                rollbackMutationID: recorded.mutation.id,
-                writerRecordID: recorded.writerRecord.id,
-                targetPath: recorded.mutation.target.standardizedFileURL.path,
-                rollbackStrategy: rollback.preview.strategy,
-                artifactIDs: recorded.mutation.artifactIDs
-            )
+        return AgentFileMutationRollbackOutput(
+            sourceMutationID: source.id,
+            rollbackMutationID: recorded.mutation.id,
+            writerRecordID: recorded.writerRecord.id,
+            targetPath: recorded.mutation.target.standardizedFileURL.path,
+            rollbackStrategy: rollback.preview.strategy,
+            artifactIDs: recorded.mutation.artifactIDs
         )
+        
     }
 }
 

@@ -151,8 +151,10 @@ public extension AgentFileMutationPreflight {
             recorder: recorder
         )
         let toolPreflight = try await tool.preflight(
-            input: exactInput,
-            workspace: workspace
+            input,
+            context: .init(
+                workspace: workspace
+            )
         )
         let preview = try Self.preview(
             input,
@@ -182,8 +184,10 @@ public extension AgentFileMutationPreflight {
             recorder: recorder
         )
         let toolPreflight = try await tool.preflight(
-            input: exactInput,
-            workspace: workspace
+            input,
+            context: .init(
+                workspace: workspace
+            )
         )
         let preview = try Self.preview(
             input,

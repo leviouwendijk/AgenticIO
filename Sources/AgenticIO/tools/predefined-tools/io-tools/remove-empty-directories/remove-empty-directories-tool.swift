@@ -76,9 +76,10 @@ public enum RemoveEmptyDirectoriesToolError:
 }
 
 public struct RemoveEmptyDirectoriesTool:
-    TypedInstanceAgentTool
+    AgentTool
 {
     public typealias Input = RemoveEmptyDirectoriesToolInput
+    public typealias Output = RemoveEmptyDirectoriesToolOutput
     public static let identifier:
         AgentToolIdentifier =
             "remove_empty_directories"
@@ -108,19 +109,15 @@ public struct RemoveEmptyDirectoriesTool:
     public init() {}
 
     public func preflight(
-        input: JSONValue,
-        workspace: AgentWorkspace?
+        _ input: Input,
+        context: AgentToolExecutionContext
     ) async throws -> ToolPreflight {
-        let decoded = try JSONToolBridge.decode(
-            RemoveEmptyDirectoriesToolInput.self,
-            from: input
-        )
         let workspace = try FileToolSupport.requireWorkspace(
-            workspace,
+            context.workspace,
             toolName: name
         )
         let authorized = try authorizedPaths(
-            decoded,
+            input,
             workspace: workspace
         )
 
@@ -164,19 +161,15 @@ public struct RemoveEmptyDirectoriesTool:
     }
 
     public func call(
-        input: JSONValue,
-        workspace: AgentWorkspace?
-    ) async throws -> JSONValue {
-        let decoded = try JSONToolBridge.decode(
-            RemoveEmptyDirectoriesToolInput.self,
-            from: input
-        )
+        _ input: Input,
+        context: AgentToolExecutionContext
+    ) async throws -> Output {
         let workspace = try FileToolSupport.requireWorkspace(
-            workspace,
+            context.workspace,
             toolName: name
         )
         let authorized = try authorizedPaths(
-            decoded,
+            input,
             workspace: workspace
         )
 
@@ -190,38 +183,31 @@ public struct RemoveEmptyDirectoriesTool:
             )
         }
 
-        return try JSONToolBridge.encode(
-            RemoveEmptyDirectoriesToolOutput(
-                removed: authorized.map(
-                    \.presentationPath
-                )
+        return RemoveEmptyDirectoriesToolOutput(
+            removed: authorized.map(
+                \.presentationPath
             )
         )
+        
     }
 
-    public func processResult(
-        input _: JSONValue,
-        output: JSONValue,
-        workspace _: AgentWorkspace?
-    ) -> AgentToolResultProcessing {
-        guard let result = try? JSONToolBridge.decode(
-            RemoveEmptyDirectoriesToolOutput.self,
-            from: output
-        ) else {
-            return .none
-        }
+    public func process(
+        _ output: Output,
+        input _: Input,
+        context _: AgentToolExecutionContext
+    ) -> AgentToolResultProjection? {
+        let result = output
 
         return .init(
-            projection: .init(
-                status: "passed",
-                summary: "Removed \(result.removed.count) empty director\(result.removed.count == 1 ? "y" : "ies").",
-                facts: result.removed.map {
-                    .init(
-                        label: $0,
-                        value: "removed"
-                    )
-                }
-            )
+            status: "passed",
+            summary: "Removed \(result.removed.count) empty director\(result.removed.count == 1 ? "y" : "ies").",
+            facts: result.removed.map {
+                .init(
+                    label: $0,
+                    value: "removed"
+                )
+            }
+            
         )
     }
 }

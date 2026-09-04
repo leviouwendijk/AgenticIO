@@ -251,11 +251,9 @@ public struct MutateFilesToolOutput: Sendable, Codable, Hashable {
     }
 }
 
-public struct MutateFilesTool:
-    TypedInstanceAgentTool,
-    WorkspaceTargetableTool
-{
+public struct MutateFilesTool: AgentTool {
     public typealias Input = MutateFilesToolInput
+    public typealias Output = MutateFilesToolOutput
 
     public static let identifier: AgentToolIdentifier = .mutate_files
     public static let description = "Apply one coherent pass of file mutations in the workspace."
@@ -274,6 +272,10 @@ public struct MutateFilesTool:
         Self.risk
     }
 
+    public var execution: AgentToolExecutionContract {
+        .targetable
+    }
+
     public let context: AgentFileMutationContext
 
     public init(
@@ -283,30 +285,26 @@ public struct MutateFilesTool:
     }
 
 
-    public func preflight(
-        input: JSONValue,
+    private func preflightInternal(
+        _ input: Input,
         workspace: AgentWorkspace?
     ) async throws -> ToolPreflight {
         let workspace = try FileToolSupport.requireWorkspace(
             workspace,
             toolName: name
         )
-        let decoded = try JSONToolBridge.decode(
-            MutateFilesToolInput.self,
-            from: input
-        )
         let authorized = try authorizeEntries(
-            decoded,
+            input,
             workspace: workspace
         )
         let plan = try workspaceWriter(
             workspace
         ).mutations.plan(
             workspaceEntries(
-                decoded
+                input
             ),
             metadata: mutationMetadata(
-                input: decoded,
+                input: input,
                 context: context
             )
         )
@@ -319,12 +317,12 @@ public struct MutateFilesTool:
                 .flatMap { $0 }
                 .map(\.presentationPath),
             summary: preflightSummary(
-                input: decoded,
+                input: input,
                 plan: plan
             ),
             estimatedWriteCount: plan.entries.count,
             estimatedByteCount: estimatedByteCount(
-                input: decoded
+                input: input
             ),
             sideEffects: risk.defaultSideEffects,
             rootIDs: Array(
@@ -340,7 +338,7 @@ public struct MutateFilesTool:
                 .write
             ],
             estimatedWriteBytes: estimatedByteCount(
-                input: decoded
+                input: input
             ),
             estimatedChangedLineCount: estimatedChangedLineCount(
                 plan: plan
@@ -364,15 +362,11 @@ public struct MutateFilesTool:
     }
 
     public func preflight(
-        input: JSONValue,
+        _ input: Input,
         context toolContext: AgentToolExecutionContext
     ) async throws -> ToolPreflight {
-        let decoded = try JSONToolBridge.decode(
-            MutateFilesToolInput.self,
-            from: input
-        )
         let targetedInput = try workspaceTargetedInput(
-            decoded,
+            input,
             context: toolContext
         )
 
@@ -380,29 +374,23 @@ public struct MutateFilesTool:
             context: mergedMutationContext(
                 toolContext: toolContext
             )
-        ).preflight(
-            input: try JSONToolBridge.encode(
-                targetedInput
-            ),
+        ).preflightInternal(
+            targetedInput,
             workspace: toolContext.workspace
         )
     }
 
-    public func call(
-        input: JSONValue,
+    private func callInternal(
+        _ input: Input,
         workspace: AgentWorkspace?
-    ) async throws -> JSONValue {
+    ) async throws -> Output {
         let workspace = try FileToolSupport.requireWorkspace(
             workspace,
             toolName: name
         )
-        let decoded = try JSONToolBridge.decode(
-            MutateFilesToolInput.self,
-            from: input
-        )
 
         _ = try authorizeEntries(
-            decoded,
+            input,
             workspace: workspace
         )
 
@@ -410,10 +398,10 @@ public struct MutateFilesTool:
             workspace
         ).mutations.plan(
             workspaceEntries(
-                decoded
+                input
             ),
             metadata: mutationMetadata(
-                input: decoded,
+                input: input,
                 context: context
             )
         )
@@ -423,28 +411,23 @@ public struct MutateFilesTool:
         ).mutations.apply(
             plan,
             options: .init(
-                failure: decoded.failurePolicy
+                failure: input.failurePolicy
             )
         )
 
-        return try JSONToolBridge.encode(
-            output(
-                plan: plan,
-                result: result
-            )
+        return output(
+            plan: plan,
+            result: result
         )
+        
     }
 
     public func call(
-        input: JSONValue,
+        _ input: Input,
         context toolContext: AgentToolExecutionContext
-    ) async throws -> JSONValue {
-        let decoded = try JSONToolBridge.decode(
-            MutateFilesToolInput.self,
-            from: input
-        )
+    ) async throws -> Output {
         let targetedInput = try workspaceTargetedInput(
-            decoded,
+            input,
             context: toolContext
         )
 
@@ -452,25 +435,18 @@ public struct MutateFilesTool:
             context: mergedMutationContext(
                 toolContext: toolContext
             )
-        ).call(
-            input: try JSONToolBridge.encode(
-                targetedInput
-            ),
+        ).callInternal(
+            targetedInput,
             workspace: toolContext.workspace
         )
     }
 
-    public func processResult(
-        input _: JSONValue,
-        output: JSONValue,
-        workspace: AgentWorkspace?
-    ) -> AgentToolResultProcessing {
-        guard let result = try? JSONToolBridge.decode(
-            MutateFilesToolOutput.self,
-            from: output
-        ) else {
-            return .none
-        }
+    public func process(
+        _ output: Output,
+        input _: Input,
+        context: AgentToolExecutionContext
+    ) -> AgentToolResultProjection? {
+        let result = output
 
         let changedEntries = result.entries.filter {
             $0.changeCount > 0
@@ -478,7 +454,7 @@ public struct MutateFilesTool:
         }
 
         let rootPath =
-            workspace?
+            context.workspace?
                 .rootURL
                 .standardizedFileURL
                 .path
@@ -573,28 +549,27 @@ public struct MutateFilesTool:
         }
 
         return .init(
-            projection: .init(
-                status:
-                    changedEntries.isEmpty
-                        ? "no changes"
-                        : result.status,
-                summary:
-                    counts.isEmpty
-                        ? "No files changed."
-                        : counts.joined(
-                            separator: " · "
-                        ),
-                facts: changedEntries.map { entry in
-                    .init(
-                        label: displayPath(
-                            entry.path
-                        ),
-                        value: detail(
-                            entry
-                        )
+            status:
+                changedEntries.isEmpty
+                    ? "no changes"
+                    : result.status,
+            summary:
+                counts.isEmpty
+                    ? "No files changed."
+                    : counts.joined(
+                        separator: " · "
+                    ),
+            facts: changedEntries.map { entry in
+                .init(
+                    label: displayPath(
+                        entry.path
+                    ),
+                    value: detail(
+                        entry
                     )
-                }
-            )
+                )
+            }
+            
         )
     }
 }

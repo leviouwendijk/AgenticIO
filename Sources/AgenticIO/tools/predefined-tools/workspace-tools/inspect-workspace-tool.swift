@@ -50,8 +50,9 @@ public struct InspectWorkspaceToolOutput: Sendable, Codable, Hashable {
     }
 }
 
-public struct InspectWorkspaceTool: TypedInstanceAgentTool {
+public struct InspectWorkspaceTool: AgentTool {
     public typealias Input = InspectWorkspaceToolInput
+    public typealias Output = InspectWorkspaceToolOutput
 
     public static let identifier: AgentToolIdentifier = "inspect_workspace"
     public static let description = "Inspect attached workspace roots, grants, and diagnostics without reading file contents."
@@ -73,13 +74,13 @@ public struct InspectWorkspaceTool: TypedInstanceAgentTool {
     public init() {}
 
     public func preflight(
-        input _: JSONValue,
-        workspace: AgentWorkspace?
+        _ input: Input,
+        context: AgentToolExecutionContext
     ) async throws -> ToolPreflight {
         .init(
             toolName: name,
             risk: risk,
-            workspaceRoot: workspace?.rootURL.path,
+            workspaceRoot: context.workspace?.rootURL.path,
             summary: "Inspect workspace roots, grants, and diagnostics.",
             capabilitiesRequired: [
                 .list
@@ -92,52 +93,46 @@ public struct InspectWorkspaceTool: TypedInstanceAgentTool {
     }
 
     public func call(
-        input: JSONValue,
-        workspace: AgentWorkspace?
-    ) async throws -> JSONValue {
-        let decoded = try JSONToolBridge.decode(
-            InspectWorkspaceToolInput.self,
-            from: input
-        )
+        _ input: Input,
+        context: AgentToolExecutionContext
+    ) async throws -> Output {
 
-        guard let workspace else {
-            return try JSONToolBridge.encode(
-                InspectWorkspaceToolOutput(
-                    hasWorkspace: false,
-                    defaultRootID: nil,
-                    rootCount: 0,
-                    grantCount: 0,
-                    roots: [],
-                    grants: [],
-                    diagnostics: [
-                        "No AgentWorkspace is attached."
-                    ]
-                )
+        guard let workspace = context.workspace else {
+            return InspectWorkspaceToolOutput(
+                hasWorkspace: false,
+                defaultRootID: nil,
+                rootCount: 0,
+                grantCount: 0,
+                roots: [],
+                grants: [],
+                diagnostics: [
+                    "No AgentWorkspace is attached."
+                ]
             )
+            
         }
 
-        let includeDiagnostics = decoded.includeDiagnostics ?? true
-        let includeGrants = decoded.includeGrants ?? true
+        let includeDiagnostics = input.includeDiagnostics ?? true
+        let includeGrants = input.includeGrants ?? true
 
-        return try JSONToolBridge.encode(
-            InspectWorkspaceToolOutput(
-                hasWorkspace: true,
-                defaultRootID: workspace.accessController.defaultRootID?.rawValue,
-                rootCount: workspace.accessController.paths.roots.count,
-                grantCount: workspace.accessController.grants.count,
-                roots: WorkspaceToolSupport.rootSummaries(
-                    workspace: workspace,
-                    includeDiagnostics: includeDiagnostics
-                ),
-                grants: includeGrants
-                    ? WorkspaceToolSupport.grantSummaries(
-                        workspace: workspace
-                    )
-                    : [],
-                diagnostics: includeDiagnostics
-                    ? workspace.accessController.paths.summary.diagnostics.map(\.message)
-                    : []
-            )
+        return InspectWorkspaceToolOutput(
+            hasWorkspace: true,
+            defaultRootID: workspace.accessController.defaultRootID?.rawValue,
+            rootCount: workspace.accessController.paths.roots.count,
+            grantCount: workspace.accessController.grants.count,
+            roots: WorkspaceToolSupport.rootSummaries(
+                workspace: workspace,
+                includeDiagnostics: includeDiagnostics
+            ),
+            grants: includeGrants
+                ? WorkspaceToolSupport.grantSummaries(
+                    workspace: workspace
+                )
+                : [],
+            diagnostics: includeDiagnostics
+                ? workspace.accessController.paths.summary.diagnostics.map(\.message)
+                : []
         )
+        
     }
 }

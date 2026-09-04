@@ -39,8 +39,9 @@ public struct ListFileMutationsToolInput: Sendable, Codable, Hashable {
     }
 }
 
-public struct ListFileMutationsTool: TypedInstanceAgentTool {
+public struct ListFileMutationsTool: AgentTool {
     public typealias Input = ListFileMutationsToolInput
+    public typealias Output = AgentFileMutationHistoryList
 
     public static let identifier: AgentToolIdentifier = .list_file_mutations
     public static let description = "List recorded file mutations for the current Agentic session mutation store."
@@ -68,20 +69,16 @@ public struct ListFileMutationsTool: TypedInstanceAgentTool {
     }
 
     public func preflight(
-        input: JSONValue,
-        workspace: AgentWorkspace?
+        _ input: Input,
+        context: AgentToolExecutionContext
     ) async throws -> ToolPreflight {
-        let decoded = try JSONToolBridge.decode(
-            ListFileMutationsToolInput.self,
-            from: input
-        )
 
         return .init(
             toolName: name,
             risk: risk,
-            workspaceRoot: workspace?.rootURL.path,
+            workspaceRoot: context.workspace?.rootURL.path,
             summary: summary(
-                for: decoded
+                for: input
             ),
             estimatedRuntimeSeconds: 1,
             sideEffects: []
@@ -89,32 +86,25 @@ public struct ListFileMutationsTool: TypedInstanceAgentTool {
     }
 
     public func call(
-        input: JSONValue,
-        workspace: AgentWorkspace?
-    ) async throws -> JSONValue {
-        _ = workspace
-
-        let decoded = try JSONToolBridge.decode(
-            ListFileMutationsToolInput.self,
-            from: input
-        )
+        _ input: Input,
+        context: AgentToolExecutionContext
+    ) async throws -> Output {
         let history = AgentFileMutationHistory(
             store: store
         )
         let result = try await history.list(
             .init(
-                path: decoded.normalizedPath,
-                preparedIntentID: decoded.normalizedPreparedIntentID,
-                rollbackableOnly: decoded.rollbackableOnly,
-                includeUnchanged: decoded.includeUnchanged,
-                latestFirst: decoded.latestFirst,
-                limit: decoded.clampedLimit
+                path: input.normalizedPath,
+                preparedIntentID: input.normalizedPreparedIntentID,
+                rollbackableOnly: input.rollbackableOnly,
+                includeUnchanged: input.includeUnchanged,
+                latestFirst: input.latestFirst,
+                limit: input.clampedLimit
             )
         )
 
-        return try JSONToolBridge.encode(
-            result
-        )
+        return result
+        
     }
 }
 

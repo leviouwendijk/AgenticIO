@@ -85,7 +85,7 @@ private extension AgenticIOFlowTesting {
         )
 
         _ = try Expect.notNil(
-            registry.tool(
+            registry.registeredTool(
                 named: "search_sources"
             ),
             "AgenticIO registers search_sources"
@@ -161,15 +161,12 @@ private extension AgenticIOFlowTesting {
         )
 
         let output = try await tool.call(
-            input: try JSONToolBridge.encode(
-                input
-            ),
-            workspace: fixture.workspace
+            input,
+            context: .init(
+                workspace: fixture.workspace
+            )
         )
-        let result = try JSONToolBridge.decode(
-            SourceSearchResult.self,
-            from: output
-        )
+        let result = output
 
         try Expect.equal(
             result.mode,
@@ -267,39 +264,36 @@ private extension AgenticIOFlowTesting {
         )
 
         let output = try await SearchSourcesTool().call(
-            input: try JSONToolBridge.encode(
-                SearchSourcesToolInput(
-                    includes: [
-                        "Sources/DiversityA.swift",
-                        "Sources/DiversityB.swift",
-                    ],
-                    probes: [
-                        .init(
-                            text: "needle",
-                            id: "needle",
-                            role: .preferred,
-                            strategy: .contains
-                        ),
-                        .init(
-                            text: "alpha",
-                            id: "alpha",
-                            weight: 4,
-                            role: .preferred,
-                            strategy: .contains
-                        ),
-                    ],
-                    mode: .ranked,
-                    caseSensitive: true,
-                    mergeDistanceLines: 0,
-                    maximumCandidates: 3
-                )
-            ),
-            workspace: fixture.workspace
+            SearchSourcesToolInput(
+                                includes: [
+                                    "Sources/DiversityA.swift",
+                                    "Sources/DiversityB.swift",
+                                ],
+                                probes: [
+                                    .init(
+                                        text: "needle",
+                                        id: "needle",
+                                        role: .preferred,
+                                        strategy: .contains
+                                    ),
+                                    .init(
+                                        text: "alpha",
+                                        id: "alpha",
+                                        weight: 4,
+                                        role: .preferred,
+                                        strategy: .contains
+                                    ),
+                                ],
+                                mode: .ranked,
+                                caseSensitive: true,
+                                mergeDistanceLines: 0,
+                                maximumCandidates: 3
+                            ),
+            context: .init(
+                workspace: fixture.workspace
+            )
         )
-        let result = try JSONToolBridge.decode(
-            SourceSearchResult.self,
-            from: output
-        )
+        let result = output
 
         try Expect.equal(
             result.candidates.count,
@@ -541,32 +535,29 @@ private extension AgenticIOFlowTesting {
         )
 
         let output = try await SearchSourcesTool().call(
-            input: try JSONToolBridge.encode(
-                SearchSourcesToolInput(
-                    includes: [
-                        "Sources/Identifier.swift",
-                    ],
-                    probes: [
-                        .init(
-                            text: "Foo",
-                            id: "Foo",
-                            role: .preferred,
-                            strategy: .identifier
-                        ),
-                    ],
-                    mode: .exhaustive,
-                    caseSensitive: true,
-                    mergeDistanceLines: 0,
-                    maximumCandidates: 16,
-                    maximumCandidatesPerDocument: 16
-                )
-            ),
-            workspace: fixture.workspace
+            SearchSourcesToolInput(
+                                includes: [
+                                    "Sources/Identifier.swift",
+                                ],
+                                probes: [
+                                    .init(
+                                        text: "Foo",
+                                        id: "Foo",
+                                        role: .preferred,
+                                        strategy: .identifier
+                                    ),
+                                ],
+                                mode: .exhaustive,
+                                caseSensitive: true,
+                                mergeDistanceLines: 0,
+                                maximumCandidates: 16,
+                                maximumCandidatesPerDocument: 16
+                            ),
+            context: .init(
+                workspace: fixture.workspace
+            )
         )
-        let result = try JSONToolBridge.decode(
-            SourceSearchResult.self,
-            from: output
-        )
+        let result = output
 
         try Expect.equal(
             result.matchedDocumentCount,

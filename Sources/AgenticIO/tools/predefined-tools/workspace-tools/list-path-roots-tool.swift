@@ -31,8 +31,9 @@ public struct ListPathRootsToolOutput: Sendable, Codable, Hashable {
     }
 }
 
-public struct ListPathRootsTool: TypedInstanceAgentTool {
+public struct ListPathRootsTool: AgentTool {
     public typealias Input = ListPathRootsToolInput
+    public typealias Output = ListPathRootsToolOutput
 
     public static let identifier: AgentToolIdentifier = "list_path_roots"
     public static let description = "List named workspace path roots without scanning or reading file contents."
@@ -54,13 +55,13 @@ public struct ListPathRootsTool: TypedInstanceAgentTool {
     public init() {}
 
     public func preflight(
-        input _: JSONValue,
-        workspace: AgentWorkspace?
+        _ input: Input,
+        context: AgentToolExecutionContext
     ) async throws -> ToolPreflight {
         .init(
             toolName: name,
             risk: risk,
-            workspaceRoot: workspace?.rootURL.path,
+            workspaceRoot: context.workspace?.rootURL.path,
             summary: "List workspace path roots.",
             capabilitiesRequired: [
                 .list
@@ -73,26 +74,21 @@ public struct ListPathRootsTool: TypedInstanceAgentTool {
     }
 
     public func call(
-        input: JSONValue,
-        workspace: AgentWorkspace?
-    ) async throws -> JSONValue {
+        _ input: Input,
+        context: AgentToolExecutionContext
+    ) async throws -> Output {
         let workspace = try WorkspaceToolSupport.requireWorkspace(
-            workspace,
+            context.workspace,
             toolName: name
         )
-        let decoded = try JSONToolBridge.decode(
-            ListPathRootsToolInput.self,
-            from: input
-        )
 
-        return try JSONToolBridge.encode(
-            ListPathRootsToolOutput(
-                defaultRootID: workspace.accessController.defaultRootID?.rawValue,
-                roots: WorkspaceToolSupport.rootSummaries(
-                    workspace: workspace,
-                    includeDiagnostics: decoded.includeDiagnostics ?? true
-                )
+        return ListPathRootsToolOutput(
+            defaultRootID: workspace.accessController.defaultRootID?.rawValue,
+            roots: WorkspaceToolSupport.rootSummaries(
+                workspace: workspace,
+                includeDiagnostics: input.includeDiagnostics ?? true
             )
         )
+        
     }
 }

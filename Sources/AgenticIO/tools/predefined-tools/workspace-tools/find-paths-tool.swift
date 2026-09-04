@@ -211,8 +211,9 @@ public struct FindPathsToolOutput: Sendable, Codable, Hashable {
     }
 }
 
-public struct FindPathsTool: TypedInstanceAgentTool {
+public struct FindPathsTool: AgentTool {
     public typealias Input = FindPathsToolInput
+    public typealias Output = FindPathsToolOutput
 
     public static let identifier: AgentToolIdentifier = "find_paths"
     public static let description = "Find and rank path names inside an authorized workspace root without reading file contents."
@@ -233,22 +234,18 @@ public struct FindPathsTool: TypedInstanceAgentTool {
     public init() {}
 
     public func preflight(
-        input: JSONValue,
-        workspace: AgentWorkspace?
+        _ input: Input,
+        context: AgentToolExecutionContext
     ) async throws -> ToolPreflight {
-        let decoded = try JSONToolBridge.decode(
-            FindPathsToolInput.self,
-            from: input
-        )
-        let rootID = decoded.rootID ?? .project
+        let rootID = input.rootID ?? .project
         let probeCount = normalizedQueries(
-            decoded
+            input
         ).count
 
         return .init(
             toolName: name,
             risk: risk,
-            workspaceRoot: workspace?.rootURL.path,
+            workspaceRoot: context.workspace?.rootURL.path,
             summary: probeCount == 0
                 ? "List authorized path names in root '\(rootID.rawValue)'."
                 : "Search authorized path names in root '\(rootID.rawValue)' using \(probeCount) probe(s).",
@@ -258,11 +255,11 @@ public struct FindPathsTool: TypedInstanceAgentTool {
             capabilitiesRequired: [
                 .scan,
             ],
-            estimatedScanDepth: decoded.recursive == false
+            estimatedScanDepth: input.recursive == false
                 ? 1
                 : nil,
-            includesHiddenPaths: decoded.includeHidden ?? false,
-            followsSymlinks: decoded.followSymlinks ?? false,
+            includesHiddenPaths: input.includeHidden ?? false,
+            followsSymlinks: input.followSymlinks ?? false,
             policyChecks: [
                 "workspace_required",
                 "path_name_scan_only",
@@ -273,29 +270,25 @@ public struct FindPathsTool: TypedInstanceAgentTool {
     }
 
     public func call(
-        input: JSONValue,
-        workspace: AgentWorkspace?
-    ) async throws -> JSONValue {
+        _ input: Input,
+        context: AgentToolExecutionContext
+    ) async throws -> Output {
         let workspace = try WorkspaceToolSupport.requireWorkspace(
-            workspace,
+            context.workspace,
             toolName: name
         )
-        let decoded = try JSONToolBridge.decode(
-            FindPathsToolInput.self,
-            from: input
-        )
-        let rootID = decoded.rootID ?? .project
-        let recursive = decoded.recursive ?? true
+        let rootID = input.rootID ?? .project
+        let recursive = input.recursive ?? true
         let maxEntries = max(
             0,
-            decoded.maxEntries ?? 100
+            input.maxEntries ?? 100
         )
         let includes = try normalizedIncludes(
-            decoded.includes
+            input.includes
         ).map {
             try PathParse.expression($0)
         }
-        let excludes = try (decoded.excludes ?? []).map {
+        let excludes = try (input.excludes ?? []).map {
             try PathParse.expression($0)
         }
         let scan = try workspace.scan(
@@ -306,10 +299,10 @@ public struct FindPathsTool: TypedInstanceAgentTool {
             rootID: rootID,
             configuration: .init(
                 maxDepth: recursive ? nil : 1,
-                includeHidden: decoded.includeHidden ?? false,
-                followSymlinks: decoded.followSymlinks ?? false,
-                emitDirectories: decoded.includeDirectories ?? true,
-                emitFiles: decoded.includeFiles ?? true
+                includeHidden: input.includeHidden ?? false,
+                followSymlinks: input.followSymlinks ?? false,
+                emitDirectories: input.includeDirectories ?? true,
+                emitFiles: input.includeFiles ?? true
             )
         )
         let entries = try workspace.authorizedEntries(
@@ -319,7 +312,7 @@ public struct FindPathsTool: TypedInstanceAgentTool {
             toolName: name
         )
         let queries = normalizedQueries(
-            decoded
+            input
         )
 
         guard !queries.isEmpty else {
@@ -332,21 +325,20 @@ public struct FindPathsTool: TypedInstanceAgentTool {
                 )
                 : entries
 
-            return try JSONToolBridge.encode(
-                FindPathsToolOutput(
-                    rootID: rootID.rawValue,
-                    entries: returned.map {
-                        .init(
-                            rootID: rootID.rawValue,
-                            path: $0.relativePath,
-                            isDirectory: $0.isDirectory
-                        )
-                    },
-                    truncated: truncated,
-                    searchedPathCount: entries.count,
-                    candidateCount: entries.count
-                )
+            return FindPathsToolOutput(
+                rootID: rootID.rawValue,
+                entries: returned.map {
+                    .init(
+                        rootID: rootID.rawValue,
+                        path: $0.relativePath,
+                        isDirectory: $0.isDirectory
+                    )
+                },
+                truncated: truncated,
+                searchedPathCount: entries.count,
+                candidateCount: entries.count
             )
+            
         }
 
         let corpus = SearchCorpus(
@@ -364,73 +356,66 @@ public struct FindPathsTool: TypedInstanceAgentTool {
             queries,
             in: corpus,
             options: SearchOptions(
-                strategy: (decoded.strategy ?? .contains).searchStrategy,
-                caseSensitive: decoded.caseSensitive ?? false,
-                minimumScore: decoded.minimumScore ?? 1,
+                strategy: (input.strategy ?? .contains).searchStrategy,
+                caseSensitive: input.caseSensitive ?? false,
+                minimumScore: input.minimumScore ?? 1,
                 maximumResults: maxEntries
             )
         )
 
-        return try JSONToolBridge.encode(
-            FindPathsToolOutput(
-                rootID: rootID.rawValue,
-                entries: result.hits.map { hit in
-                    .init(
-                        rootID: rootID.rawValue,
-                        path: hit.documentID.path,
-                        isDirectory: hit.documentID.isDirectory,
-                        score: hit.score.value,
-                        probeCount: hit.evidence.count,
-                        evidence: hit.evidence.map { evidence in
-                            FindPathsToolEvidence(
-                                queryID: evidence.queryID,
-                                query: evidence.query,
-                                strategy: FindPathsStrategy(
-                                    searchStrategy: evidence.strategy
-                                ),
-                                score: evidence.score.value
-                            )
-                        }
-                    )
-                },
-                truncated: result.candidateCount > result.hits.count,
-                searchedPathCount: result.searchedDocumentCount,
-                candidateCount: result.candidateCount
-            )
+        return FindPathsToolOutput(
+            rootID: rootID.rawValue,
+            entries: result.hits.map { hit in
+                .init(
+                    rootID: rootID.rawValue,
+                    path: hit.documentID.path,
+                    isDirectory: hit.documentID.isDirectory,
+                    score: hit.score.value,
+                    probeCount: hit.evidence.count,
+                    evidence: hit.evidence.map { evidence in
+                        FindPathsToolEvidence(
+                            queryID: evidence.queryID,
+                            query: evidence.query,
+                            strategy: FindPathsStrategy(
+                                searchStrategy: evidence.strategy
+                            ),
+                            score: evidence.score.value
+                        )
+                    }
+                )
+            },
+            truncated: result.candidateCount > result.hits.count,
+            searchedPathCount: result.searchedDocumentCount,
+            candidateCount: result.candidateCount
         )
+        
     }
 
-    public func processResult(
-        input _: JSONValue,
-        output: JSONValue,
-        workspace _: AgentWorkspace?
-    ) -> AgentToolResultProcessing {
-        guard let result = try? JSONToolBridge.decode(
-            FindPathsToolOutput.self,
-            from: output
-        ) else {
-            return .none
-        }
+    public func process(
+        _ output: Output,
+        input _: Input,
+        context _: AgentToolExecutionContext
+    ) -> AgentToolResultProjection? {
+        let result = output
 
         return .init(
-            projection: .init(
-                status: "passed",
-                summary: "find_paths returned \(result.entries.count) path(s) from \(result.searchedPathCount ?? result.entries.count) authorized path(s).",
-                facts: [
-                    .init(
-                        label: "candidates",
-                        value: String(
-                            result.candidateCount ?? result.entries.count
-                        )
-                    ),
-                    .init(
-                        label: "returned",
-                        value: String(
-                            result.entries.count
-                        )
-                    ),
-                ]
-            )
+            status: "passed",
+            summary: "find_paths returned \(result.entries.count) path(s) from \(result.searchedPathCount ?? result.entries.count) authorized path(s).",
+            facts: [
+                .init(
+                    label: "candidates",
+                    value: String(
+                        result.candidateCount ?? result.entries.count
+                    )
+                ),
+                .init(
+                    label: "returned",
+                    value: String(
+                        result.entries.count
+                    )
+                ),
+            ]
+            
         )
     }
 }

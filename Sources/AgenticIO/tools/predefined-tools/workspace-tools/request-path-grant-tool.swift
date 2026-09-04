@@ -25,8 +25,9 @@ public struct RequestPathGrantToolOutput: Sendable, Codable, Hashable {
     }
 }
 
-public struct RequestPathGrantTool: TypedInstanceAgentTool {
+public struct RequestPathGrantTool: AgentTool {
     public typealias Input = RequestPathGrantToolInput
+    public typealias Output = RequestPathGrantToolOutput
 
     public static let identifier: AgentToolIdentifier = "request_path_grant"
     public static let description = "Create a prepared intent requesting a new named workspace path grant. This does not install access."
@@ -54,22 +55,18 @@ public struct RequestPathGrantTool: TypedInstanceAgentTool {
     }
 
     public func preflight(
-        input: JSONValue,
-        workspace: AgentWorkspace?
+        _ input: Input,
+        context: AgentToolExecutionContext
     ) async throws -> ToolPreflight {
-        let decoded = try JSONToolBridge.decode(
-            RequestPathGrantToolInput.self,
-            from: input
-        )
 
         return .init(
             toolName: name,
             risk: risk,
-            workspaceRoot: workspace?.rootURL.path,
+            workspaceRoot: context.workspace?.rootURL.path,
             targetPaths: [
-                decoded.requestedRootPath
+                input.requestedRootPath
             ],
-            summary: "Stage a prepared path grant request for \(decoded.requestedRootPath).",
+            summary: "Stage a prepared path grant request for \(input.requestedRootPath).",
             estimatedWriteCount: 1,
             sideEffects: [
                 "creates prepared path grant intent",
@@ -88,43 +85,39 @@ public struct RequestPathGrantTool: TypedInstanceAgentTool {
     }
 
     public func call(
-        input: JSONValue,
-        workspace _: AgentWorkspace?
-    ) async throws -> JSONValue {
-        let decoded = try JSONToolBridge.decode(
-            RequestPathGrantToolInput.self,
-            from: input
-        )
+        _ input: Input,
+        context _: AgentToolExecutionContext
+    ) async throws -> Output {
         let rootURL = try normalizedExistingDirectoryURL(
-            decoded.requestedRootPath
+            input.requestedRootPath
         )
-        let mode = decoded.mode ?? .read_only
-        let capabilities = decoded.capabilities?.isEmpty == false
-            ? decoded.capabilities!
+        let mode = input.mode ?? .read_only
+        let capabilities = input.capabilities?.isEmpty == false
+            ? input.capabilities!
             : WorkspaceToolSupport.defaultCapabilities(
                 for: mode
             )
-        let allowedTools = decoded.allowedTools?.isEmpty == false
-            ? decoded.allowedTools!
+        let allowedTools = input.allowedTools?.isEmpty == false
+            ? input.allowedTools!
             : WorkspaceToolSupport.defaultAllowedTools(
                 for: mode
             )
         let rootID = normalizedRootID(
-            decoded.suggestedRootID,
+            input.suggestedRootID,
             fallback: rootURL.lastPathComponent
         )
         let label = normalizedLabel(
-            decoded.label,
+            input.label,
             fallback: rootURL.lastPathComponent
         )
         let reason = try normalizedRequired(
-            decoded.reason,
+            input.reason,
             field: "reason"
         )
         let policyProfile = normalizedPolicyProfile(
-            decoded.policyProfile
+            input.policyProfile
         )
-        let expiresAt = decoded.expiresInSeconds.map {
+        let expiresAt = input.expiresInSeconds.map {
             Date().addingTimeInterval(
                 max(0, $0)
             )
@@ -183,7 +176,7 @@ public struct RequestPathGrantTool: TypedInstanceAgentTool {
 
         let intent = try await manager.create(
             PreparedIntentDraft(
-                sessionID: decoded.sessionID,
+                sessionID: input.sessionID,
                 actionType: "path_grant.request",
                 reviewPayload: payload,
                 executionToolName: nil,
@@ -197,11 +190,10 @@ public struct RequestPathGrantTool: TypedInstanceAgentTool {
             )
         )
 
-        return try JSONToolBridge.encode(
-            RequestPathGrantToolOutput(
-                intent: intent
-            )
+        return RequestPathGrantToolOutput(
+            intent: intent
         )
+        
     }
 }
 

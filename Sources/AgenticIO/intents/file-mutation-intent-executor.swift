@@ -142,17 +142,23 @@ private extension FileMutationIntentExecutor {
                 from: exactInputs
             )
 
-            return try await WriteFileTool(
+            let output = try await WriteFileTool(
                 recorder: recorder,
                 context: mutationContext(
                     intentID: intentID,
                     action: action
                 )
             ).call(
-                input: try JSONToolBridge.encode(
-                    decoded
-                ),
-                workspace: workspace
+                decoded,
+                context: .init(
+                    workspace: workspace,
+                    preparedIntentID: intentID,
+                    executionMode: .prepared_intent_replay
+                )
+            )
+
+            return try JSONToolBridge.encode(
+                output
             )
 
         case .edit:
@@ -161,17 +167,23 @@ private extension FileMutationIntentExecutor {
                 from: exactInputs
             )
 
-            return try await EditFileTool(
+            let output = try await EditFileTool(
                 recorder: recorder,
                 context: mutationContext(
                     intentID: intentID,
                     action: action
                 )
             ).call(
-                input: try JSONToolBridge.encode(
-                    decoded
-                ),
-                workspace: workspace
+                decoded,
+                context: .init(
+                    workspace: workspace,
+                    preparedIntentID: intentID,
+                    executionMode: .prepared_intent_replay
+                )
+            )
+
+            return try JSONToolBridge.encode(
+                output
             )
 
         case .rollback:

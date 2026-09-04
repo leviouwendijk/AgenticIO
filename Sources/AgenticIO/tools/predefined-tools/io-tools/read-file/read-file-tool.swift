@@ -5,8 +5,9 @@ import Path
 import Primitives
 import Schema
 
-public struct ReadFileTool: TypedInstanceAgentTool {
+public struct ReadFileTool: AgentTool {
     public typealias Input = ReadFileToolInput
+    public typealias Output = ReadFileToolOutput
 
     public static let identifier: AgentToolIdentifier = "read_file"
     public static let description = "Read a file from the workspace, optionally constrained to a line window."
@@ -29,28 +30,24 @@ public struct ReadFileTool: TypedInstanceAgentTool {
 
 
     public func preflight(
-        input: JSONValue,
-        workspace: AgentWorkspace?
+        _ input: Input,
+        context: AgentToolExecutionContext
     ) async throws -> ToolPreflight {
         let workspace = try FileToolSupport.requireWorkspace(
-            workspace,
+            context.workspace,
             toolName: name
-        )
-        let decoded = try JSONToolBridge.decode(
-            ReadFileToolInput.self,
-            from: input
         )
 
         try FileToolSupport.validateReadWindow(
-            startLine: decoded.startLine,
-            endLine: decoded.endLine,
-            maxLines: decoded.maxLines
+            startLine: input.startLine,
+            endLine: input.endLine,
+            maxLines: input.maxLines
         )
 
         let authorized = try FileToolAccess.authorize(
             workspace: workspace,
-            rootID: decoded.rootID,
-            path: decoded.path,
+            rootID: input.rootID,
+            path: input.path,
             capability: .read,
             toolName: name,
             type: .file
@@ -59,7 +56,7 @@ public struct ReadFileTool: TypedInstanceAgentTool {
             for: authorized
         )
         let estimatedReadLines = estimatedLineCount(
-            for: decoded
+            for: input
         )
 
         return .init(
@@ -70,12 +67,12 @@ public struct ReadFileTool: TypedInstanceAgentTool {
                 authorized.presentationPath
             ],
             summary: summary(
-                for: decoded,
+                for: input,
                 renderedPath: authorized.presentationPath,
                 sensitivityReason: sensitivity.summaryReason
             ),
             rootIDs: [
-                decoded.rootID.rawValue
+                input.rootID.rawValue
             ],
             capabilitiesRequired: [
                 .read
@@ -95,29 +92,25 @@ public struct ReadFileTool: TypedInstanceAgentTool {
     }
 
     public func call(
-        input: JSONValue,
-        workspace: AgentWorkspace?
-    ) async throws -> JSONValue {
+        _ input: Input,
+        context: AgentToolExecutionContext
+    ) async throws -> Output {
         let workspace = try FileToolSupport.requireWorkspace(
-            workspace,
+            context.workspace,
             toolName: name
         )
 
-        let decoded = try JSONToolBridge.decode(
-            ReadFileToolInput.self,
-            from: input
-        )
 
         try FileToolSupport.validateReadWindow(
-            startLine: decoded.startLine,
-            endLine: decoded.endLine,
-            maxLines: decoded.maxLines
+            startLine: input.startLine,
+            endLine: input.endLine,
+            maxLines: input.maxLines
         )
 
         let authorized = try FileToolAccess.authorize(
             workspace: workspace,
-            rootID: decoded.rootID,
-            path: decoded.path,
+            rootID: input.rootID,
+            path: input.path,
             capability: .read,
             toolName: name,
             type: .file
@@ -125,9 +118,9 @@ public struct ReadFileTool: TypedInstanceAgentTool {
 
         let read = try workspace.readSlice(
             authorized.path,
-            startLine: decoded.startLine,
-            endLine: decoded.endLine,
-            maxLines: decoded.maxLines
+            startLine: input.startLine,
+            endLine: input.endLine,
+            maxLines: input.maxLines
         )
 
         let rawContent: String
@@ -140,7 +133,7 @@ public struct ReadFileTool: TypedInstanceAgentTool {
                 startingAt: range.start,
                 includeLineNumbers: false
             )
-            displayContent = decoded.includeLineNumbers
+            displayContent = input.includeLineNumbers
                 ? FileToolSupport.renderLines(
                     read.selectedLines,
                     startingAt: range.start,
@@ -159,21 +152,20 @@ public struct ReadFileTool: TypedInstanceAgentTool {
             structuredLines = []
         }
 
-        return try JSONToolBridge.encode(
-            ReadFileToolOutput(
-                rootID: authorized.rootID.rawValue,
-                path: authorized.presentationPath,
-                content: rawContent,
-                display: displayContent,
-                lines: structuredLines,
-                lineRange: read.selectedLineRange,
-                lineCount: read.lineCount,
-                totalLineCount: read.totalLineCount,
-                byteCount: read.byteCount,
-                truncated: read.truncated,
-                encoding: read.encodingUsed?.name
-            )
+        return ReadFileToolOutput(
+            rootID: authorized.rootID.rawValue,
+            path: authorized.presentationPath,
+            content: rawContent,
+            display: displayContent,
+            lines: structuredLines,
+            lineRange: read.selectedLineRange,
+            lineCount: read.lineCount,
+            totalLineCount: read.totalLineCount,
+            byteCount: read.byteCount,
+            truncated: read.truncated,
+            encoding: read.encodingUsed?.name
         )
+        
     }
 }
 

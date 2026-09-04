@@ -18,15 +18,13 @@ public struct CoreWorkspaceToolSet: AgentToolSet {
     public func register(
         into registry: inout ToolRegistry
     ) throws {
-        try registry.register(
-            [
-                InspectWorkspaceTool(),
-                ListPathRootsTool(),
-                ListPathGrantsTool(),
-                ExplainPathAccessTool(),
-                FindPathsTool()
-            ]
-        )
+        try registry.register {
+            InspectWorkspaceTool()
+            ListPathRootsTool()
+            ListPathGrantsTool()
+            ExplainPathAccessTool()
+            FindPathsTool()
+        }
 
         if let preparedIntentManager {
             try registry.register(
@@ -37,4 +35,3 @@ public struct CoreWorkspaceToolSet: AgentToolSet {
         }
     }
 }
-

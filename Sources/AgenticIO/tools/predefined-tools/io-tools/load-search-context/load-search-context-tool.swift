@@ -222,8 +222,9 @@ public extension LoadSearchContextToolInput {
     }
 }
 
-public struct LoadSearchContextTool: TypedInstanceAgentTool {
+public struct LoadSearchContextTool: AgentTool {
     public typealias Input = LoadSearchContextToolInput
+    public typealias Output = SourceContextResult
 
     public static let identifier: AgentToolIdentifier = "load_search_context"
     public static let description = "Load bounded exact source slices from search_sources candidates after reauthorizing paths and validating that source fingerprints are still current."
@@ -250,19 +251,15 @@ public struct LoadSearchContextTool: TypedInstanceAgentTool {
     }
 
     public func preflight(
-        input: JSONValue,
-        workspace: AgentWorkspace?
+        _ input: Input,
+        context: AgentToolExecutionContext
     ) async throws -> ToolPreflight {
         let workspace = try FileToolSupport.requireWorkspace(
-            workspace,
+            context.workspace,
             toolName: name
         )
-        let decoded = try JSONToolBridge.decode(
-            LoadSearchContextToolInput.self,
-            from: input
-        )
         let request = try request(
-            from: decoded
+            from: input
         )
 
         try loader.validate(
@@ -272,10 +269,10 @@ public struct LoadSearchContextTool: TypedInstanceAgentTool {
         var targetPaths: [String] = []
         var seen: Set<String> = []
 
-        for candidate in decoded.candidates {
+        for candidate in input.candidates {
             let authorized = try FileToolAccess.authorize(
                 workspace: workspace,
-                rootID: decoded.rootID,
+                rootID: input.rootID,
                 path: candidate.path,
                 capability: .read,
                 toolName: name,
@@ -296,9 +293,9 @@ public struct LoadSearchContextTool: TypedInstanceAgentTool {
             risk: risk,
             workspaceRoot: workspace.rootURL.path,
             targetPaths: targetPaths,
-            summary: "Validate and admit exact source context for \(decoded.candidates.count) search candidate(s).",
+            summary: "Validate and admit exact source context for \(input.candidates.count) search candidate(s).",
             rootIDs: [
-                decoded.rootID.rawValue,
+                input.rootID.rawValue,
             ],
             capabilitiesRequired: [
                 .read,
@@ -316,66 +313,55 @@ public struct LoadSearchContextTool: TypedInstanceAgentTool {
     }
 
     public func call(
-        input: JSONValue,
-        workspace: AgentWorkspace?
-    ) async throws -> JSONValue {
+        _ input: Input,
+        context: AgentToolExecutionContext
+    ) async throws -> Output {
         let workspace = try FileToolSupport.requireWorkspace(
-            workspace,
+            context.workspace,
             toolName: name
-        )
-        let decoded = try JSONToolBridge.decode(
-            LoadSearchContextToolInput.self,
-            from: input
         )
         let result = try loader.load(
             try request(
-                from: decoded
+                from: input
             ),
             workspace: workspace
         )
 
-        return try JSONToolBridge.encode(
-            result
-        )
+        return result
+        
     }
 
-    public func processResult(
-        input _: JSONValue,
-        output: JSONValue,
-        workspace _: AgentWorkspace?
-    ) -> AgentToolResultProcessing {
-        guard let result = try? JSONToolBridge.decode(
-            SourceContextResult.self,
-            from: output
-        ) else {
-            return .none
-        }
+    public func process(
+        _ output: Output,
+        input _: Input,
+        context _: AgentToolExecutionContext
+    ) -> AgentToolResultProjection? {
+        let result = output
 
         return .init(
-            projection: .init(
-                status: "passed",
-                summary: "Loaded \(result.totalLineCount) validated source line(s) across \(result.sourceCount) source(s).",
-                facts: [
-                    .init(
-                        label: "candidates",
-                        value: String(
-                            result.candidateCount
-                        )
-                    ),
-                    .init(
-                        label: "sources",
-                        value: String(
-                            result.sourceCount
-                        )
-                    ),
-                    .init(
-                        label: "lines",
-                        value: String(
-                            result.totalLineCount
-                        )
-                    ),
-                ]
-            )
+            status: "passed",
+            summary: "Loaded \(result.totalLineCount) validated source line(s) across \(result.sourceCount) source(s).",
+            facts: [
+                .init(
+                    label: "candidates",
+                    value: String(
+                        result.candidateCount
+                    )
+                ),
+                .init(
+                    label: "sources",
+                    value: String(
+                        result.sourceCount
+                    )
+                ),
+                .init(
+                    label: "lines",
+                    value: String(
+                        result.totalLineCount
+                    )
+                ),
+            ]
+            
         )
     }
 }

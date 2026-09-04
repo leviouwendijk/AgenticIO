@@ -6,8 +6,9 @@ import Schema
 import Path
 import PathParsing
 
-public struct ScanPathsTool: TypedInstanceAgentTool {
+public struct ScanPathsTool: AgentTool {
     public typealias Input = ScanPathsToolInput
+    public typealias Output = ScanPathsToolOutput
 
     public static let identifier: AgentToolIdentifier = "scan_paths"
     public static let description = "Scan paths inside an authorized workspace root using PathScan, with optional literal directory-state filtering."
@@ -30,17 +31,13 @@ public struct ScanPathsTool: TypedInstanceAgentTool {
     public init() {}
 
     public func preflight(
-        input: JSONValue,
-        workspace: AgentWorkspace?
+        _ input: Input,
+        context: AgentToolExecutionContext
     ) async throws -> ToolPreflight {
-        let decoded = try JSONToolBridge.decode(
-            ScanPathsToolInput.self,
-            from: input
-        )
 
         let directory = try resolvedDirectoryForPreflight(
-            from: decoded,
-            workspace: workspace
+            from: input,
+            workspace: context.workspace
         )
 
         let targetPaths: [String]
@@ -57,28 +54,28 @@ public struct ScanPathsTool: TypedInstanceAgentTool {
         }
 
         let summary = summary(
-            for: decoded,
+            for: input,
             directory: directory
         )
 
         return .init(
             toolName: name,
             risk: risk,
-            workspaceRoot: workspace?.rootURL.path,
+            workspaceRoot: context.workspace?.rootURL.path,
             targetPaths: targetPaths,
-            summary: decoded.excludes.isEmpty
+            summary: input.excludes.isEmpty
                 ? summary
-                : "\(summary) with \(decoded.excludes.count) exclude pattern(s)",
+                : "\(summary) with \(input.excludes.count) exclude pattern(s)",
             rootIDs: [
-                decoded.rootID.rawValue
+                input.rootID.rawValue
             ],
             capabilitiesRequired: [
                 .scan
             ],
-            estimatedScanEntries: decoded.maxEntries,
-            estimatedScanDepth: decoded.recursive ? nil : 1,
-            includesHiddenPaths: decoded.includeHidden,
-            followsSymlinks: decoded.followSymlinks,
+            estimatedScanEntries: input.maxEntries,
+            estimatedScanDepth: input.recursive ? nil : 1,
+            includesHiddenPaths: input.includeHidden,
+            followsSymlinks: input.followSymlinks,
             policyChecks: [
                 "workspace_required",
                 "root_path_resolved",
@@ -88,21 +85,17 @@ public struct ScanPathsTool: TypedInstanceAgentTool {
     }
 
     public func call(
-        input: JSONValue,
-        workspace: AgentWorkspace?
-    ) async throws -> JSONValue {
+        _ input: Input,
+        context: AgentToolExecutionContext
+    ) async throws -> Output {
         let workspace = try FileToolSupport.requireWorkspace(
-            workspace,
+            context.workspace,
             toolName: name
         )
 
-        let decoded = try JSONToolBridge.decode(
-            ScanPathsToolInput.self,
-            from: input
-        )
 
         let directory = try authorizedDirectoryForCall(
-            from: decoded,
+            from: input,
             workspace: workspace
         )
 
@@ -110,35 +103,35 @@ public struct ScanPathsTool: TypedInstanceAgentTool {
             includes: [
                 includePattern(
                     directory: directory,
-                    recursive: decoded.recursive
+                    recursive: input.recursive
                 )
             ],
-            excludes: decoded.excludes
+            excludes: input.excludes
         )
 
         let result = try workspace.scan(
             specification,
-            rootID: decoded.rootID,
+            rootID: input.rootID,
             configuration: .init(
-                maxDepth: decoded.recursive ? nil : 1,
-                includeHidden: decoded.includeHidden,
-                followSymlinks: decoded.followSymlinks,
-                emitDirectories: decoded.includeDirectories,
-                emitFiles: decoded.includeFiles,
-                directoryState: decoded.directoryState
+                maxDepth: input.recursive ? nil : 1,
+                includeHidden: input.includeHidden,
+                followSymlinks: input.followSymlinks,
+                emitDirectories: input.includeDirectories,
+                emitFiles: input.includeFiles,
+                directoryState: input.directoryState
             )
         )
 
         var entries = try workspace.authorizedEntries(
             from: result,
-            rootID: decoded.rootID,
+            rootID: input.rootID,
             capability: .scan,
             toolName: name,
             excluding: directory
         )
 
         let truncated: Bool
-        if let maxEntries = decoded.maxEntries,
+        if let maxEntries = input.maxEntries,
            maxEntries >= 0,
            entries.count > maxEntries {
             entries = Array(
@@ -151,21 +144,20 @@ public struct ScanPathsTool: TypedInstanceAgentTool {
             truncated = false
         }
 
-        return try JSONToolBridge.encode(
-            ScanPathsToolOutput(
-                rootID: decoded.rootID.rawValue,
-                directory: directory?.presentingRelative(
-                    filetype: true
-                ),
-                entries: entries.map { entry in
-                    .init(
-                        path: entry.relativePath,
-                        isDirectory: entry.isDirectory
-                    )
-                },
-                truncated: truncated
-            )
+        return ScanPathsToolOutput(
+            rootID: input.rootID.rawValue,
+            directory: directory?.presentingRelative(
+                filetype: true
+            ),
+            entries: entries.map { entry in
+                .init(
+                    path: entry.relativePath,
+                    isDirectory: entry.isDirectory
+                )
+            },
+            truncated: truncated
         )
+        
     }
 }
 

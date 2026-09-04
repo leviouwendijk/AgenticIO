@@ -252,8 +252,9 @@ public extension SearchSourcesToolInput {
     }
 }
 
-public struct SearchSourcesTool: TypedInstanceAgentTool {
+public struct SearchSourcesTool: AgentTool {
     public typealias Input = SearchSourcesToolInput
+    public typealias Output = SourceSearchResult
 
     public static let identifier: AgentToolIdentifier = "search_sources"
     public static let description = "Search content inside an authorized workspace source universe and return compact ranked or exhaustive source ranges without returning source contents."
@@ -280,25 +281,21 @@ public struct SearchSourcesTool: TypedInstanceAgentTool {
     }
 
     public func preflight(
-        input: JSONValue,
-        workspace: AgentWorkspace?
+        _ input: Input,
+        context: AgentToolExecutionContext
     ) async throws -> ToolPreflight {
-        let decoded = try JSONToolBridge.decode(
-            SearchSourcesToolInput.self,
-            from: input
-        )
         let workspace = try FileToolSupport.requireWorkspace(
-            workspace,
+            context.workspace,
             toolName: name
         )
 
-        let probes = try decoded.resolvedSearchProbes(
+        let probes = try input.resolvedSearchProbes(
             toolName: name
         )
 
         _ = try FileToolAccess.authorize(
             workspace: workspace,
-            rootID: decoded.rootID,
+            rootID: input.rootID,
             path: ".",
             capability: .scan,
             toolName: name,
@@ -306,19 +303,19 @@ public struct SearchSourcesTool: TypedInstanceAgentTool {
         )
 
         _ = try ConcatenationCorpusDefinition.parsing(
-            includes: decoded.includes,
-            excludes: decoded.excludes,
-            selections: decoded.selections
+            includes: input.includes,
+            excludes: input.excludes,
+            selections: input.selections
         )
 
         return .init(
             toolName: name,
             risk: risk,
             workspaceRoot: workspace.rootURL.path,
-            summary: "Search \(probes.count) source probe(s) inside root '\(decoded.rootID.rawValue)'.",
+            summary: "Search \(probes.count) source probe(s) inside root '\(input.rootID.rawValue)'.",
             sideEffects: [],
             rootIDs: [
-                decoded.rootID.rawValue,
+                input.rootID.rawValue,
             ],
             capabilitiesRequired: [
                 .scan,
@@ -337,42 +334,38 @@ public struct SearchSourcesTool: TypedInstanceAgentTool {
     }
 
     public func call(
-        input: JSONValue,
-        workspace: AgentWorkspace?
-    ) async throws -> JSONValue {
-        let decoded = try JSONToolBridge.decode(
-            SearchSourcesToolInput.self,
-            from: input
-        )
+        _ input: Input,
+        context: AgentToolExecutionContext
+    ) async throws -> Output {
         let workspace = try FileToolSupport.requireWorkspace(
-            workspace,
+            context.workspace,
             toolName: name
         )
         let definition = try ConcatenationCorpusDefinition.parsing(
-            includes: decoded.includes,
-            excludes: decoded.excludes,
-            selections: decoded.selections
+            includes: input.includes,
+            excludes: input.excludes,
+            selections: input.selections
         )
-        let probes = try decoded.resolvedSearchProbes(
+        let probes = try input.resolvedSearchProbes(
             toolName: name
         )
         let request = SourceSearchRequest(
-            rootID: decoded.rootID,
+            rootID: input.rootID,
             definition: definition,
             probes: probes,
             options: SearchOptions(
-                mode: decoded.mode.searchMode,
-                caseSensitive: decoded.caseSensitive,
-                minimumScore: decoded.minimumScore,
+                mode: input.mode.searchMode,
+                caseSensitive: input.caseSensitive,
+                minimumScore: input.minimumScore,
                 maximumResults: nil
             ),
             frontierOptions: SearchFrontierOptions(
-                mergeDistanceLines: decoded.mergeDistanceLines,
-                maximumCandidates: decoded.maximumCandidates,
-                maximumCandidatesPerDocument: decoded.maximumCandidatesPerDocument,
-                offset: decoded.offset
+                mergeDistanceLines: input.mergeDistanceLines,
+                maximumCandidates: input.maximumCandidates,
+                maximumCandidatesPerDocument: input.maximumCandidatesPerDocument,
+                offset: input.offset
             ),
-            expectedCorpusFingerprint: decoded.expectedCorpusFingerprint?.fingerprint
+            expectedCorpusFingerprint: input.expectedCorpusFingerprint?.fingerprint
         )
 
         let result = try await searcher.search(
@@ -381,100 +374,93 @@ public struct SearchSourcesTool: TypedInstanceAgentTool {
             toolName: name
         )
 
-        return try JSONToolBridge.encode(
-            result
-        )
+        return result
+        
     }
 
-    public func processResult(
-        input _: JSONValue,
-        output: JSONValue,
-        workspace _: AgentWorkspace?
-    ) -> AgentToolResultProcessing {
-        guard let result = try? JSONToolBridge.decode(
-            SourceSearchResult.self,
-            from: output
-        ) else {
-            return .none
-        }
+    public func process(
+        _ output: Output,
+        input _: Input,
+        context _: AgentToolExecutionContext
+    ) -> AgentToolResultProjection? {
+        let result = output
 
         return .init(
-            projection: .init(
-                status: "passed",
-                summary: "Source search (\(result.mode.rawValue)) returned \(result.returnedCandidateCount) of \(result.totalCandidateCount) candidate region(s) from offset \(result.offset) across \(result.sourceCount) retained source(s).",
-                facts: [
-                    .init(
-                        label: "mode",
-                        value: result.mode.rawValue
-                    ),
-                    .init(
-                        label: "sources",
-                        value: String(
-                            result.sourceCount
+            status: "passed",
+            summary: "Source search (\(result.mode.rawValue)) returned \(result.returnedCandidateCount) of \(result.totalCandidateCount) candidate region(s) from offset \(result.offset) across \(result.sourceCount) retained source(s).",
+            facts: [
+                .init(
+                    label: "mode",
+                    value: result.mode.rawValue
+                ),
+                .init(
+                    label: "sources",
+                    value: String(
+                        result.sourceCount
+                    )
+                ),
+                .init(
+                    label: "searched_slices",
+                    value: String(
+                        result.searchedDocumentCount
+                    )
+                ),
+                .init(
+                    label: "matched_documents",
+                    value: String(
+                        result.matchedDocumentCount
+                    )
+                ),
+                .init(
+                    label: "discovered_candidate_regions",
+                    value: String(
+                        result.discoveredCandidateCount
+                    )
+                ),
+                .init(
+                    label: "total_candidate_regions",
+                    value: String(
+                        result.totalCandidateCount
+                    )
+                ),
+                .init(
+                    label: "offset",
+                    value: String(
+                        result.offset
+                    )
+                ),
+                .init(
+                    label: "returned_candidates",
+                    value: String(
+                        result.returnedCandidateCount
+                    )
+                ),
+                .init(
+                    label: "next_offset",
+                    value: result.nextOffset.map {
+                        String(
+                            $0
                         )
-                    ),
-                    .init(
-                        label: "searched_slices",
-                        value: String(
-                            result.searchedDocumentCount
-                        )
-                    ),
-                    .init(
-                        label: "matched_documents",
-                        value: String(
-                            result.matchedDocumentCount
-                        )
-                    ),
-                    .init(
-                        label: "discovered_candidate_regions",
-                        value: String(
-                            result.discoveredCandidateCount
-                        )
-                    ),
-                    .init(
-                        label: "total_candidate_regions",
-                        value: String(
-                            result.totalCandidateCount
-                        )
-                    ),
-                    .init(
-                        label: "offset",
-                        value: String(
-                            result.offset
-                        )
-                    ),
-                    .init(
-                        label: "returned_candidates",
-                        value: String(
-                            result.returnedCandidateCount
-                        )
-                    ),
-                    .init(
-                        label: "next_offset",
-                        value: result.nextOffset.map {
-                            String(
-                                $0
-                            )
-                        } ?? "none"
-                    ),
-                    .init(
-                        label: "truncated",
-                        value: String(
-                            result.truncated
-                        )
-                    ),
-                    .init(
-                        label: "has_more",
-                        value: String(
-                            result.hasMore
-                        )
-                    ),
-                    .init(
-                        label: "corpus_fingerprint",
-                        value: result.corpusFingerprint.description
-                    ),
-                ]
-            )
+                    } ?? "none"
+                ),
+                .init(
+                    label: "truncated",
+                    value: String(
+                        result.truncated
+                    )
+                ),
+                .init(
+                    label: "has_more",
+                    value: String(
+                        result.hasMore
+                    )
+                ),
+                .init(
+                    label: "corpus_fingerprint",
+                    value: result.corpusFingerprint.description
+                ),
+            ]
+            
         )
     }
 }

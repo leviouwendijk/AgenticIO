@@ -4,8 +4,9 @@ import AgenticWorkspace
 import Position
 import Primitives
 
-public struct ReadSelectionTool: TypedInstanceAgentTool {
+public struct ReadSelectionTool: AgentTool {
     public typealias Input = ReadSelectionToolInput
+    public typealias Output = ReadSelectionToolOutput
 
     public static let identifier: AgentToolIdentifier = "read_selection"
     public static let description = "Read one or more content selections from a file in the workspace."
@@ -26,59 +27,51 @@ public struct ReadSelectionTool: TypedInstanceAgentTool {
     public init() {}
 
     public func preflight(
-        input: JSONValue,
-        workspace: AgentWorkspace?
+        _ input: Input,
+        context: AgentToolExecutionContext
     ) async throws -> ToolPreflight {
-        let decoded = try JSONToolBridge.decode(
-            ReadSelectionToolInput.self,
-            from: input
-        )
-        _ = try decoded.contentSelections()
+        _ = try input.contentSelections()
 
         let targetPath: String
-        if let workspace {
+        if let workspace = context.workspace {
             targetPath = try workspace.resolve(
-                decoded.path
+                input.path
             ).presentingRelative(
                 filetype: true
             )
         } else {
-            targetPath = decoded.path
+            targetPath = input.path
         }
 
         return .init(
             toolName: name,
             risk: risk,
-            workspaceRoot: workspace?.rootURL.path,
+            workspaceRoot: context.workspace?.rootURL.path,
             targetPaths: [targetPath],
             summary: summary(
-                for: decoded,
+                for: input,
                 renderedPath: targetPath
             )
         )
     }
 
     public func call(
-        input: JSONValue,
-        workspace: AgentWorkspace?
-    ) async throws -> JSONValue {
+        _ input: Input,
+        context: AgentToolExecutionContext
+    ) async throws -> Output {
         let workspace = try FileToolSupport.requireWorkspace(
-            workspace,
+            context.workspace,
             toolName: name
         )
 
-        let decoded = try JSONToolBridge.decode(
-            ReadSelectionToolInput.self,
-            from: input
-        )
 
         let path = try workspace.resolve(
-            decoded.path
+            input.path
         )
 
         let read = try workspace.readSelections(
             path,
-            try decoded.contentSelections()
+            try input.contentSelections()
         )
 
         let slices = read.slices.map { slice in
@@ -87,22 +80,21 @@ public struct ReadSelectionTool: TypedInstanceAgentTool {
                 lineCount: slice.lines.count,
                 content: render(
                     slice: slice,
-                    includeLineNumbers: decoded.includeLineNumbers
+                    includeLineNumbers: input.includeLineNumbers
                 )
             )
         }
 
-        return try JSONToolBridge.encode(
-            ReadSelectionToolOutput(
-                path: read.relativePath,
-                slices: slices,
-                selectedLineRanges: read.selectedLineRanges,
-                selectedLineCount: read.selectedLineCount,
-                totalLineCount: read.totalLineCount,
-                byteCount: read.byteCount,
-                encoding: read.encodingUsed?.name
-            )
+        return ReadSelectionToolOutput(
+            path: read.relativePath,
+            slices: slices,
+            selectedLineRanges: read.selectedLineRanges,
+            selectedLineCount: read.selectedLineCount,
+            totalLineCount: read.totalLineCount,
+            byteCount: read.byteCount,
+            encoding: read.encodingUsed?.name
         )
+        
     }
 }
 

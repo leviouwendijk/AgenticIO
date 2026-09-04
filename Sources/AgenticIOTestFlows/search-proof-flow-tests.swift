@@ -41,38 +41,35 @@ extension AgenticIOFlowTesting {
         )
 
         _ = try Expect.notNil(
-            registry.tool(
+            registry.registeredTool(
                 named: "prove_search_results"
             ),
             "AgenticIO registers prove_search_results"
         )
 
         let searchOutput = try await SearchSourcesTool().call(
-            input: try JSONToolBridge.encode(
-                SearchSourcesToolInput(
-                    includes: [
-                        "Sources/**",
-                    ],
-                    probes: [
-                        .init(
-                            text: "user",
-                            id: "user",
-                            role: .preferred,
-                            strategy: .contains
-                        ),
-                    ],
-                    mode: .exhaustive,
-                    caseSensitive: true,
-                    mergeDistanceLines: 0,
-                    maximumCandidates: 8
-                )
-            ),
-            workspace: fixture.workspace
+            SearchSourcesToolInput(
+                                includes: [
+                                    "Sources/**",
+                                ],
+                                probes: [
+                                    .init(
+                                        text: "user",
+                                        id: "user",
+                                        role: .preferred,
+                                        strategy: .contains
+                                    ),
+                                ],
+                                mode: .exhaustive,
+                                caseSensitive: true,
+                                mergeDistanceLines: 0,
+                                maximumCandidates: 8
+                            ),
+            context: .init(
+                workspace: fixture.workspace
+            )
         )
-        let search = try JSONToolBridge.decode(
-            SourceSearchResult.self,
-            from: searchOutput
-        )
+        let search = searchOutput
 
         try Expect.equal(
             search.candidates.count,
@@ -110,15 +107,12 @@ extension AgenticIOFlowTesting {
         )
         let tool = ProveSearchResultsTool()
         let output = try await tool.call(
-            input: try JSONToolBridge.encode(
-                input
-            ),
-            workspace: fixture.workspace
+            input,
+            context: .init(
+                workspace: fixture.workspace
+            )
         )
-        let proof = try JSONToolBridge.decode(
-            ProveSearchResultsToolOutput.self,
-            from: output
-        )
+        let proof = output
 
         try Expect.equal(
             proof.candidateCount,
@@ -194,10 +188,10 @@ extension AgenticIOFlowTesting {
 
         do {
             _ = try await tool.call(
-                input: try JSONToolBridge.encode(
-                    input
-                ),
-                workspace: fixture.workspace
+                input,
+                context: .init(
+                    workspace: fixture.workspace
+                )
             )
         } catch let error as SourceContextLoadError {
             switch error {

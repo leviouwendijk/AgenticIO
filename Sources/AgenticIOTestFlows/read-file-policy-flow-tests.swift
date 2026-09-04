@@ -20,12 +20,12 @@ extension AgenticIOFlowTesting {
         )
 
         let ordinary = try await tool.preflight(
-            input: try JSONToolBridge.encode(
-                ReadFileToolInput(
-                    path: "Sources/example.swift"
-                )
-            ),
-            workspace: fixture.workspace
+            ReadFileToolInput(
+                                path: "Sources/example.swift"
+                            ),
+            context: .init(
+                workspace: fixture.workspace
+            )
         )
 
         try Expect.equal(
@@ -45,12 +45,12 @@ extension AgenticIOFlowTesting {
         )
 
         let sensitive = try await tool.preflight(
-            input: try JSONToolBridge.encode(
-                ReadFileToolInput(
-                    path: "notes/private-notes.txt"
-                )
-            ),
-            workspace: fixture.workspace
+            ReadFileToolInput(
+                                path: "notes/private-notes.txt"
+                            ),
+            context: .init(
+                workspace: fixture.workspace
+            )
         )
 
         try Expect.equal(
@@ -77,12 +77,12 @@ extension AgenticIOFlowTesting {
         )
 
         let forbidden = try await tool.preflight(
-            input: try JSONToolBridge.encode(
-                ReadFileToolInput(
-                    path: "notes/do-not-read.txt"
-                )
-            ),
-            workspace: fixture.workspace
+            ReadFileToolInput(
+                                path: "notes/do-not-read.txt"
+                            ),
+            context: .init(
+                workspace: fixture.workspace
+            )
         )
 
         try Expect.equal(

@@ -34,8 +34,9 @@ public struct ListPathGrantsToolOutput: Sendable, Codable, Hashable {
     }
 }
 
-public struct ListPathGrantsTool: TypedInstanceAgentTool {
+public struct ListPathGrantsTool: AgentTool {
     public typealias Input = ListPathGrantsToolInput
+    public typealias Output = ListPathGrantsToolOutput
 
     public static let identifier: AgentToolIdentifier = "list_path_grants"
     public static let description = "List active workspace path grants and their capabilities."
@@ -57,13 +58,13 @@ public struct ListPathGrantsTool: TypedInstanceAgentTool {
     public init() {}
 
     public func preflight(
-        input _: JSONValue,
-        workspace: AgentWorkspace?
+        _ input: Input,
+        context: AgentToolExecutionContext
     ) async throws -> ToolPreflight {
         .init(
             toolName: name,
             risk: risk,
-            workspaceRoot: workspace?.rootURL.path,
+            workspaceRoot: context.workspace?.rootURL.path,
             summary: "List workspace path grants.",
             capabilitiesRequired: [
                 .list
@@ -76,26 +77,22 @@ public struct ListPathGrantsTool: TypedInstanceAgentTool {
     }
 
     public func call(
-        input: JSONValue,
-        workspace: AgentWorkspace?
-    ) async throws -> JSONValue {
+        _ input: Input,
+        context: AgentToolExecutionContext
+    ) async throws -> Output {
         let workspace = try WorkspaceToolSupport.requireWorkspace(
-            workspace,
+            context.workspace,
             toolName: name
-        )
-        let decoded = try JSONToolBridge.decode(
-            ListPathGrantsToolInput.self,
-            from: input
         )
         let now = Date()
 
         let grants = workspace.accessController.grants.filter { grant in
-            if let rootID = decoded.rootID,
+            if let rootID = input.rootID,
                grant.rootID != rootID {
                 return false
             }
 
-            if decoded.includeExpired != true,
+            if input.includeExpired != true,
                grant.isExpired(at: now) {
                 return false
             }
@@ -103,15 +100,14 @@ public struct ListPathGrantsTool: TypedInstanceAgentTool {
             return true
         }
 
-        return try JSONToolBridge.encode(
-            ListPathGrantsToolOutput(
-                grants: grants.map {
-                    WorkspaceGrantToolSummary(
-                        grant: $0,
-                        now: now
-                    )
-                }
-            )
+        return ListPathGrantsToolOutput(
+            grants: grants.map {
+                WorkspaceGrantToolSummary(
+                    grant: $0,
+                    now: now
+                )
+            }
         )
+        
     }
 }

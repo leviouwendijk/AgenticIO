@@ -75,8 +75,9 @@ public struct ExplainPathAccessToolOutput: Sendable, Codable, Hashable {
     }
 }
 
-public struct ExplainPathAccessTool: TypedInstanceAgentTool {
+public struct ExplainPathAccessTool: AgentTool {
     public typealias Input = ExplainPathAccessToolInput
+    public typealias Output = ExplainPathAccessToolOutput
 
     public static let identifier: AgentToolIdentifier = "explain_path_access"
     public static let description = "Explain whether a root-relative path is accessible for a requested capability and why."
@@ -98,23 +99,19 @@ public struct ExplainPathAccessTool: TypedInstanceAgentTool {
     public init() {}
 
     public func preflight(
-        input: JSONValue,
-        workspace: AgentWorkspace?
+        _ input: Input,
+        context: AgentToolExecutionContext
     ) async throws -> ToolPreflight {
-        let decoded = try JSONToolBridge.decode(
-            ExplainPathAccessToolInput.self,
-            from: input
-        )
-        let rootID = decoded.rootID ?? .project
+        let rootID = input.rootID ?? .project
 
         return .init(
             toolName: name,
             risk: risk,
-            workspaceRoot: workspace?.rootURL.path,
+            workspaceRoot: context.workspace?.rootURL.path,
             targetPaths: [
-                decoded.path
+                input.path
             ],
-            summary: "Explain \(decoded.capability.rawValue) access for \(rootID.rawValue):\(decoded.path).",
+            summary: "Explain \(input.capability.rawValue) access for \(rootID.rawValue):\(input.path).",
             rootIDs: [
                 rootID.rawValue
             ],
@@ -129,149 +126,140 @@ public struct ExplainPathAccessTool: TypedInstanceAgentTool {
     }
 
     public func call(
-        input: JSONValue,
-        workspace: AgentWorkspace?
-    ) async throws -> JSONValue {
-        let decoded = try JSONToolBridge.decode(
-            ExplainPathAccessToolInput.self,
-            from: input
-        )
-        let rootID = decoded.rootID ?? .project
+        _ input: Input,
+        context: AgentToolExecutionContext
+    ) async throws -> Output {
+        let rootID = input.rootID ?? .project
         let requestedToolName = normalizedToolName(
-            decoded.toolName
+            input.toolName
         )
 
-        guard let workspace else {
-            return try JSONToolBridge.encode(
-                ExplainPathAccessToolOutput(
-                    allowed: false,
-                    rootID: rootID.rawValue,
-                    path: decoded.path,
-                    capability: decoded.capability,
-                    toolName: requestedToolName,
-                    resolvedPath: nil,
-                    decision: nil,
-                    matchedRule: nil,
-                    reason: "No AgentWorkspace is attached.",
-                    policyChecks: [
-                        "workspace_missing"
-                    ]
-                )
+        guard let workspace = context.workspace else {
+            return ExplainPathAccessToolOutput(
+                allowed: false,
+                rootID: rootID.rawValue,
+                path: input.path,
+                capability: input.capability,
+                toolName: requestedToolName,
+                resolvedPath: nil,
+                decision: nil,
+                matchedRule: nil,
+                reason: "No AgentWorkspace is attached.",
+                policyChecks: [
+                    "workspace_missing"
+                ]
             )
+            
         }
 
         do {
             let descendant = try workspace.accessController.paths.resolve(
-                decoded.path,
+                input.path,
                 rootIdentifier: rootID,
-                type: decoded.type
+                type: input.type
             )
             let evaluation = try workspace.accessController.paths.evaluate(
                 descendant,
                 rootIdentifier: rootID,
-                type: decoded.type
+                type: input.type
             )
             let resolvedPath = descendant.presentingRelative(
                 filetype: true
             )
 
             guard evaluation.isAllowed else {
-                return try JSONToolBridge.encode(
-                    ExplainPathAccessToolOutput(
-                        allowed: false,
-                        rootID: rootID.rawValue,
-                        path: decoded.path,
-                        capability: decoded.capability,
-                        toolName: requestedToolName,
-                        resolvedPath: resolvedPath,
-                        decision: evaluation.decision.rawValue,
-                        matchedRule: evaluation.matchedRule?.matcher.summary,
-                        reason: evaluation.matchedRule?.reason ?? "Path access policy denied this path.",
-                        policyChecks: [
-                            "root_resolved",
-                            "path_sandboxed",
-                            "path_policy_denied"
-                        ]
-                    )
-                )
-            }
-
-            let grants = workspace.accessController.activeGrants(
-                rootID: rootID,
-                capability: decoded.capability,
-                toolName: requestedToolName
-            )
-
-            guard let grant = grants.first else {
-                return try JSONToolBridge.encode(
-                    ExplainPathAccessToolOutput(
-                        allowed: false,
-                        rootID: rootID.rawValue,
-                        path: decoded.path,
-                        capability: decoded.capability,
-                        toolName: requestedToolName,
-                        resolvedPath: resolvedPath,
-                        decision: evaluation.decision.rawValue,
-                        matchedRule: evaluation.matchedRule?.matcher.summary,
-                        reason: "Path policy allows this path, but no active workspace grant allows capability '\(decoded.capability.rawValue)' for tool '\(requestedToolName)'.",
-                        policyChecks: [
-                            "root_resolved",
-                            "path_sandboxed",
-                            "path_policy_allowed",
-                            "grant_denied"
-                        ],
-                        suggestedGrant: suggestion(
-                            rootID: rootID,
-                            capability: decoded.capability,
-                            toolName: requestedToolName
-                        )
-                    )
-                )
-            }
-
-            return try JSONToolBridge.encode(
-                ExplainPathAccessToolOutput(
-                    allowed: true,
+                return ExplainPathAccessToolOutput(
+                    allowed: false,
                     rootID: rootID.rawValue,
-                    path: decoded.path,
-                    capability: decoded.capability,
+                    path: input.path,
+                    capability: input.capability,
                     toolName: requestedToolName,
                     resolvedPath: resolvedPath,
                     decision: evaluation.decision.rawValue,
                     matchedRule: evaluation.matchedRule?.matcher.summary,
-                    reason: "Allowed by path policy and active grant '\(grant.id)'.",
+                    reason: evaluation.matchedRule?.reason ?? "Path access policy denied this path.",
+                    policyChecks: [
+                        "root_resolved",
+                        "path_sandboxed",
+                        "path_policy_denied"
+                    ]
+                )
+                
+            }
+
+            let grants = workspace.accessController.activeGrants(
+                rootID: rootID,
+                capability: input.capability,
+                toolName: requestedToolName
+            )
+
+            guard let grant = grants.first else {
+                return ExplainPathAccessToolOutput(
+                    allowed: false,
+                    rootID: rootID.rawValue,
+                    path: input.path,
+                    capability: input.capability,
+                    toolName: requestedToolName,
+                    resolvedPath: resolvedPath,
+                    decision: evaluation.decision.rawValue,
+                    matchedRule: evaluation.matchedRule?.matcher.summary,
+                    reason: "Path policy allows this path, but no active workspace grant allows capability '\(input.capability.rawValue)' for tool '\(requestedToolName)'.",
                     policyChecks: [
                         "root_resolved",
                         "path_sandboxed",
                         "path_policy_allowed",
-                        "grant_allowed",
-                        "capability_allowed",
-                        "tool_allowed"
-                    ]
-                )
-            )
-        } catch {
-            return try JSONToolBridge.encode(
-                ExplainPathAccessToolOutput(
-                    allowed: false,
-                    rootID: rootID.rawValue,
-                    path: decoded.path,
-                    capability: decoded.capability,
-                    toolName: requestedToolName,
-                    resolvedPath: nil,
-                    decision: nil,
-                    matchedRule: nil,
-                    reason: error.localizedDescription,
-                    policyChecks: [
-                        "access_resolution_failed"
+                        "grant_denied"
                     ],
                     suggestedGrant: suggestion(
                         rootID: rootID,
-                        capability: decoded.capability,
+                        capability: input.capability,
                         toolName: requestedToolName
                     )
                 )
+                
+            }
+
+            return ExplainPathAccessToolOutput(
+                allowed: true,
+                rootID: rootID.rawValue,
+                path: input.path,
+                capability: input.capability,
+                toolName: requestedToolName,
+                resolvedPath: resolvedPath,
+                decision: evaluation.decision.rawValue,
+                matchedRule: evaluation.matchedRule?.matcher.summary,
+                reason: "Allowed by path policy and active grant '\(grant.id)'.",
+                policyChecks: [
+                    "root_resolved",
+                    "path_sandboxed",
+                    "path_policy_allowed",
+                    "grant_allowed",
+                    "capability_allowed",
+                    "tool_allowed"
+                ]
             )
+            
+        } catch {
+            return ExplainPathAccessToolOutput(
+                allowed: false,
+                rootID: rootID.rawValue,
+                path: input.path,
+                capability: input.capability,
+                toolName: requestedToolName,
+                resolvedPath: nil,
+                decision: nil,
+                matchedRule: nil,
+                reason: error.localizedDescription,
+                policyChecks: [
+                    "access_resolution_failed"
+                ],
+                suggestedGrant: suggestion(
+                    rootID: rootID,
+                    capability: input.capability,
+                    toolName: requestedToolName
+                )
+            )
+            
         }
     }
 }

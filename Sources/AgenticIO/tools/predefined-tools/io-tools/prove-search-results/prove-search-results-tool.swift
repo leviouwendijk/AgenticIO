@@ -429,9 +429,10 @@ public enum ProveSearchResultsToolError:
 }
 
 public struct ProveSearchResultsTool:
-    TypedInstanceAgentTool
+    AgentTool
 {
     public typealias Input = ProveSearchResultsToolInput
+    public typealias Output = ProveSearchResultsToolOutput
 
     public static let identifier: AgentToolIdentifier =
         "prove_search_results"
@@ -464,22 +465,18 @@ public struct ProveSearchResultsTool:
     }
 
     public func preflight(
-        input: JSONValue,
-        workspace: AgentWorkspace?
+        _ input: Input,
+        context: AgentToolExecutionContext
     ) async throws -> ToolPreflight {
-        let decoded = try JSONToolBridge.decode(
-            ProveSearchResultsToolInput.self,
-            from: input
-        )
         let workspace = try FileToolSupport.requireWorkspace(
-            workspace,
+            context.workspace,
             toolName: name
         )
         let request = try sourceContextRequest(
-            from: decoded
+            from: input
         )
 
-        _ = try decoded.specification
+        _ = try input.specification
             .parserSpecification()
             .compile()
 
@@ -490,10 +487,10 @@ public struct ProveSearchResultsTool:
         var targetPaths: [String] = []
         var seen: Set<String> = []
 
-        for candidate in decoded.candidates {
+        for candidate in input.candidates {
             let authorized = try FileToolAccess.authorize(
                 workspace: workspace,
-                rootID: decoded.rootID,
+                rootID: input.rootID,
                 path: candidate.path,
                 capability: .read,
                 toolName: name,
@@ -514,9 +511,9 @@ public struct ProveSearchResultsTool:
             risk: risk,
             workspaceRoot: workspace.rootURL.path,
             targetPaths: targetPaths,
-            summary: "Freshness-validate and structurally prove \(decoded.candidates.count) source search candidate(s).",
+            summary: "Freshness-validate and structurally prove \(input.candidates.count) source search candidate(s).",
             rootIDs: [
-                decoded.rootID.rawValue,
+                input.rootID.rawValue,
             ],
             capabilitiesRequired: [
                 .read,
@@ -536,25 +533,21 @@ public struct ProveSearchResultsTool:
     }
 
     public func call(
-        input: JSONValue,
-        workspace: AgentWorkspace?
-    ) async throws -> JSONValue {
-        let decoded = try JSONToolBridge.decode(
-            ProveSearchResultsToolInput.self,
-            from: input
-        )
+        _ input: Input,
+        context: AgentToolExecutionContext
+    ) async throws -> Output {
         let workspace = try FileToolSupport.requireWorkspace(
-            workspace,
+            context.workspace,
             toolName: name
         )
         let context = try loader.load(
             try sourceContextRequest(
-                from: decoded
+                from: input
             ),
             workspace: workspace
         )
         let materials = try proofMaterials(
-            input: decoded,
+            input: input,
             context: context
         )
         let corpus = SearchCorpus(
@@ -590,12 +583,12 @@ public struct ProveSearchResultsTool:
                 )
             }
         )
-        let specification = try decoded.specification
+        let specification = try input.specification
             .parserSpecification()
         let result = try frontier.prove(
             in: corpus,
             with: specification,
-            requiring: decoded.cardinality.parserCardinality
+            requiring: input.cardinality.parserCardinality
         )
         let proofs = result.proofs.map {
             proof in
@@ -632,15 +625,14 @@ public struct ProveSearchResultsTool:
             )
         }
 
-        return try JSONToolBridge.encode(
-            ProveSearchResultsToolOutput(
-                rootID: decoded.rootID.rawValue,
-                candidateCount: result.candidateCount,
-                provenCandidateCount: result.provenCandidateCount,
-                matchCount: result.matchCount,
-                proofs: proofs
-            )
+        return ProveSearchResultsToolOutput(
+            rootID: input.rootID.rawValue,
+            candidateCount: result.candidateCount,
+            provenCandidateCount: result.provenCandidateCount,
+            matchCount: result.matchCount,
+            proofs: proofs
         )
+        
     }
 }
 

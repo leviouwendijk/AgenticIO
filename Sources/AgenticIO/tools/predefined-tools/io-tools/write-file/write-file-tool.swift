@@ -6,8 +6,9 @@ import Foundation
 import Primitives
 import Writers
 
-public struct WriteFileTool: TypedInstanceAgentTool {
+public struct WriteFileTool: AgentTool {
     public typealias Input = WriteFileToolInput
+    public typealias Output = WriteFileToolOutput
 
     public static let identifier: AgentToolIdentifier = "write_file"
     public static let description = "Replace the entire contents of a file in the workspace."
@@ -38,32 +39,28 @@ public struct WriteFileTool: TypedInstanceAgentTool {
     }
 
     public func preflight(
-        input: JSONValue,
-        workspace: AgentWorkspace?
+        _ input: Input,
+        context: AgentToolExecutionContext
     ) async throws -> ToolPreflight {
         let workspace = try FileToolSupport.requireWorkspace(
-            workspace,
+            context.workspace,
             toolName: name
         )
 
-        let decoded = try JSONToolBridge.decode(
-            WriteFileToolInput.self,
-            from: input
-        )
 
         let authorized = try FileToolAccess.authorize(
             workspace: workspace,
-            rootID: decoded.rootID,
-            path: decoded.path,
+            rootID: input.rootID,
+            path: input.path,
             capability: .write,
             toolName: name,
             type: .file
         )
 
-        let byteCount = decoded.content.utf8.count
+        let byteCount = input.content.utf8.count
         let diffPreview = makeDiffPreview(
             authorized: authorized,
-            replacement: decoded.content,
+            replacement: input.content,
             contextLineCount: 3
         )
 
@@ -79,7 +76,7 @@ public struct WriteFileTool: TypedInstanceAgentTool {
             estimatedByteCount: byteCount,
             sideEffects: risk.defaultSideEffects,
             rootIDs: [
-                decoded.rootID.rawValue
+                input.rootID.rawValue
             ],
             capabilitiesRequired: [
                 .write
@@ -97,24 +94,20 @@ public struct WriteFileTool: TypedInstanceAgentTool {
         )
     }
 
-    public func call(
-        input: JSONValue,
+    private func callInternal(
+        _ input: Input,
         workspace: AgentWorkspace?
-    ) async throws -> JSONValue {
+    ) async throws -> Output {
         let workspace = try FileToolSupport.requireWorkspace(
             workspace,
             toolName: name
         )
 
-        let decoded = try JSONToolBridge.decode(
-            WriteFileToolInput.self,
-            from: input
-        )
 
         let authorized = try FileToolAccess.authorize(
             workspace: workspace,
-            rootID: decoded.rootID,
-            path: decoded.path,
+            rootID: input.rootID,
+            path: input.path,
             capability: .write,
             toolName: name,
             type: .file
@@ -138,7 +131,7 @@ public struct WriteFileTool: TypedInstanceAgentTool {
 
         if let recorder {
             let recorded = try await editor.writeRecorded(
-                decoded.content,
+                input.content,
                 to: authorized.path,
                 recorder: recorder,
                 options: .init(
@@ -158,49 +151,35 @@ public struct WriteFileTool: TypedInstanceAgentTool {
         } else {
             write = (
                 try editor.write(
-                    decoded.content,
+                    input.content,
                     to: authorized.path
                 ),
                 nil
             )
         }
 
-        return try JSONToolBridge.encode(
-            WriteFileToolOutput(
-                rootID: authorized.rootID.rawValue,
-                path: authorized.presentationPath,
-                bytesWritten: write.result.writeResult?.bytesWritten ?? 0,
-                diffSummary: .init(
-                    insertedLineCount: write.result.insertions,
-                    deletedLineCount: write.result.deletions
-                ),
-                changeCount: write.result.changeCount,
-                originalChangedLineRanges: write.result.originalChangedLineRanges,
-                editedChangedLineRanges: write.result.editedChangedLineRanges,
-                mutation: write.mutation
-            )
+        return WriteFileToolOutput(
+            rootID: authorized.rootID.rawValue,
+            path: authorized.presentationPath,
+            bytesWritten: write.result.writeResult?.bytesWritten ?? 0,
+            diffSummary: .init(
+                insertedLineCount: write.result.insertions,
+                deletedLineCount: write.result.deletions
+            ),
+            changeCount: write.result.changeCount,
+            originalChangedLineRanges: write.result.originalChangedLineRanges,
+            editedChangedLineRanges: write.result.editedChangedLineRanges,
+            mutation: write.mutation
         )
+        
     }
 
-    public func call(
-        input: JSONValue,
-        context: AgentToolExecutionContext
-    ) async throws -> JSONValue {
-        let decoded = try JSONToolBridge.decode(
-            WriteFileToolInput.self,
-            from: input
-        )
-
-        return try await call(
-            decoded,
-            context: context
-        )
-    }
+    
 
     public func call(
-        _ input: WriteFileToolInput,
+        _ input: Input,
         context: AgentToolExecutionContext
-    ) async throws -> JSONValue {
+    ) async throws -> Output {
         let tool = Self(
             recorder: recorder,
             context: mergedMutationContext(
@@ -209,10 +188,8 @@ public struct WriteFileTool: TypedInstanceAgentTool {
             )
         )
 
-        return try await tool.call(
-            input: try JSONToolBridge.encode(
-                input
-            ),
+        return try await tool.callInternal(
+            input,
             workspace: context.workspace
         )
     }

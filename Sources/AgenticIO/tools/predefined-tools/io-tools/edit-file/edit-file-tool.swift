@@ -9,8 +9,9 @@ import Difference
 import Readers
 import Foundation
 
-public struct EditFileTool: TypedInstanceAgentTool {
+public struct EditFileTool: AgentTool {
     public typealias Input = EditFileToolInput
+    public typealias Output = EditFileToolOutput
 
     public static let identifier: AgentToolIdentifier = "edit_file"
     public static let description = "Apply one or more structured edit operations to a file in the workspace."
@@ -45,23 +46,19 @@ public struct EditFileTool: TypedInstanceAgentTool {
 
 
     public func preflight(
-        input: JSONValue,
-        workspace: AgentWorkspace?
+        _ input: Input,
+        context: AgentToolExecutionContext
     ) async throws -> ToolPreflight {
         let workspace = try FileToolSupport.requireWorkspace(
-            workspace,
+            context.workspace,
             toolName: name
         )
 
-        let decoded = try JSONToolBridge.decode(
-            EditFileToolInput.self,
-            from: input
-        )
 
         let plan = try EditFileIntentResolver(
             toolName: name
         ).resolve(
-            decoded,
+            input,
             workspace: workspace
         )
 
@@ -72,7 +69,7 @@ public struct EditFileTool: TypedInstanceAgentTool {
         )
 
         let constraint = try policy.constraint(
-            for: decoded,
+            for: input,
             authorized: plan.authorized,
             operations: plan.operations
         )
@@ -101,7 +98,7 @@ public struct EditFileTool: TypedInstanceAgentTool {
             estimatedWriteCount: plan.operationCount == 0 ? 0 : 1,
             sideEffects: risk.defaultSideEffects,
             rootIDs: [
-                decoded.rootID.rawValue
+                input.rootID.rawValue
             ],
             capabilitiesRequired: [
                 .write
@@ -111,7 +108,7 @@ public struct EditFileTool: TypedInstanceAgentTool {
             policyChecks: [
                 "workspace_required",
                 "root_path_authorized",
-                "edit_intent_decoded",
+                "edit_intent_input",
                 "runtime_guards_resolved",
                 "snapshot_fingerprint_captured",
                 "edit_policy_constraint_validated",
@@ -121,24 +118,20 @@ public struct EditFileTool: TypedInstanceAgentTool {
         )
     }
 
-    public func call(
-        input: JSONValue,
+    private func callInternal(
+        _ input: Input,
         workspace: AgentWorkspace?
-    ) async throws -> JSONValue {
+    ) async throws -> Output {
         let workspace = try FileToolSupport.requireWorkspace(
             workspace,
             toolName: name
         )
 
-        let decoded = try JSONToolBridge.decode(
-            EditFileToolInput.self,
-            from: input
-        )
 
         let plan = try EditFileIntentResolver(
             toolName: name
         ).resolve(
-            decoded,
+            input,
             workspace: workspace
         )
 
@@ -149,7 +142,7 @@ public struct EditFileTool: TypedInstanceAgentTool {
         try plan.requireCurrentSnapshot()
 
         let constraint = try policy.constraint(
-            for: decoded,
+            for: input,
             authorized: plan.authorized,
             operations: plan.operations
         )
@@ -208,36 +201,22 @@ public struct EditFileTool: TypedInstanceAgentTool {
             )
         }
 
-        return try JSONToolBridge.encode(
-            EditFileToolOutput(
-                rootID: plan.authorized.rootID.rawValue,
-                path: plan.authorized.presentationPath,
-                operationCount: plan.operationCount,
-                result: edit.result,
-                mutation: edit.mutation
-            )
+        return EditFileToolOutput(
+            rootID: plan.authorized.rootID.rawValue,
+            path: plan.authorized.presentationPath,
+            operationCount: plan.operationCount,
+            result: edit.result,
+            mutation: edit.mutation
         )
+        
     }
 
-    public func call(
-        input: JSONValue,
-        context: AgentToolExecutionContext
-    ) async throws -> JSONValue {
-        let decoded = try JSONToolBridge.decode(
-            EditFileToolInput.self,
-            from: input
-        )
-
-        return try await call(
-            decoded,
-            context: context
-        )
-    }
+    
 
     public func call(
-        _ input: EditFileToolInput,
+        _ input: Input,
         context: AgentToolExecutionContext
-    ) async throws -> JSONValue {
+    ) async throws -> Output {
         let tool = Self(
             recorder: recorder,
             context: mergedMutationContext(
@@ -247,10 +226,8 @@ public struct EditFileTool: TypedInstanceAgentTool {
             policy: policy
         )
 
-        return try await tool.call(
-            input: try JSONToolBridge.encode(
-                input
-            ),
+        return try await tool.callInternal(
+            input,
             workspace: context.workspace
         )
     }

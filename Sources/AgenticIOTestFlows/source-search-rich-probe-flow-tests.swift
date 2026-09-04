@@ -43,54 +43,51 @@ extension AgenticIOFlowTesting {
         )
 
         let output = try await SearchSourcesTool().call(
-            input: try JSONToolBridge.encode(
-                SearchSourcesToolInput(
-                    includes: [
-                        "Sources/RichPlain.swift",
-                        "Sources/RichStrong.swift",
-                        "Sources/RichEmbedded.swift",
-                        "Sources/RichMissing.swift",
-                        "Sources/RichDeprecated.swift",
-                    ],
-                    probes: [
-                        .init(
-                            text: "ToolPlan",
-                            id: "type",
-                            role: .required,
-                            strategy: .identifier
-                        ),
-                        .init(
-                            text: "resume",
-                            id: "operation",
-                            role: .required,
-                            strategy: .contains
-                        ),
-                        .init(
-                            text: "failure",
-                            id: "context",
-                            role: .preferred,
-                            strategy: .identifier
-                        ),
-                        .init(
-                            text: "Deprecated",
-                            id: "deprecated",
-                            role: .excluded,
-                            strategy: .identifier
-                        ),
-                    ],
-                    mode: .exhaustive,
-                    caseSensitive: true,
-                    mergeDistanceLines: 0,
-                    maximumCandidates: 16,
-                    maximumCandidatesPerDocument: 16
-                )
-            ),
-            workspace: fixture.workspace
+            SearchSourcesToolInput(
+                                includes: [
+                                    "Sources/RichPlain.swift",
+                                    "Sources/RichStrong.swift",
+                                    "Sources/RichEmbedded.swift",
+                                    "Sources/RichMissing.swift",
+                                    "Sources/RichDeprecated.swift",
+                                ],
+                                probes: [
+                                    .init(
+                                        text: "ToolPlan",
+                                        id: "type",
+                                        role: .required,
+                                        strategy: .identifier
+                                    ),
+                                    .init(
+                                        text: "resume",
+                                        id: "operation",
+                                        role: .required,
+                                        strategy: .contains
+                                    ),
+                                    .init(
+                                        text: "failure",
+                                        id: "context",
+                                        role: .preferred,
+                                        strategy: .identifier
+                                    ),
+                                    .init(
+                                        text: "Deprecated",
+                                        id: "deprecated",
+                                        role: .excluded,
+                                        strategy: .identifier
+                                    ),
+                                ],
+                                mode: .exhaustive,
+                                caseSensitive: true,
+                                mergeDistanceLines: 0,
+                                maximumCandidates: 16,
+                                maximumCandidatesPerDocument: 16
+                            ),
+            context: .init(
+                workspace: fixture.workspace
+            )
         )
-        let result = try JSONToolBridge.decode(
-            SourceSearchResult.self,
-            from: output
-        )
+        let result = output
 
         try Expect.equal(
             result.matchedDocumentCount,
