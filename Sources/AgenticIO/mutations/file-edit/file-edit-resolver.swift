@@ -3,7 +3,7 @@ import Foundation
 import Position
 import Writers
 
-struct EditFileIntentResolver: Sendable {
+struct FileEditResolver: Sendable {
     let toolName: String
 
     init(
@@ -13,9 +13,9 @@ struct EditFileIntentResolver: Sendable {
     }
 
     func resolve(
-        _ input: EditFileToolInput,
+        _ input: FileEditRequest,
         workspace: AgentWorkspace
-    ) throws -> ResolvedEditPlan {
+    ) throws -> FileEditResolution {
         let authorized = try FileToolAccess.authorize(
             workspace: workspace,
             rootID: input.rootID,
@@ -25,7 +25,7 @@ struct EditFileIntentResolver: Sendable {
             type: .file
         )
 
-        let content = try ResolvedEditPlan.readContent(
+        let content = try FileEditResolution.readContent(
             at: authorized.absoluteURL
         )
         let snapshot = StandardEditSnapshot(
@@ -53,9 +53,9 @@ struct EditFileIntentResolver: Sendable {
     }
 }
 
-private extension EditFileIntentResolver {
+private extension FileEditResolver {
     func resolve(
-        _ operation: EditFileToolOperation,
+        _ operation: FileEditOperation,
         operationIndex: Int,
         currentLines: [String]
     ) throws -> StandardEditOperation {
@@ -129,6 +129,40 @@ private extension EditFileIntentResolver {
                 at: operation.position
             )
 
+        case .insert_before(let operation):
+            try validateLogicalLines(
+                operation.lines,
+                operationIndex: operationIndex,
+                field: "lines"
+            )
+            _ = try existingLine(
+                operation.line,
+                operationIndex: operationIndex,
+                currentLines: currentLines
+            )
+
+            return StandardEditOperation.lines.insert(
+                operation.lines,
+                at: operation.line
+            )
+
+        case .insert_after(let operation):
+            try validateLogicalLines(
+                operation.lines,
+                operationIndex: operationIndex,
+                field: "lines"
+            )
+            _ = try existingLine(
+                operation.line,
+                operationIndex: operationIndex,
+                currentLines: currentLines
+            )
+
+            return StandardEditOperation.lines.insert(
+                operation.lines,
+                at: operation.line + 1
+            )
+
         case .replace_lines(let operation):
             let range = try operation.range.lineRange()
 
@@ -168,7 +202,7 @@ private extension EditFileIntentResolver {
         currentLines: [String]
     ) throws -> String {
         guard currentLines.indices.contains(line - 1) else {
-            throw EditFileToolError.lineOutOfBounds(
+            throw FileEditError.lineOutOfBounds(
                 operation: operationIndex,
                 line: line,
                 valid: existingLineDescription(
@@ -188,7 +222,7 @@ private extension EditFileIntentResolver {
         guard range.start >= 1,
               range.end <= currentLines.count
         else {
-            throw EditFileToolError.rangeOutOfBounds(
+            throw FileEditError.rangeOutOfBounds(
                 operation: operationIndex,
                 range: range,
                 valid: existingLineDescription(
@@ -210,7 +244,7 @@ private extension EditFileIntentResolver {
         guard position >= 1,
               position <= currentLines.count + 1
         else {
-            throw EditFileToolError.positionOutOfBounds(
+            throw FileEditError.positionOutOfBounds(
                 operation: operationIndex,
                 position: position,
                 valid: insertionPositionDescription(
@@ -242,7 +276,7 @@ private extension EditFileIntentResolver {
         guard !line.contains("\n"),
               !line.contains("\r")
         else {
-            throw EditFileToolError.invalidLinePayload(
+            throw FileEditError.invalidLinePayload(
                 operation: operationIndex,
                 field: field,
                 line: line

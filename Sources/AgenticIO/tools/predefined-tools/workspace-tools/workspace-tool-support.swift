@@ -86,8 +86,7 @@ enum WorkspaceToolSupport {
                 "load_search_context",
                 "read_file",
                 "compose_context",
-                "write_file",
-                "edit_file"
+                "mutate_files"
             ]
         }
 

@@ -21,7 +21,7 @@ public enum MutateFilesToolEntryKind: String, Sendable, Codable, Hashable, CaseI
 /// One file mutation entry.
 /// create_text requires path and content and fails if the file exists.
 /// replace_text requires path and content and defaults replacePolicy to upsert.
-/// edit_text requires path and operations using the same operation schema as edit_file.
+/// edit_text requires path and operations using the shared FileEditOperation schema.
 /// move requires path as the source and destination as the destination path.
 /// delete requires path and defaults deletePolicy to existing.
 @JSONSchema
@@ -45,7 +45,7 @@ public struct MutateFilesToolEntry: Sendable, Codable, Hashable {
     public let deletePolicy: StandardDeletePolicy?
 
     /// Structured edit operations for edit_text.
-    public let operations: [EditFileToolOperation]?
+    public let operations: [FileEditOperation]?
 
     /// Destination path for move.
     public let destination: String?
@@ -60,7 +60,7 @@ public struct MutateFilesToolEntry: Sendable, Codable, Hashable {
         content: String? = nil,
         replacePolicy: StandardReplacePolicy? = nil,
         deletePolicy: StandardDeletePolicy? = nil,
-        operations: [EditFileToolOperation]? = nil,
+        operations: [FileEditOperation]? = nil,
         destination: String? = nil,
         createParentDirectories: Bool? = nil
     ) {
@@ -277,11 +277,14 @@ public struct MutateFilesTool: AgentTool {
     }
 
     public let context: AgentFileMutationContext
+    public let fileEditPolicy: FileEditPolicy
 
     public init(
-        context: AgentFileMutationContext = .empty
+        context: AgentFileMutationContext = .empty,
+        fileEditPolicy: FileEditPolicy = .unrestricted
     ) {
         self.context = context
+        self.fileEditPolicy = fileEditPolicy
     }
 
 
@@ -301,7 +304,8 @@ public struct MutateFilesTool: AgentTool {
             workspace
         ).mutations.plan(
             workspaceEntries(
-                input
+                input,
+                workspace: workspace
             ),
             metadata: mutationMetadata(
                 input: input,
@@ -398,7 +402,8 @@ public struct MutateFilesTool: AgentTool {
             workspace
         ).mutations.plan(
             workspaceEntries(
-                input
+                input,
+                workspace: workspace
             ),
             metadata: mutationMetadata(
                 input: input,
@@ -683,12 +688,15 @@ private extension MutateFilesTool {
     }
 
     func workspaceEntries(
-        _ input: MutateFilesToolInput
+        _ input: MutateFilesToolInput,
+        workspace: AgentWorkspace
     ) throws -> [WorkspaceMutationEntry] {
         try input.entries.map { entry in
             try entry.workspaceEntry(
                 defaultRootID: input.rootID,
-                toolName: name
+                toolName: name,
+                workspace: workspace,
+                fileEditPolicy: fileEditPolicy
             )
         }
     }
@@ -879,7 +887,9 @@ private extension MutateFilesTool {
 private extension MutateFilesToolEntry {
     func workspaceEntry(
         defaultRootID: PathAccessRootIdentifier,
-        toolName: String
+        toolName: String,
+        workspace: AgentWorkspace,
+        fileEditPolicy: FileEditPolicy
     ) throws -> WorkspaceMutationEntry {
         let rootID = rootID ?? defaultRootID
 
@@ -906,21 +916,32 @@ private extension MutateFilesToolEntry {
             )
 
         case .edit_text:
-            let operations = try requiredOperations(
+            let input = FileEditRequest(
+                rootID: rootID,
+                path: path,
+                operations: try requiredOperations(
+                    toolName: toolName
+                )
+            )
+            let resolved = try FileEditResolver(
                 toolName: toolName
+            ).resolve(
+                input,
+                workspace: workspace
+            )
+
+            let constraint = try fileEditPolicy.constraint(
+                for: input,
+                authorized: resolved.authorized,
+                operations: resolved.operations
             )
 
             return .editText(
                 at: path,
                 rootIdentifier: rootID,
-                operations: try operations.map {
-                    try $0.standardEditOperation()
-                },
-                mode: EditFileToolInput(
-                    rootID: rootID,
-                    path: path,
-                    operations: operations
-                ).resolvedEditMode,
+                operations: resolved.operations,
+                mode: resolved.editMode,
+                constraint: constraint,
                 options: .init(
                     write: .overwriteWithoutBackup
                 )
@@ -979,7 +1000,7 @@ private extension MutateFilesToolEntry {
 
     func requiredOperations(
         toolName: String
-    ) throws -> [EditFileToolOperation] {
+    ) throws -> [FileEditOperation] {
         guard let operations else {
             throw PredefinedFileToolError.missingField(
                 tool: toolName,
@@ -996,70 +1017,6 @@ private extension MutateFilesToolEntry {
         }
 
         return operations
-    }
-}
-
-private extension EditFileToolOperation {
-    func standardEditOperation() throws -> StandardEditOperation {
-        switch self {
-        case .replace_entire_file(let operation):
-            return StandardEditOperation.file.replace(
-                with: operation.content
-            )
-
-        case .append(let operation):
-            return StandardEditOperation.text.append(
-                operation.content,
-                separator: operation.separator
-            )
-
-        case .prepend(let operation):
-            return StandardEditOperation.text.prepend(
-                operation.content,
-                separator: operation.separator
-            )
-
-        case .replace_first(let operation):
-            return StandardEditOperation.text.replaceFirst(
-                operation.target,
-                with: operation.replacement
-            )
-
-        case .replace_all(let operation):
-            return StandardEditOperation.text.replaceAll(
-                operation.target,
-                with: operation.replacement
-            )
-
-        case .replace_unique(let operation):
-            return StandardEditOperation.text.replaceUnique(
-                operation.target,
-                with: operation.replacement
-            )
-
-        case .replace_line(let operation):
-            return StandardEditOperation.line.replace(
-                operation.line,
-                with: operation.content
-            )
-
-        case .insert_lines(let operation):
-            return StandardEditOperation.lines.insert(
-                operation.lines,
-                at: operation.position
-            )
-
-        case .replace_lines(let operation):
-            return StandardEditOperation.lines.replace(
-                try operation.range.lineRange(),
-                with: operation.lines
-            )
-
-        case .delete_lines(let operation):
-            return StandardEditOperation.lines.delete(
-                try operation.range.lineRange()
-            )
-        }
     }
 }
 

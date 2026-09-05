@@ -72,7 +72,7 @@ public struct FileMutationIntentExecutor: Sendable {
                 error: FileMutationIntentExecutionError.missingExactInputs(
                     intent.id
                 ),
-                executionToolName: action.toolName,
+                executionToolName: action.executionName,
                 metadata: metadata(
                     intent: intent,
                     action: action
@@ -88,7 +88,7 @@ public struct FileMutationIntentExecutor: Sendable {
 
             try approval?.requireCurrentFile(
                 in: workspace,
-                toolName: action.toolName
+                toolName: action.authorizationToolName
             )
 
             let result = try await execute(
@@ -101,7 +101,7 @@ public struct FileMutationIntentExecutor: Sendable {
                 id: intent.id,
                 record: .init(
                     intentID: intent.id,
-                    executionToolName: action.toolName,
+                    executionToolName: action.executionName,
                     status: .succeeded,
                     summary: "Executed prepared file mutation \(action.rawValue).",
                     startedAt: startedAt,
@@ -119,7 +119,7 @@ public struct FileMutationIntentExecutor: Sendable {
                 startedAt: startedAt,
                 summary: "Prepared file mutation execution failed.",
                 error: error,
-                executionToolName: action.toolName,
+                executionToolName: action.executionName,
                 metadata: metadata(
                     intent: intent,
                     action: action
@@ -137,53 +137,69 @@ private extension FileMutationIntentExecutor {
     ) async throws -> JSONValue {
         switch action {
         case .write:
-            let decoded = try JSONToolBridge.decode(
-                WriteFileToolInput.self,
+            let request = try JSONToolBridge.decode(
+                AgentFileMutationPreflight.WriteRequest.self,
                 from: exactInputs
             )
+            let authorized = try FileToolAccess.authorize(
+                workspace: workspace,
+                rootID: request.rootID,
+                path: request.path,
+                capability: .write,
+                toolName: action.authorizationToolName,
+                type: .file
+            )
+            var context = mutationContext(
+                intentID: intentID,
+                action: action
+            )
+            context.rootID = authorized.rootID
+            context.metadata["root_id"] = authorized.rootID.rawValue
+            context.metadata["path"] = authorized.presentationPath
 
-            let output = try await WriteFileTool(
+            let recorded = try await FileEditor(
+                workspace: workspace
+            ).writeRecorded(
+                request.content,
+                to: authorized.path,
                 recorder: recorder,
-                context: mutationContext(
-                    intentID: intentID,
-                    action: action
-                )
-            ).call(
-                decoded,
-                context: .init(
-                    workspace: workspace,
-                    preparedIntentID: intentID,
-                    executionMode: .prepared_intent_replay
+                options: .init(
+                    mutation: context
                 )
             )
 
             return try JSONToolBridge.encode(
-                output
+                AgentFileMutationToolSummary(
+                    result: recorded,
+                    policy: recorder.policy
+                )
             )
 
         case .edit:
-            let decoded = try JSONToolBridge.decode(
-                EditFileToolInput.self,
+            let request = try JSONToolBridge.decode(
+                FileEditRequest.self,
                 from: exactInputs
             )
-
-            let output = try await EditFileTool(
+            let result = try await FileEditExecutor(
                 recorder: recorder,
                 context: mutationContext(
                     intentID: intentID,
                     action: action
                 )
-            ).call(
-                decoded,
-                context: .init(
-                    workspace: workspace,
-                    preparedIntentID: intentID,
-                    executionMode: .prepared_intent_replay
-                )
+            ).execute(
+                request,
+                workspace: workspace,
+                authorizationToolName: action.authorizationToolName
             )
 
+            guard let mutation = result.mutation else {
+                throw FileMutationIntentExecutionError.missingExactInputs(
+                    intentID
+                )
+            }
+
             return try JSONToolBridge.encode(
-                output
+                mutation
             )
 
         case .rollback:
@@ -291,7 +307,7 @@ private extension FileMutationIntentExecutor {
             "prepared_intent_id": intent.id.rawValue,
             "action": action.rawValue,
             "actionType": intent.actionType,
-            "toolName": action.toolName
+            "toolName": action.executionName
         ]
     }
 

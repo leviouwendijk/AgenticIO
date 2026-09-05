@@ -1,14 +1,6 @@
 import AgenticExecution
 
 public struct CoreFileToolSet: AgentToolSet {
-    // public let fileMutationRecorder: AgentFileMutationRecorder?
-
-    // public init(
-    //     fileMutationRecorder: AgentFileMutationRecorder? = nil
-    // ) {
-    //     self.fileMutationRecorder = fileMutationRecorder
-    // }
-
     public init() {}
 
     public func register(
@@ -16,12 +8,6 @@ public struct CoreFileToolSet: AgentToolSet {
     ) throws {
         try registry.register {
             ReadFileTool()
-            // WriteFileTool(
-            //     recorder: fileMutationRecorder
-            // )
-            // EditFileTool(
-            //     recorder: fileMutationRecorder
-            // )
             MutateFilesTool()
             RemoveEmptyDirectoriesTool()
             ScanPathsTool()

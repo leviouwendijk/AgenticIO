@@ -2,7 +2,7 @@ import Foundation
 import Position
 import Writers
 
-enum EditFileToolError: Error, Sendable, LocalizedError {
+enum FileEditError: Error, Sendable, LocalizedError {
     case invalidLinePayload(
         operation: Int,
         field: String,

@@ -177,7 +177,7 @@ public extension AgentFileMutationPreflight {
         )
 
         let toolPreflight = ToolPreflight(
-            toolName: FileMutationIntentAction.rollback.toolName,
+            toolName: FileMutationIntentAction.rollback.authorizationToolName,
             risk: .boundedmutate,
             workspaceRoot: workspace?.rootURL.path,
             targetPaths: [

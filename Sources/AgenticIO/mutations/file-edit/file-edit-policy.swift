@@ -4,20 +4,20 @@ import Path
 import Position
 import Writers
 
-public enum EditFileRequiredOperation: String, Sendable, Codable, Hashable, CaseIterable {
+public enum FileEditRequiredOperation: String, Sendable, Codable, Hashable, CaseIterable {
     case insert_lines
     case replace_lines
     case delete_lines
     case replace_line
 }
 
-public enum EditFilePolicyError: Error, Sendable, LocalizedError, Hashable {
+public enum FileEditPolicyError: Error, Sendable, LocalizedError, Hashable {
     case grant_required(
         rootID: String,
         path: String
     )
     case required_operation_missing(
-        operation: EditFileRequiredOperation
+        operation: FileEditRequiredOperation
     )
     case insertion_position_outside_grant(
         position: Int,
@@ -45,11 +45,11 @@ public enum EditFilePolicyError: Error, Sendable, LocalizedError, Hashable {
     }
 }
 
-public struct EditFileGrant: Sendable, Codable, Hashable {
+public struct FileEditGrant: Sendable, Codable, Hashable {
     public var rootID: PathAccessRootIdentifier?
     public var path: String?
     public var constraint: StandardEditConstraint
-    public var requiredOperations: [EditFileRequiredOperation]
+    public var requiredOperations: [FileEditRequiredOperation]
     public var allowedInsertionPositions: [Int]
     public var allowedReplacementRanges: [LineRange]
 
@@ -57,7 +57,7 @@ public struct EditFileGrant: Sendable, Codable, Hashable {
         rootID: PathAccessRootIdentifier? = nil,
         path: String? = nil,
         constraint: StandardEditConstraint,
-        requiredOperations: [EditFileRequiredOperation] = [],
+        requiredOperations: [FileEditRequiredOperation] = [],
         allowedInsertionPositions: [Int] = [],
         allowedReplacementRanges: [LineRange] = []
     ) {
@@ -70,7 +70,7 @@ public struct EditFileGrant: Sendable, Codable, Hashable {
     }
 
     public func matches(
-        input: EditFileToolInput,
+        input: FileEditRequest,
         authorized: AgenticAuthorizedPath
     ) -> Bool {
         if let rootID,
@@ -102,14 +102,14 @@ public struct EditFileGrant: Sendable, Codable, Hashable {
     }
 }
 
-public struct EditFilePolicy: Sendable, Codable, Hashable {
+public struct FileEditPolicy: Sendable, Codable, Hashable {
     public var defaultConstraint: StandardEditConstraint
-    public var grants: [EditFileGrant]
+    public var grants: [FileEditGrant]
     public var requiresGrant: Bool
 
     public init(
         defaultConstraint: StandardEditConstraint = .unrestricted,
-        grants: [EditFileGrant] = [],
+        grants: [FileEditGrant] = [],
         requiresGrant: Bool = false
     ) {
         self.defaultConstraint = defaultConstraint
@@ -123,7 +123,7 @@ public struct EditFilePolicy: Sendable, Codable, Hashable {
         rootID: PathAccessRootIdentifier = .project,
         path: String,
         budget: StandardEditBudget = .small,
-        requiredOperations: [EditFileRequiredOperation] = [],
+        requiredOperations: [FileEditRequiredOperation] = [],
         insertionPositions: [Int] = [],
         replacementRanges: [(Int, Int)] = []
     ) -> Self {
@@ -169,7 +169,7 @@ public struct EditFilePolicy: Sendable, Codable, Hashable {
     }
 
     public func constraint(
-        for input: EditFileToolInput,
+        for input: FileEditRequest,
         authorized: AgenticAuthorizedPath,
         operations: [StandardEditOperation]
     ) throws -> StandardEditConstraint {
@@ -180,7 +180,7 @@ public struct EditFilePolicy: Sendable, Codable, Hashable {
             )
         }) else {
             guard !requiresGrant else {
-                throw EditFilePolicyError.grant_required(
+                throw FileEditPolicyError.grant_required(
                     rootID: authorized.rootID.rawValue,
                     path: authorized.presentationPath
                 )
@@ -197,7 +197,7 @@ public struct EditFilePolicy: Sendable, Codable, Hashable {
     }
 }
 
-private extension EditFileGrant {
+private extension FileEditGrant {
     func validateRequiredOperations(
         _ operations: [StandardEditOperation]
     ) throws {
@@ -207,7 +207,7 @@ private extension EditFileGrant {
                     by: operation.kind
                 )
             }) else {
-                throw EditFilePolicyError.required_operation_missing(
+                throw FileEditPolicyError.required_operation_missing(
                     operation: required
                 )
             }
@@ -227,7 +227,7 @@ private extension EditFileGrant {
             }
 
             guard allowedInsertionPositions.contains(position) else {
-                throw EditFilePolicyError.insertion_position_outside_grant(
+                throw FileEditPolicyError.insertion_position_outside_grant(
                     position: position,
                     allowed: allowedInsertionPositions
                 )
@@ -248,7 +248,7 @@ private extension EditFileGrant {
             }
 
             guard allowedReplacementRanges.containsLineRange(range) else {
-                throw EditFilePolicyError.replacement_range_outside_grant(
+                throw FileEditPolicyError.replacement_range_outside_grant(
                     range: range,
                     allowed: allowedReplacementRanges
                 )
@@ -257,7 +257,7 @@ private extension EditFileGrant {
     }
 }
 
-private extension EditFileRequiredOperation {
+private extension FileEditRequiredOperation {
     func isSatisfied(
         by kind: StandardEditOperationKind
     ) -> Bool {

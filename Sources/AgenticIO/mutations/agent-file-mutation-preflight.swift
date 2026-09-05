@@ -33,17 +33,19 @@ public extension FileMutationIntentAction {
         )
     }
 
-    var toolName: String {
+    var authorizationToolName: String {
         switch self {
-        case .write:
-            return WriteFileTool.identifier.rawValue
-
-        case .edit:
-            return EditFileTool.identifier.rawValue
+        case .write,
+             .edit:
+            return MutateFilesTool.identifier.rawValue
 
         case .rollback:
             return "rollback_file_mutation"
         }
+    }
+
+    var executionName: String {
+        FileMutationIntentExecutor.name
     }
 
     var title: String {
@@ -139,19 +141,48 @@ public struct AgentFileMutationPreflight: Sendable, Codable, Hashable {
 }
 
 public extension AgentFileMutationPreflight {
+    /// Exact replay payload for a prepared whole-file replacement.
+    ///
+    /// This is an internal mutation intent shape, not a model-facing tool input.
+    struct WriteRequest: Sendable, Codable, Hashable {
+        public let rootID: PathAccessRootIdentifier
+        public let path: String
+        public let content: String
+
+        public init(
+            rootID: PathAccessRootIdentifier = .project,
+            path: String,
+            content: String
+        ) {
+            self.rootID = rootID
+            self.path = path
+            self.content = content
+        }
+    }
+}
+
+public extension AgentFileMutationPreflight {
     static func write(
-        _ input: WriteFileToolInput,
+        _ input: WriteRequest,
         workspace: AgentWorkspace?,
         recorder: AgentFileMutationRecorder? = nil
     ) async throws -> Self {
         let exactInput = try JSONToolBridge.encode(
             input
         )
-        let tool = WriteFileTool(
-            recorder: recorder
+        let mutationInput = MutateFilesToolInput(
+            reason: "Prepare one whole-file replacement.",
+            rootID: input.rootID,
+            entries: [
+                .init(
+                    kind: .replace_text,
+                    path: input.path,
+                    content: input.content
+                ),
+            ]
         )
-        let toolPreflight = try await tool.preflight(
-            input,
+        let toolPreflight = try await MutateFilesTool().preflight(
+            mutationInput,
             context: .init(
                 workspace: workspace
             )
@@ -173,18 +204,26 @@ public extension AgentFileMutationPreflight {
     }
 
     static func edit(
-        _ input: EditFileToolInput,
+        _ input: FileEditRequest,
         workspace: AgentWorkspace?,
         recorder: AgentFileMutationRecorder? = nil
     ) async throws -> Self {
         let exactInput = try JSONToolBridge.encode(
             input
         )
-        let tool = EditFileTool(
-            recorder: recorder
+        let mutationInput = MutateFilesToolInput(
+            reason: "Prepare one structured file edit.",
+            rootID: input.rootID,
+            entries: [
+                .init(
+                    kind: .edit_text,
+                    path: input.path,
+                    operations: input.operations
+                ),
+            ]
         )
-        let toolPreflight = try await tool.preflight(
-            input,
+        let toolPreflight = try await MutateFilesTool().preflight(
+            mutationInput,
             context: .init(
                 workspace: workspace
             )
@@ -286,7 +325,7 @@ private extension AgentFileMutationPreflight {
     }
 
     static func preview(
-        _ input: WriteFileToolInput,
+        _ input: WriteRequest,
         workspace: AgentWorkspace?
     ) throws -> StandardEditResult? {
         guard let workspace else {
@@ -298,7 +337,7 @@ private extension AgentFileMutationPreflight {
             rootID: input.rootID,
             path: input.path,
             capability: .write,
-            toolName: WriteFileTool.identifier.rawValue,
+            toolName: MutateFilesTool.identifier.rawValue,
             type: .file
         )
 
@@ -315,15 +354,15 @@ private extension AgentFileMutationPreflight {
     }
 
     static func preview(
-        _ input: EditFileToolInput,
+        _ input: FileEditRequest,
         workspace: AgentWorkspace?
     ) throws -> StandardEditResult? {
         guard let workspace else {
             return nil
         }
 
-        let plan = try EditFileIntentResolver(
-            toolName: EditFileTool.identifier.rawValue
+        let plan = try FileEditResolver(
+            toolName: MutateFilesTool.identifier.rawValue
         )
         .resolve(
             input,

@@ -6,7 +6,7 @@ import SchemaMacros
 import Writers
 
 @JSONSchema
-public struct EditFileLineRange: Sendable, Codable, Hashable {
+public struct FileEditLineRange: Sendable, Codable, Hashable {
     /// 1-based first line in the inclusive line range.
     public let start: Int
 
@@ -30,7 +30,7 @@ public struct EditFileLineRange: Sendable, Codable, Hashable {
 }
 
 @JSONSchema
-public enum EditFileToolOperationKind: String, Sendable, Codable, Hashable, CaseIterable {
+public enum FileEditOperationKind: String, Sendable, Codable, Hashable, CaseIterable {
     case replace_entire_file
     case append
     case prepend
@@ -39,11 +39,13 @@ public enum EditFileToolOperationKind: String, Sendable, Codable, Hashable, Case
     case replace_unique
     case replace_line
     case insert_lines
+    case insert_before
+    case insert_after
     case replace_lines
     case delete_lines
 }
 
-public enum EditFileToolOperation: Sendable, Hashable {
+public enum FileEditOperation: Sendable, Hashable {
     case replace_entire_file(ReplaceEntireFile)
     case append(Append)
     case prepend(Prepend)
@@ -52,10 +54,12 @@ public enum EditFileToolOperation: Sendable, Hashable {
     case replace_unique(ReplaceUnique)
     case replace_line(ReplaceLine)
     case insert_lines(InsertLines)
+    case insert_before(InsertRelative)
+    case insert_after(InsertRelative)
     case replace_lines(ReplaceLines)
     case delete_lines(DeleteLines)
 
-    public var kind: EditFileToolOperationKind {
+    public var kind: FileEditOperationKind {
         switch self {
         case .replace_entire_file:
             return .replace_entire_file
@@ -81,6 +85,12 @@ public enum EditFileToolOperation: Sendable, Hashable {
         case .insert_lines:
             return .insert_lines
 
+        case .insert_before:
+            return .insert_before
+
+        case .insert_after:
+            return .insert_after
+
         case .replace_lines:
             return .replace_lines
 
@@ -90,11 +100,13 @@ public enum EditFileToolOperation: Sendable, Hashable {
     }
 }
 
-extension EditFileToolOperation {
+extension FileEditOperation {
     var isSnapshotCompatible: Bool {
         switch kind {
         case .replace_line,
              .insert_lines,
+             .insert_before,
+             .insert_after,
              .replace_lines,
              .delete_lines:
             return true
@@ -110,7 +122,7 @@ extension EditFileToolOperation {
     }
 }
 
-extension EditFileToolInput {
+extension FileEditRequest {
     var resolvedEditMode: StandardEditMode {
         guard !operations.isEmpty else {
             return .sequential
@@ -122,7 +134,7 @@ extension EditFileToolInput {
     }
 }
 
-public extension EditFileToolOperation {
+public extension FileEditOperation {
     struct ReplaceEntireFile: Sendable, Codable, Hashable {
         public let content: String
 
@@ -269,12 +281,25 @@ public extension EditFileToolOperation {
         }
     }
 
-    struct ReplaceLines: Sendable, Codable, Hashable {
-        public let range: EditFileLineRange
+    struct InsertRelative: Sendable, Codable, Hashable {
+        public let line: Int
         public let lines: [String]
 
         public init(
-            range: EditFileLineRange,
+            line: Int,
+            lines: [String]
+        ) {
+            self.line = line
+            self.lines = lines
+        }
+    }
+
+    struct ReplaceLines: Sendable, Codable, Hashable {
+        public let range: FileEditLineRange
+        public let lines: [String]
+
+        public init(
+            range: FileEditLineRange,
             lines: [String]
         ) {
             self.range = range
@@ -283,17 +308,17 @@ public extension EditFileToolOperation {
     }
 
     struct DeleteLines: Sendable, Codable, Hashable {
-        public let range: EditFileLineRange
+        public let range: FileEditLineRange
 
         public init(
-            range: EditFileLineRange
+            range: FileEditLineRange
         ) {
             self.range = range
         }
     }
 }
 
-private extension EditFileToolOperation {
+private extension FileEditOperation {
     enum CodingKeys: String, CodingKey {
         case kind
         case content
@@ -307,7 +332,7 @@ private extension EditFileToolOperation {
     }
 }
 
-extension EditFileToolOperation: Codable {
+extension FileEditOperation: Codable {
     public init(
         from decoder: any Decoder
     ) throws {
@@ -315,7 +340,7 @@ extension EditFileToolOperation: Codable {
             keyedBy: CodingKeys.self
         )
         let kind = try container.decode(
-            EditFileToolOperationKind.self,
+            FileEditOperationKind.self,
             forKey: .kind
         )
 
@@ -372,6 +397,20 @@ extension EditFileToolOperation: Codable {
         case .insert_lines:
             self = .insert_lines(
                 try InsertLines(
+                    from: decoder
+                )
+            )
+
+        case .insert_before:
+            self = .insert_before(
+                try InsertRelative(
+                    from: decoder
+                )
+            )
+
+        case .insert_after:
+            self = .insert_after(
+                try InsertRelative(
                     from: decoder
                 )
             )
@@ -481,6 +520,17 @@ extension EditFileToolOperation: Codable {
                 forKey: .lines
             )
 
+        case .insert_before(let operation),
+             .insert_after(let operation):
+            try container.encode(
+                operation.line,
+                forKey: .line
+            )
+            try container.encode(
+                operation.lines,
+                forKey: .lines
+            )
+
         case .replace_lines(let operation):
             try container.encode(
                 operation.range,
@@ -509,13 +559,15 @@ extension EditFileToolOperation: Codable {
 /// replace_unique requires target and replacement.
 /// replace_line requires line and content.
 /// insert_lines requires position and lines.
+/// insert_before requires line and lines.
+/// insert_after requires line and lines.
 /// replace_lines requires range and lines.
 /// delete_lines requires range.
 /// The runtime derives all exact guard content from the current raw file state.
 @JSONSchema
-struct EditFileToolOperationSchemaRepresentation: Codable {
+struct FileEditOperationSchemaRepresentation: Codable {
     /// Edit operation kind.
-    let kind: EditFileToolOperationKind
+    let kind: FileEditOperationKind
 
     /// Content for replace_entire_file, append, prepend, or replace_line. For replace_line, this is the replacement line content and must be one logical line.
     let content: String?
@@ -526,29 +578,29 @@ struct EditFileToolOperationSchemaRepresentation: Codable {
     /// Replacement text for replace_first, replace_all, or replace_unique. replace_line also accepts this as a compatibility alias, but content is preferred.
     let replacement: String?
 
-    /// 1-based line number for replace_line.
+    /// 1-based existing line number for replace_line, insert_before, or insert_after.
     let line: Int?
 
-    /// Lines for insert_lines, or replacement lines for replace_lines. Each entry must be one logical line with no newline characters.
+    /// Lines for insert_lines, insert_before, or insert_after, or replacement lines for replace_lines. Each entry must be one logical line with no newline characters.
     let lines: [String]?
 
     /// 1-based insertion position for insert_lines.
     let position: Int?
 
-    let range: EditFileLineRange?
+    let range: FileEditLineRange?
 
     /// Optional separator for append/prepend.
     let separator: String?
 }
 
-extension EditFileToolOperation: JSONSchemaProviding {
+extension FileEditOperation: JSONSchemaProviding {
     public static var jsonschema: JSONSchema {
-        EditFileToolOperationSchemaRepresentation.jsonschema
+        FileEditOperationSchemaRepresentation.jsonschema
     }
 }
 
 @JSONSchema
-public struct EditFileToolInput: Sendable, Codable, Hashable {
+public struct FileEditRequest: Sendable, Codable, Hashable {
     /// Workspace root identifier. Usually use 'project'.
     @Schema(required: false)
     public let rootID: PathAccessRootIdentifier
@@ -557,12 +609,12 @@ public struct EditFileToolInput: Sendable, Codable, Hashable {
     public let path: String
 
     /// Ordered edit intent operations to apply. Guard material is derived by the runtime, not supplied by the model.
-    public let operations: [EditFileToolOperation]
+    public let operations: [FileEditOperation]
 
     public init(
         rootID: PathAccessRootIdentifier = .project,
         path: String,
-        operations: [EditFileToolOperation]
+        operations: [FileEditOperation]
     ) {
         self.rootID = rootID
         self.path = path
@@ -570,7 +622,7 @@ public struct EditFileToolInput: Sendable, Codable, Hashable {
     }
 }
 
-private extension EditFileToolInput {
+private extension FileEditRequest {
     enum CodingKeys: String, CodingKey {
         case rootID
         case path
@@ -578,7 +630,7 @@ private extension EditFileToolInput {
     }
 }
 
-public extension EditFileToolInput {
+public extension FileEditRequest {
     init(
         from decoder: any Decoder
     ) throws {
@@ -596,7 +648,7 @@ public extension EditFileToolInput {
                 forKey: .path
             ),
             operations: try container.decode(
-                [EditFileToolOperation].self,
+                [FileEditOperation].self,
                 forKey: .operations
             )
         )

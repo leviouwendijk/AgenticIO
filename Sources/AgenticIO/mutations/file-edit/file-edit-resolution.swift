@@ -3,8 +3,8 @@ import Foundation
 import Readers
 import Writers
 
-struct ResolvedEditPlan: Sendable, Hashable {
-    let input: EditFileToolInput
+struct FileEditResolution: Sendable, Hashable {
+    let input: FileEditRequest
     let authorized: AgenticAuthorizedPath
     let snapshot: StandardEditSnapshot
     let operations: [StandardEditOperation]
@@ -26,7 +26,7 @@ struct ResolvedEditPlan: Sendable, Hashable {
         )
 
         guard currentFingerprint == snapshot.fingerprint else {
-            throw EditFileToolError.snapshotChanged(
+            throw FileEditError.snapshotChanged(
                 path: authorized.presentationPath,
                 expected: snapshot.fingerprint,
                 actual: currentFingerprint
