@@ -26,6 +26,19 @@ enum AgenticIOFlowSuite: TestFlowRegistry {
                 .runMutateFilesWorkspaceTargeting()
         },
         TestFlow(
+            "mutate-files-relative-insertion",
+            tags: [
+                "agentic-io",
+                "mutation",
+                "edit",
+                "insertion",
+                "snapshot",
+            ]
+        ) {
+            try await AgenticIOFlowTesting
+                .runMutateFilesRelativeInsertion()
+        },
+        TestFlow(
             "path-search",
             tags: [
                 "agentic-io",

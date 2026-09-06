@@ -93,8 +93,10 @@ public struct FindPathsToolInput: Sendable, Codable, Hashable {
     public let includes: [String]?
     /// Optional exclude patterns.
     public let excludes: [String]?
-    /// Whether to scan recursively.
+    /// Whether to scan recursively when maxdepth is omitted. Defaults to true.
     public let recursive: Bool?
+    /// Optional maximum traversal depth. When provided, this overrides recursive.
+    public let maxdepth: Int?
     /// Whether hidden paths are included.
     public let includeHidden: Bool?
     /// Whether directory symlinks are followed.
@@ -119,6 +121,7 @@ public struct FindPathsToolInput: Sendable, Codable, Hashable {
         includes: [String]? = nil,
         excludes: [String]? = nil,
         recursive: Bool? = nil,
+        maxdepth: Int? = nil,
         includeHidden: Bool? = nil,
         followSymlinks: Bool? = nil,
         includeFiles: Bool? = nil,
@@ -134,6 +137,7 @@ public struct FindPathsToolInput: Sendable, Codable, Hashable {
         self.includes = includes
         self.excludes = excludes
         self.recursive = recursive
+        self.maxdepth = maxdepth
         self.includeHidden = includeHidden
         self.followSymlinks = followSymlinks
         self.includeFiles = includeFiles
@@ -216,7 +220,7 @@ public struct FindPathsTool: AgentTool {
     public typealias Output = FindPathsToolOutput
 
     public static let identifier: AgentToolIdentifier = "find_paths"
-    public static let description = "Find and rank path names inside an authorized workspace root without reading file contents."
+    public static let description = "Find and rank path names inside an authorized workspace root without reading file contents, with optional bounded traversal depth."
     public static let risk: ActionRisk = .observe
 
     public var identifier: AgentToolIdentifier {
@@ -255,9 +259,9 @@ public struct FindPathsTool: AgentTool {
             capabilitiesRequired: [
                 .scan,
             ],
-            estimatedScanDepth: input.recursive == false
-                ? 1
-                : nil,
+            estimatedScanDepth: resolvedMaxDepth(
+                input
+            ),
             includesHiddenPaths: input.includeHidden ?? false,
             followsSymlinks: input.followSymlinks ?? false,
             policyChecks: [
@@ -278,7 +282,6 @@ public struct FindPathsTool: AgentTool {
             toolName: name
         )
         let rootID = input.rootID ?? .project
-        let recursive = input.recursive ?? true
         let maxEntries = max(
             0,
             input.maxEntries ?? 100
@@ -298,7 +301,9 @@ public struct FindPathsTool: AgentTool {
             ),
             rootID: rootID,
             configuration: .init(
-                maxDepth: recursive ? nil : 1,
+                maxDepth: resolvedMaxDepth(
+                    input
+                ),
                 includeHidden: input.includeHidden ?? false,
                 followSymlinks: input.followSymlinks ?? false,
                 emitDirectories: input.includeDirectories ?? true,
@@ -430,6 +435,21 @@ private struct FindPathsDocumentID:
 }
 
 internal extension FindPathsTool {
+    func resolvedMaxDepth(
+        _ input: FindPathsToolInput
+    ) -> Int? {
+        if let maxdepth = input.maxdepth {
+            return max(
+                0,
+                maxdepth
+            )
+        }
+
+        return (input.recursive ?? true)
+            ? nil
+            : 1
+    }
+
     func normalizedIncludes(
         _ values: [String]?
     ) -> [String] {

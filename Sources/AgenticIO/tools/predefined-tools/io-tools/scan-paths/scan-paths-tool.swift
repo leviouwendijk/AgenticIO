@@ -11,7 +11,7 @@ public struct ScanPathsTool: AgentTool {
     public typealias Output = ScanPathsToolOutput
 
     public static let identifier: AgentToolIdentifier = "scan_paths"
-    public static let description = "Scan paths inside an authorized workspace root using PathScan, with optional literal directory-state filtering."
+    public static let description = "Scan path topology inside an authorized workspace root using PathScan, with optional bounded traversal depth and literal directory-state filtering."
     public static let risk: ActionRisk = .observe
 
 
@@ -73,7 +73,9 @@ public struct ScanPathsTool: AgentTool {
                 .scan
             ],
             estimatedScanEntries: input.maxEntries,
-            estimatedScanDepth: input.recursive ? nil : 1,
+            estimatedScanDepth: resolvedMaxDepth(
+                for: input
+            ),
             includesHiddenPaths: input.includeHidden,
             followsSymlinks: input.followSymlinks,
             policyChecks: [
@@ -103,7 +105,9 @@ public struct ScanPathsTool: AgentTool {
             includes: [
                 includePattern(
                     directory: directory,
-                    recursive: input.recursive
+                    recursive: usesRecursivePattern(
+                        for: input
+                    )
                 )
             ],
             excludes: input.excludes
@@ -113,7 +117,9 @@ public struct ScanPathsTool: AgentTool {
             specification,
             rootID: input.rootID,
             configuration: .init(
-                maxDepth: input.recursive ? nil : 1,
+                maxDepth: resolvedMaxDepth(
+                    for: input
+                ),
                 includeHidden: input.includeHidden,
                 followSymlinks: input.followSymlinks,
                 emitDirectories: input.includeDirectories,
@@ -249,6 +255,33 @@ private extension ScanPathsTool {
         }
 
         return trimmed
+    }
+
+    func resolvedMaxDepth(
+        for input: ScanPathsToolInput
+    ) -> Int? {
+        if let maxdepth = input.maxdepth {
+            return max(
+                0,
+                maxdepth
+            )
+        }
+
+        return input.recursive
+            ? nil
+            : 1
+    }
+
+    func usesRecursivePattern(
+        for input: ScanPathsToolInput
+    ) -> Bool {
+        guard let maxDepth = resolvedMaxDepth(
+            for: input
+        ) else {
+            return true
+        }
+
+        return maxDepth > 1
     }
 
     func includePattern(

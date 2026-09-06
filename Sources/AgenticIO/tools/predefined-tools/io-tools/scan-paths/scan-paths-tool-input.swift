@@ -26,9 +26,12 @@ public struct ScanPathsToolInput: Sendable, Codable, Hashable {
     /// Optional literal directory-state filter for emitted directories: 'empty' or 'nonempty'. Hidden entries still make a directory nonempty. File matches are unaffected.
     public let directoryState: PathDirectoryState?
 
-    /// Whether to scan recursively. Defaults to false.
+    /// Whether to scan recursively when maxdepth is omitted. Defaults to false.
     @Schema(required: false)
     public let recursive: Bool
+
+    /// Optional maximum traversal depth. When provided, this overrides recursive.
+    public let maxdepth: Int?
 
     /// Whether hidden paths are included in traversal output. This does not change literal directory emptiness.
     @Schema(required: false)
@@ -49,6 +52,7 @@ public struct ScanPathsToolInput: Sendable, Codable, Hashable {
         includeDirectories: Bool = true,
         directoryState: PathDirectoryState? = nil,
         recursive: Bool = false,
+        maxdepth: Int? = nil,
         includeHidden: Bool = false,
         followSymlinks: Bool = false,
         maxEntries: Int? = nil
@@ -60,6 +64,7 @@ public struct ScanPathsToolInput: Sendable, Codable, Hashable {
         self.includeDirectories = includeDirectories
         self.directoryState = directoryState
         self.recursive = recursive
+        self.maxdepth = maxdepth
         self.includeHidden = includeHidden
         self.followSymlinks = followSymlinks
         self.maxEntries = maxEntries
@@ -75,6 +80,7 @@ private extension ScanPathsToolInput {
         case includeDirectories
         case directoryState
         case recursive
+        case maxdepth
         case includeHidden
         case followSymlinks
         case maxEntries
@@ -118,6 +124,10 @@ public extension ScanPathsToolInput {
                 Bool.self,
                 forKey: .recursive
             ) ?? false,
+            maxdepth: try container.decodeIfPresent(
+                Int.self,
+                forKey: .maxdepth
+            ),
             includeHidden: try container.decodeIfPresent(
                 Bool.self,
                 forKey: .includeHidden

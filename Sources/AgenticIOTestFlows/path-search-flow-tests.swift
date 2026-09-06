@@ -36,6 +36,7 @@ extension AgenticIOFlowTesting {
             "strategy",
             "caseSensitive",
             "minimumScore",
+            "maxdepth",
             "maxEntries",
         ] {
             try Expect.contains(
@@ -44,6 +45,50 @@ extension AgenticIOFlowTesting {
                 "find_paths schema exposes \(field)"
             )
         }
+
+        let scanSchema = String(
+            describing: ScanPathsToolInput.jsonschema
+        )
+
+        try Expect.contains(
+            scanSchema,
+            "maxdepth",
+            "scan_paths schema exposes flatcase maxdepth"
+        )
+        try Expect.equal(
+            scanSchema.contains("maxDepth"),
+            false,
+            "scan_paths schema does not expose camelcase maxDepth"
+        )
+        try Expect.equal(
+            schema.contains("maxDepth"),
+            false,
+            "find_paths schema does not expose camelcase maxDepth"
+        )
+
+        let decodedScanInput = try JSONDecoder().decode(
+            ScanPathsToolInput.self,
+            from: Data(
+                #"{"maxdepth":2}"#.utf8
+            )
+        )
+        try Expect.equal(
+            decodedScanInput.maxdepth ?? -1,
+            2,
+            "scan_paths decodes flatcase maxdepth"
+        )
+
+        let decodedFindInput = try JSONDecoder().decode(
+            FindPathsToolInput.self,
+            from: Data(
+                #"{"maxdepth":2}"#.utf8
+            )
+        )
+        try Expect.equal(
+            decodedFindInput.maxdepth ?? -1,
+            2,
+            "find_paths decodes flatcase maxdepth"
+        )
 
         let rankedOutput = try await FindPathsTool().call(
             FindPathsToolInput(
@@ -178,9 +223,93 @@ extension AgenticIOFlowTesting {
             "find_paths returns only the non-excluded ranked path"
         )
 
+        let shallowFind = try await FindPathsTool().call(
+            FindPathsToolInput(
+                query: "A.swift",
+                recursive: true,
+                maxdepth: 1,
+                includeFiles: true,
+                includeDirectories: false,
+                strategy: .contains
+            ),
+            context: .init(
+                workspace: fixture.workspace
+            )
+        )
+
+        try Expect.equal(
+            shallowFind.entries.contains {
+                $0.path == "Sources/A.swift"
+            },
+            false,
+            "find_paths maxdepth 1 overrides recursive true"
+        )
+
+        let deepFind = try await FindPathsTool().call(
+            FindPathsToolInput(
+                query: "A.swift",
+                recursive: false,
+                maxdepth: 2,
+                includeFiles: true,
+                includeDirectories: false,
+                strategy: .contains
+            ),
+            context: .init(
+                workspace: fixture.workspace
+            )
+        )
+
+        try Expect.equal(
+            deepFind.entries.contains {
+                $0.path == "Sources/A.swift"
+            },
+            true,
+            "find_paths maxdepth 2 overrides recursive false"
+        )
+
+        let shallowScan = try await ScanPathsTool().call(
+            ScanPathsToolInput(
+                includeFiles: true,
+                includeDirectories: true,
+                recursive: true,
+                maxdepth: 1
+            ),
+            context: .init(
+                workspace: fixture.workspace
+            )
+        )
+
+        try Expect.equal(
+            shallowScan.entries.contains {
+                $0.path == "Sources/A.swift"
+            },
+            false,
+            "scan_paths maxdepth 1 overrides recursive true"
+        )
+
+        let deepScan = try await ScanPathsTool().call(
+            ScanPathsToolInput(
+                includeFiles: true,
+                includeDirectories: true,
+                recursive: false,
+                maxdepth: 2
+            ),
+            context: .init(
+                workspace: fixture.workspace
+            )
+        )
+
+        try Expect.equal(
+            deepScan.entries.contains {
+                $0.path == "Sources/A.swift"
+            },
+            true,
+            "scan_paths maxdepth 2 overrides recursive false"
+        )
+
         return [
             .message(
-                "find_paths preserves its workspace scan surface while adapting path names into weighted Search ranking with compact model-facing evidence"
+                "find_paths and scan_paths preserve existing traversal defaults while explicit flatcase maxdepth provides bounded depth control"
             ),
         ]
     }

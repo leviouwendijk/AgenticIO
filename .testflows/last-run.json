@@ -3,12 +3,37 @@
   "failed_names" : [
 
   ],
-  "generated_at" : "2026-09-01T13:43:21Z",
-  "passed" : 3,
+  "generated_at" : "2026-09-06T16:58:33Z",
+  "passed" : 7,
   "results" : [
     {
+      "display_name" : "mutate-files-workspace-targeting",
+      "duration_seconds" : 0.015511035919189453,
+      "name" : "mutate-files-workspace-targeting",
+      "status" : "passed",
+      "tags" : [
+        "agentic-io",
+        "authorization",
+        "mutation",
+        "workspace-targeting"
+      ]
+    },
+    {
+      "display_name" : "mutate-files-relative-insertion",
+      "duration_seconds" : 0.009544014930725098,
+      "name" : "mutate-files-relative-insertion",
+      "status" : "passed",
+      "tags" : [
+        "agentic-io",
+        "edit",
+        "insertion",
+        "mutation",
+        "snapshot"
+      ]
+    },
+    {
       "display_name" : "path-search",
-      "duration_seconds" : 0.02044391632080078,
+      "duration_seconds" : 0.012633919715881348,
       "name" : "path-search",
       "status" : "passed",
       "tags" : [
@@ -20,7 +45,7 @@
     },
     {
       "display_name" : "source-search",
-      "duration_seconds" : 0.0251619815826416,
+      "duration_seconds" : 0.02172994613647461,
       "name" : "source-search",
       "status" : "passed",
       "tags" : [
@@ -31,8 +56,21 @@
       ]
     },
     {
+      "display_name" : "search-proof",
+      "duration_seconds" : 0.007846951484680176,
+      "name" : "search-proof",
+      "status" : "passed",
+      "tags" : [
+        "agentic-io",
+        "freshness",
+        "parsing",
+        "proof",
+        "search"
+      ]
+    },
+    {
       "display_name" : "search-context",
-      "duration_seconds" : 0.005833983421325684,
+      "duration_seconds" : 0.004691004753112793,
       "name" : "search-context",
       "status" : "passed",
       "tags" : [
@@ -42,9 +80,22 @@
         "search",
         "selection"
       ]
+    },
+    {
+      "display_name" : "read-file-policy",
+      "duration_seconds" : 0.004230976104736328,
+      "name" : "read-file-policy",
+      "status" : "passed",
+      "tags" : [
+        "agentic-io",
+        "approval",
+        "policy",
+        "read-file",
+        "sensitivity"
+      ]
     }
   ],
   "skipped" : 0,
   "title" : "AgenticIO flow tests",
-  "total" : 3
+  "total" : 7
 }
