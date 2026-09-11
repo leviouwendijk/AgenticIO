@@ -73,6 +73,89 @@ extension AgenticIOFlowTesting {
             "workspace-targeted mutate_files does not reinterpret the path at the authority root"
         )
 
+        let copySourceDirectory = fixture.targetDirectoryURL
+            .appendingPathComponent(
+                "CopySource",
+                isDirectory: true
+            )
+        let copySourceFile = copySourceDirectory
+            .appendingPathComponent(
+                "nested/fixture.txt"
+            )
+        let copyDestinationDirectory = fixture.targetDirectoryURL
+            .appendingPathComponent(
+                "CopyDestination",
+                isDirectory: true
+            )
+        let copyDestinationFile = copyDestinationDirectory
+            .appendingPathComponent(
+                "nested/fixture.txt"
+            )
+
+        try FileManager.default.createDirectory(
+            at: copySourceFile.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try "copy fixture\n".write(
+            to: copySourceFile,
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let copyInput = MutateFilesToolInput(
+            failurePolicy: .stop,
+            entries: [
+                .init(
+                    kind: .copy,
+                    path: "CopySource",
+                    destination: "CopyDestination"
+                ),
+            ]
+        )
+        let copyPreflight = try await tool.preflight(
+            copyInput,
+            context: context
+        )
+
+        try Expect.equal(
+            copyPreflight.targetPaths,
+            [
+                "Package/CopySource",
+                "Package/CopyDestination",
+            ],
+            "workspace-targeted mutate_files copy authorizes source and destination"
+        )
+
+        let copyOutput = try await tool.call(
+            copyInput,
+            context: context
+        )
+
+        try Expect.equal(
+            copyOutput.status,
+            "applied",
+            "workspace-targeted mutate_files copy applies"
+        )
+        try Expect.true(
+            FileManager.default.fileExists(
+                atPath: copySourceFile.path
+            ),
+            "workspace-targeted mutate_files copy preserves the source"
+        )
+        try Expect.equal(
+            try String(
+                contentsOf: copyDestinationFile,
+                encoding: .utf8
+            ),
+            "copy fixture\n",
+            "workspace-targeted mutate_files copy recursively copies directory contents"
+        )
+        try Expect.equal(
+            copyOutput.rollbackAvailable,
+            false,
+            "workspace-targeted mutate_files directory copy reports no rollback plan"
+        )
+
         let escapingInput = MutateFilesToolInput(
                         entries: [
                             .init(

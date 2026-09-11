@@ -14,6 +14,7 @@ public enum MutateFilesToolEntryKind: String, Sendable, Codable, Hashable, CaseI
     case create_text
     case replace_text
     case edit_text
+    case copy
     case move
     case delete
 }
@@ -22,6 +23,7 @@ public enum MutateFilesToolEntryKind: String, Sendable, Codable, Hashable, CaseI
 /// create_text requires path and content and fails if the file exists.
 /// replace_text requires path and content and defaults replacePolicy to upsert.
 /// edit_text requires path and operations using the shared FileEditOperation schema.
+/// copy requires path as the source and destination as the destination path.
 /// move requires path as the source and destination as the destination path.
 /// delete requires path and defaults deletePolicy to existing.
 @JSONSchema
@@ -47,10 +49,10 @@ public struct MutateFilesToolEntry: Sendable, Codable, Hashable {
     /// Structured edit operations for edit_text.
     public let operations: [FileEditOperation]?
 
-    /// Destination path for move.
+    /// Destination path for copy or move.
     public let destination: String?
 
-    /// For move, create missing destination parent directories. Defaults to true.
+    /// For copy or move, create missing destination parent directories. Defaults to true.
     public let createParentDirectories: Bool?
 
     public init(
@@ -338,9 +340,16 @@ public struct MutateFilesTool: AgentTool {
                         }
                 )
             ).sorted(),
-            capabilitiesRequired: [
-                .write
-            ],
+            capabilitiesRequired: input.entries.contains {
+                $0.kind == .copy
+            }
+                ? [
+                    .read,
+                    .write,
+                ]
+                : [
+                    .write,
+                ],
             estimatedWriteBytes: estimatedByteCount(
                 input: input
             ),
@@ -594,24 +603,28 @@ private extension MutateFilesTool {
         )
         let entries = try input.entries.map { entry in
             let rootID = entry.rootID ?? input.rootID
+            let resourceType: PathSegmentType? =
+                entry.kind == .copy || entry.kind == .move
+                    ? nil
+                    : .file
             let path = try workspace.resolve(
                 entry.path,
                 relativeTo: location,
                 rootID: rootID,
-                type: .file
+                type: resourceType
             ).presentingRelative(
                 filetype: true
             )
             let destination: String?
 
-            if entry.kind == .move {
+            if entry.kind == .copy || entry.kind == .move {
                 destination = try workspace.resolve(
                     entry.requiredDestination(
                         toolName: name
                     ),
                     relativeTo: location,
                     rootID: rootID,
-                    type: .file
+                    type: nil
                 ).presentingRelative(
                     filetype: true
                 )
@@ -654,36 +667,75 @@ private extension MutateFilesTool {
     ) throws -> [[AgenticAuthorizedPath]] {
         try input.entries.map { entry in
             let rootID = entry.rootID ?? input.rootID
-            let source = try FileToolAccess.authorize(
-                workspace: workspace,
-                rootID: rootID,
-                path: entry.path,
-                capability: .write,
-                toolName: name,
-                type: .file
-            )
 
-            guard entry.kind == .move else {
+            switch entry.kind {
+            case .copy:
+                let source = try FileToolAccess.authorize(
+                    workspace: workspace,
+                    rootID: rootID,
+                    path: entry.path,
+                    capability: .read,
+                    toolName: name,
+                    type: nil
+                )
+                let destination = try FileToolAccess.authorize(
+                    workspace: workspace,
+                    rootID: rootID,
+                    path: try entry.requiredDestination(
+                        toolName: name
+                    ),
+                    capability: .write,
+                    toolName: name,
+                    type: nil
+                )
+
+                return [
+                    source,
+                    destination,
+                ]
+
+            case .move:
+                let source = try FileToolAccess.authorize(
+                    workspace: workspace,
+                    rootID: rootID,
+                    path: entry.path,
+                    capability: .write,
+                    toolName: name,
+                    type: nil
+                )
+                let destination = try FileToolAccess.authorize(
+                    workspace: workspace,
+                    rootID: rootID,
+                    path: try entry.requiredDestination(
+                        toolName: name
+                    ),
+                    capability: .write,
+                    toolName: name,
+                    type: nil
+                )
+
+                return [
+                    source,
+                    destination,
+                ]
+
+            case .create_text,
+                 .replace_text,
+                 .edit_text,
+                 .delete:
+                let source = try FileToolAccess.authorize(
+                    workspace: workspace,
+                    rootID: rootID,
+                    path: entry.path,
+                    capability: .write,
+                    toolName: name,
+                    type: .file
+                )
+
                 return [
                     source,
                 ]
             }
-
-            let destination = try FileToolAccess.authorize(
-                workspace: workspace,
-                rootID: rootID,
-                path: try entry.requiredDestination(
-                    toolName: name
-                ),
-                capability: .write,
-                toolName: name,
-                type: .file
-            )
-
-            return [
-                source,
-                destination,
-            ]
         }
     }
 
@@ -945,6 +997,17 @@ private extension MutateFilesToolEntry {
                 options: .init(
                     write: .overwriteWithoutBackup
                 )
+            )
+
+        case .copy:
+            return .copy(
+                from: path,
+                to: try requiredDestination(
+                    toolName: toolName
+                ),
+                rootIdentifier: rootID,
+                createParentDirectories:
+                    createParentDirectories ?? true
             )
 
         case .move:
