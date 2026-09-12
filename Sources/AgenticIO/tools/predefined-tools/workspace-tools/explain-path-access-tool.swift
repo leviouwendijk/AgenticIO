@@ -3,7 +3,7 @@ import AgenticExecution
 import AgenticWorkspace
 import Primitives
 import Schema
-import SchemaMacros
+import Macros
 import Path
 
 /// Model-facing input for Explain pathAccess.

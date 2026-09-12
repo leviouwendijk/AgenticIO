@@ -1,6 +1,6 @@
 import Path
 import Schema
-import SchemaMacros
+import Macros
 
 @JSONSchema
 public struct ScanPathsToolInput: Sendable, Codable, Hashable {

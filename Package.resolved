@@ -1,5 +1,5 @@
 {
-  "originHash" : "5418e5d11fb694eb53508f58c1145a946ae1535bf352d0d0f62d9b88c4a7a487",
+  "originHash" : "a79a096e4feb84c9f144b7239128541a84da9b059b3d7da02663a2a7b2c38121",
   "pins" : [
     {
       "identity" : "agentic",
@@ -7,7 +7,7 @@
       "location" : "https://github.com/leviouwendijk/Agentic.git",
       "state" : {
         "branch" : "master",
-        "revision" : "851b38f0ff563cef4d2416c167a0e1e93617177c"
+        "revision" : "6586bbc2fb0b842c82cbf2b189dad6bca2ab0fdc"
       }
     },
     {
@@ -16,7 +16,7 @@
       "location" : "https://github.com/leviouwendijk/AgenticExecution.git",
       "state" : {
         "branch" : "master",
-        "revision" : "d173e2005674ac660ba94517f4658d25d96541a6"
+        "revision" : "e7093ca165f45c38a8b28c8bee9e4a67557ef3f4"
       }
     },
     {
@@ -128,6 +128,15 @@
       }
     },
     {
+      "identity" : "macros",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/leviouwendijk/Macros.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "44885d7ebddc4e9ced6f7cba0deac0ca98da20f1"
+      }
+    },
+    {
       "identity" : "matching",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/leviouwendijk/Matching.git",
@@ -187,7 +196,7 @@
       "location" : "https://github.com/leviouwendijk/Position.git",
       "state" : {
         "branch" : "master",
-        "revision" : "c80214283130c1bd4fc1c54dd5f3c574e3e4986c"
+        "revision" : "66a8219a6780a6346e55c9531f8fabaa4ff713d9"
       }
     },
     {
@@ -196,7 +205,7 @@
       "location" : "https://github.com/leviouwendijk/Primitives.git",
       "state" : {
         "branch" : "master",
-        "revision" : "3b9e65785ecb8aa493c55893f61619b6967ce10d"
+        "revision" : "e626fa0746aee024729bf56549e774d13aa17099"
       }
     },
     {
@@ -232,16 +241,7 @@
       "location" : "https://github.com/leviouwendijk/Schema.git",
       "state" : {
         "branch" : "master",
-        "revision" : "f23bd9c256f0d7b428c30db68bcd097a3a19c63a"
-      }
-    },
-    {
-      "identity" : "schemamacros",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/leviouwendijk/SchemaMacros.git",
-      "state" : {
-        "branch" : "master",
-        "revision" : "2441b49a5159c375b094672a0ba0ae338829ec32"
+        "revision" : "703253bef3f4ae18e03bb35e68ac6db0d1bc584d"
       }
     },
     {
@@ -286,7 +286,7 @@
       "location" : "https://github.com/leviouwendijk/Terminal.git",
       "state" : {
         "branch" : "master",
-        "revision" : "ef6faf11fdedbc727f22f5a6c5e908caaed32459"
+        "revision" : "0b63af5e4049793948d3fe3dbdd47d2b5958250d"
       }
     },
     {
@@ -322,7 +322,7 @@
       "location" : "https://github.com/leviouwendijk/Writers.git",
       "state" : {
         "branch" : "master",
-        "revision" : "c7ff138fa30f6daf3570a03540ab55bfae5767a3"
+        "revision" : "79d6455f5a3248f72fe0bb916b4e51d3ef20bd6d"
       }
     }
   ],

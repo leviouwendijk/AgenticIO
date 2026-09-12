@@ -7,7 +7,7 @@ import Path
 import Position
 import Primitives
 import Schema
-import SchemaMacros
+import Macros
 import Search
 
 @JSONSchema

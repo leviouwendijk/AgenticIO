@@ -6,7 +6,7 @@ import Path
 import Position
 import Primitives
 import Schema
-import SchemaMacros
+import Macros
 
 @JSONSchema
 public struct SourceFingerprintInput:

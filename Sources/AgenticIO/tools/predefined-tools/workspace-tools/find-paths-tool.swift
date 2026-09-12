@@ -5,7 +5,7 @@ import Path
 import PathParsing
 import Primitives
 import Schema
-import SchemaMacros
+import Macros
 import Search
 
 @JSONSchema
