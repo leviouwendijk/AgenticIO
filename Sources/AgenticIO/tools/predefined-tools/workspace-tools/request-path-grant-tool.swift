@@ -117,23 +117,48 @@ public struct RequestPathGrantTool: AgentTool {
         let policyProfile = normalizedPolicyProfile(
             input.policyProfile
         )
-        let lifetimeSeconds = input.expiresInSeconds.map {
-            max(
-                0,
-                $0
-            )
-        }
+        let accessPolicy = try resolvedAccessPolicy(
+            profile: policyProfile
+        )
+        let lifetime = input.lifetime ?? .turn
+        let durationSeconds = try resolvedDurationSeconds(
+            input.expiresInSeconds
+        )
+        let grant = PathGrant(
+            id: UUID().uuidString,
+            rootID: rootID,
+            mode: mode,
+            capabilities: capabilities,
+            allowedTools: allowedTools,
+            reason: reason,
+            expiresAt: nil,
+            metadata: [
+                "policy_profile": policyProfile,
+                "requested_lifetime": lifetime.rawValue
+            ]
+        )
+        let overlay = try WorkspaceAccessOverlay(
+            roots: [
+                .init(
+                    root: .init(
+                        id: rootID,
+                        label: label,
+                        scope: try PathAccessScope(
+                            root: rootURL,
+                            policy: accessPolicy
+                        ),
+                        details: "Temporary workspace access requested through Agentic.",
+                        isDefault: false
+                    ),
+                    grant: grant
+                )
+            ]
+        )
         let operation = try PreparedPathGrantOperation.envelope(
             .init(
-                rootID: rootID,
-                label: label,
-                requestedRootPath: rootURL.path,
-                mode: mode,
-                capabilities: capabilities,
-                allowedTools: allowedTools,
-                reason: reason,
-                policyProfile: policyProfile,
-                lifetimeSeconds: lifetimeSeconds
+                overlay: overlay,
+                lifetime: lifetime,
+                durationSeconds: durationSeconds
             )
         )
         let risk = reviewRisk(
@@ -142,23 +167,23 @@ public struct RequestPathGrantTool: AgentTool {
         let payload = PreparedIntentReviewPayload(
             title: "Request workspace path grant: \(label)",
             summary: """
-            Request a \(mode.rawValue) workspace path grant for '\(rootURL.path)' as rootID '\(rootID.rawValue)'.
+            Request a \(mode.rawValue) temporary path grant for '\(rootURL.path)' as rootID '\(rootID.rawValue)'.
 
-            This prepared intent only stages the request. It does not install access.
+            Requested lifetime: \(lifetime.rawValue). The prepared operation captures the exact workspace-access overlay but does not alter the base workspace.
             """,
             risk: risk,
             target: rootURL.path,
             expectedSideEffects: [
-                "If approved and installed by the host, adds named workspace root '\(rootID.rawValue)'.",
-                "Allows future tool calls using rootID '\(rootID.rawValue)' and the listed capabilities.",
-                "This request tool itself does not install access."
+                "If approved, makes rootID '\(rootID.rawValue)' available through a temporary \(lifetime.rawValue) overlay.",
+                "Allows future tool calls to use the exact captured capabilities while that overlay is active.",
+                "Does not persist this root into the declared base workspace."
             ],
             policyChecks: [
                 "requested_root_exists",
                 "requested_root_is_directory",
-                "grant_install_requires_host_or_approval_flow",
-                "no_direct_access_installation",
-                "prepared_operation_plan_captured"
+                "exact_workspace_access_overlay_captured",
+                "temporary_grant_lifetime_explicit",
+                "base_workspace_unchanged_by_request"
             ],
             warnings: warnings(
                 rootURL: rootURL,
@@ -167,7 +192,8 @@ public struct RequestPathGrantTool: AgentTool {
             metadata: [
                 "rootID": rootID.rawValue,
                 "mode": mode.rawValue,
-                "policyProfile": policyProfile
+                "policyProfile": policyProfile,
+                "lifetime": lifetime.rawValue
             ]
         )
 
@@ -177,12 +203,13 @@ public struct RequestPathGrantTool: AgentTool {
                 operation: operation,
                 reviewPayload: payload,
                 expiresAt: nil,
-                idempotencyKey: "path-grant:\(rootID.rawValue):\(rootURL.path):\(mode.rawValue)",
+                idempotencyKey: "path-grant:\(rootID.rawValue):\(rootURL.path):\(mode.rawValue):\(lifetime.rawValue)",
                 metadata: [
                     "rootID": rootID.rawValue,
                     "requestedRootPath": rootURL.path,
                     "mode": mode.rawValue,
-                    "policyProfile": policyProfile
+                    "policyProfile": policyProfile,
+                    "lifetime": lifetime.rawValue
                 ]
             )
         )
@@ -301,6 +328,39 @@ private extension RequestPathGrantTool {
     ) -> String {
         normalizedOptional(value)
             ?? "workspace_default"
+    }
+
+    func resolvedAccessPolicy(
+        profile: String
+    ) throws -> PathAccessPolicy {
+        switch profile {
+        case "workspace_default":
+            return .defaults.workspace
+
+        default:
+            throw PredefinedFileToolError.invalidValue(
+                tool: name,
+                field: "policyProfile",
+                reason: "unsupported path grant policy profile '\(profile)'"
+            )
+        }
+    }
+
+    func resolvedDurationSeconds(
+        _ value: TimeInterval?
+    ) throws -> TimeInterval? {
+        guard let value else {
+            return nil
+        }
+        guard value >= 0 else {
+            throw PredefinedFileToolError.invalidValue(
+                tool: name,
+                field: "expiresInSeconds",
+                reason: "must not be negative"
+            )
+        }
+
+        return value
     }
 
     func normalizedOptional(

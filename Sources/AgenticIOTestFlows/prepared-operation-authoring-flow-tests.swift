@@ -113,14 +113,44 @@ extension AgenticIOFlowTesting {
             "path grant output exposes prepared-operation identity instead of a legacy action type"
         )
         try Expect.equal(
-            pathGrantPlan.lifetimeSeconds,
+            pathGrantPlan.lifetime,
+            .turn,
+            "path grant requests default to turn-scoped temporary authority"
+        )
+        try Expect.equal(
+            pathGrantPlan.durationSeconds,
             300,
-            "path grant operation retains requested grant lifetime as operation data"
+            "path grant operation retains optional wall-clock duration independently from authority lifetime"
+        )
+        try Expect.equal(
+            pathGrantPlan.overlay.roots.count,
+            1,
+            "path grant operation captures one exact temporary root overlay"
+        )
+
+        guard let grantedRoot = pathGrantPlan.overlay.roots.first else {
+            throw PreparedOperationAuthoringFixtureError.missingGrantedRoot
+        }
+
+        try Expect.equal(
+            grantedRoot.root.id.rawValue,
+            "fixture_external",
+            "path grant operation retains the exact requested root identifier"
+        )
+        try Expect.equal(
+            grantedRoot.root.rootURL.standardizedFileURL.path,
+            fixture.rootURL.standardizedFileURL.path,
+            "path grant operation retains the exact normalized requested root"
+        )
+        try Expect.equal(
+            grantedRoot.grant.mode,
+            .read_only,
+            "path grant operation retains the exact requested grant mode"
         )
         try Expect.equal(
             pathGrantIntent.expiresAt,
             nil,
-            "grant lifetime is not conflated with prepared-intent approval expiry"
+            "temporary grant lifetime is not conflated with prepared-intent approval expiry"
         )
 
         return [
@@ -146,6 +176,7 @@ extension AgenticIOFlowTesting {
 
 private enum PreparedOperationAuthoringFixtureError: Error {
     case unexpectedWork
+    case missingGrantedRoot
 }
 
 private actor PreparedOperationAuthoringIntentStore:

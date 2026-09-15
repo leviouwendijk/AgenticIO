@@ -1,7 +1,6 @@
 import AgenticExecution
 import AgenticWorkspace
 import Foundation
-import Path
 import Primitives
 import Version
 
@@ -10,42 +9,24 @@ public enum PreparedPathGrantOperation {
         identifier: "path_grant",
         version: ObjectVersion(
             major: 0,
-            minor: 1,
+            minor: 2,
             patch: 0
         )
     )
 
     public struct Plan: Sendable, Codable, Hashable {
-        public let rootID: PathAccessRootIdentifier
-        public let label: String
-        public let requestedRootPath: String
-        public let mode: PathGrantMode
-        public let capabilities: [PathCapability]
-        public let allowedTools: [String]
-        public let reason: String
-        public let policyProfile: String
-        public let lifetimeSeconds: TimeInterval?
+        public let overlay: WorkspaceAccessOverlay
+        public let lifetime: PathGrantLifetime
+        public let durationSeconds: TimeInterval?
 
         public init(
-            rootID: PathAccessRootIdentifier,
-            label: String,
-            requestedRootPath: String,
-            mode: PathGrantMode,
-            capabilities: [PathCapability],
-            allowedTools: [String],
-            reason: String,
-            policyProfile: String,
-            lifetimeSeconds: TimeInterval? = nil
+            overlay: WorkspaceAccessOverlay,
+            lifetime: PathGrantLifetime,
+            durationSeconds: TimeInterval? = nil
         ) {
-            self.rootID = rootID
-            self.label = label
-            self.requestedRootPath = requestedRootPath
-            self.mode = mode
-            self.capabilities = capabilities
-            self.allowedTools = allowedTools
-            self.reason = reason
-            self.policyProfile = policyProfile
-            self.lifetimeSeconds = lifetimeSeconds
+            self.overlay = overlay
+            self.lifetime = lifetime
+            self.durationSeconds = durationSeconds
         }
     }
 

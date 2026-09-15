@@ -29,6 +29,20 @@ enum AgenticIOFlowSuite: TestFlowRegistry {
                 .runPreparedOperationAuthoring()
         },
         TestFlow(
+            "workspace-access-overlay",
+            tags: [
+                "agentic-io",
+                "agentic-workspace",
+                "path-grant",
+                "overlay",
+                "authorization",
+                "persistence",
+            ]
+        ) {
+            try await AgenticIOFlowTesting
+                .runWorkspaceAccessOverlay()
+        },
+        TestFlow(
             "prepared-file-mutation-execution",
             tags: [
                 "agentic-io",
