@@ -8,7 +8,7 @@ import Path
 public struct RequestPathGrantToolOutput: Sendable, Codable, Hashable {
     public let intentID: PreparedIntentIdentifier
     public let status: PreparedIntentStatus
-    public let actionType: String
+    public let operationIdentifier: String
     public let title: String
     public let summary: String
     public let target: String?
@@ -18,7 +18,7 @@ public struct RequestPathGrantToolOutput: Sendable, Codable, Hashable {
     ) {
         self.intentID = intent.id
         self.status = intent.status
-        self.actionType = intent.actionType
+        self.operationIdentifier = intent.operation.schema.identifier.rawValue
         self.title = intent.reviewPayload.title
         self.summary = intent.reviewPayload.summary
         self.target = intent.reviewPayload.target
@@ -92,16 +92,16 @@ public struct RequestPathGrantTool: AgentTool {
             input.requestedRootPath
         )
         let mode = input.mode ?? .read_only
-        let capabilities = input.capabilities?.isEmpty == false
-            ? input.capabilities!
-            : WorkspaceToolSupport.defaultCapabilities(
-                for: mode
-            )
-        let allowedTools = input.allowedTools?.isEmpty == false
-            ? input.allowedTools!
-            : WorkspaceToolSupport.defaultAllowedTools(
-                for: mode
-            )
+        let capabilities = input.capabilities.flatMap { values in
+            values.isEmpty ? nil : values
+        } ?? WorkspaceToolSupport.defaultCapabilities(
+            for: mode
+        )
+        let allowedTools = input.allowedTools.flatMap { values in
+            values.isEmpty ? nil : values
+        } ?? WorkspaceToolSupport.defaultAllowedTools(
+            for: mode
+        )
         let rootID = normalizedRootID(
             input.suggestedRootID,
             fallback: rootURL.lastPathComponent
@@ -117,24 +117,25 @@ public struct RequestPathGrantTool: AgentTool {
         let policyProfile = normalizedPolicyProfile(
             input.policyProfile
         )
-        let expiresAt = input.expiresInSeconds.map {
-            Date().addingTimeInterval(
-                max(0, $0)
+        let lifetimeSeconds = input.expiresInSeconds.map {
+            max(
+                0,
+                $0
             )
         }
-
-        let exactInputs = PathGrantReviewExactInputs(
-            rootID: rootID.rawValue,
-            label: label,
-            requestedRootPath: rootURL.path,
-            mode: mode,
-            capabilities: capabilities,
-            allowedTools: allowedTools,
-            reason: reason,
-            policyProfile: policyProfile,
-            expiresAt: expiresAt
+        let operation = try PreparedPathGrantOperation.envelope(
+            .init(
+                rootID: rootID,
+                label: label,
+                requestedRootPath: rootURL.path,
+                mode: mode,
+                capabilities: capabilities,
+                allowedTools: allowedTools,
+                reason: reason,
+                policyProfile: policyProfile,
+                lifetimeSeconds: lifetimeSeconds
+            )
         )
-
         let risk = reviewRisk(
             mode: mode
         )
@@ -145,12 +146,8 @@ public struct RequestPathGrantTool: AgentTool {
 
             This prepared intent only stages the request. It does not install access.
             """,
-            actionType: "path_grant.request",
             risk: risk,
             target: rootURL.path,
-            exactInputs: try JSONToolBridge.encode(
-                exactInputs
-            ),
             expectedSideEffects: [
                 "If approved and installed by the host, adds named workspace root '\(rootID.rawValue)'.",
                 "Allows future tool calls using rootID '\(rootID.rawValue)' and the listed capabilities.",
@@ -160,13 +157,13 @@ public struct RequestPathGrantTool: AgentTool {
                 "requested_root_exists",
                 "requested_root_is_directory",
                 "grant_install_requires_host_or_approval_flow",
-                "no_direct_access_installation"
+                "no_direct_access_installation",
+                "prepared_operation_plan_captured"
             ],
             warnings: warnings(
                 rootURL: rootURL,
                 mode: mode
             ),
-            expiresAt: expiresAt,
             metadata: [
                 "rootID": rootID.rawValue,
                 "mode": mode.rawValue,
@@ -177,9 +174,9 @@ public struct RequestPathGrantTool: AgentTool {
         let intent = try await manager.create(
             PreparedIntentDraft(
                 sessionID: input.sessionID,
-                actionType: "path_grant.request",
+                operation: operation,
                 reviewPayload: payload,
-                executionToolName: nil,
+                expiresAt: nil,
                 idempotencyKey: "path-grant:\(rootID.rawValue):\(rootURL.path):\(mode.rawValue)",
                 metadata: [
                     "rootID": rootID.rawValue,

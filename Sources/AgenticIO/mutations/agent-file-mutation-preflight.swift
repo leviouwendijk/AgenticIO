@@ -3,7 +3,6 @@ import AgenticExecution
 import AgenticWorkspace
 import Foundation
 import Path
-import Primitives
 import Writers
 
 public enum FileMutationIntentAction: String, Sendable, Codable, Hashable, CaseIterable {
@@ -13,26 +12,6 @@ public enum FileMutationIntentAction: String, Sendable, Codable, Hashable, CaseI
 }
 
 public extension FileMutationIntentAction {
-    var actionType: String {
-        "file_mutation.\(rawValue)"
-    }
-
-    init?(
-        actionType: String
-    ) {
-        let prefix = "file_mutation."
-
-        guard actionType.hasPrefix(prefix) else {
-            return nil
-        }
-
-        self.init(
-            rawValue: String(
-                actionType.dropFirst(prefix.count)
-            )
-        )
-    }
-
     var authorizationToolName: String {
         switch self {
         case .write,
@@ -42,10 +21,6 @@ public extension FileMutationIntentAction {
         case .rollback:
             return "rollback_file_mutation"
         }
-    }
-
-    var executionName: String {
-        FileMutationIntentExecutor.name
     }
 
     var title: String {
@@ -80,9 +55,7 @@ public struct AgentFileMutationPreflight: Sendable, Codable, Hashable {
     public let sideEffects: [String]
     public let policyChecks: [String]
     public let warnings: [String]
-    public let exactReplayInput: JSONValue
-    public let originalFingerprint: StandardContentFingerprint?
-    public let editedFingerprint: StandardContentFingerprint?
+    public let operation: PreparedOperation.Envelope
     public let toolPreflight: ToolPreflight
 
     public init(
@@ -103,9 +76,7 @@ public struct AgentFileMutationPreflight: Sendable, Codable, Hashable {
         sideEffects: [String],
         policyChecks: [String],
         warnings: [String],
-        exactReplayInput: JSONValue,
-        originalFingerprint: StandardContentFingerprint? = nil,
-        editedFingerprint: StandardContentFingerprint? = nil,
+        operation: PreparedOperation.Envelope,
         toolPreflight: ToolPreflight
     ) {
         self.action = action
@@ -133,17 +104,15 @@ public struct AgentFileMutationPreflight: Sendable, Codable, Hashable {
         self.sideEffects = sideEffects
         self.policyChecks = policyChecks
         self.warnings = warnings
-        self.exactReplayInput = exactReplayInput
-        self.originalFingerprint = originalFingerprint
-        self.editedFingerprint = editedFingerprint
+        self.operation = operation
         self.toolPreflight = toolPreflight
     }
 }
 
 public extension AgentFileMutationPreflight {
-    /// Exact replay payload for a prepared whole-file replacement.
+    /// Typed request used to prepare one whole-file replacement.
     ///
-    /// This is an internal mutation intent shape, not a model-facing tool input.
+    /// The durable prepared operation stores the resulting Writers plan, not this request.
     struct WriteRequest: Sendable, Codable, Hashable {
         public let rootID: PathAccessRootIdentifier
         public let path: String
@@ -167,9 +136,6 @@ public extension AgentFileMutationPreflight {
         workspace: AgentWorkspace?,
         recorder: AgentFileMutationRecorder? = nil
     ) async throws -> Self {
-        let exactInput = try JSONToolBridge.encode(
-            input
-        )
         let mutationInput = MutateFilesToolInput(
             reason: "Prepare one whole-file replacement.",
             rootID: input.rootID,
@@ -181,25 +147,38 @@ public extension AgentFileMutationPreflight {
                 ),
             ]
         )
-        let toolPreflight = try await MutateFilesTool().preflight(
+        let preparation = try await MutateFilesTool().prepare(
             mutationInput,
             context: .init(
                 workspace: workspace
             )
         )
-        let preview = try Self.preview(
-            input,
-            workspace: workspace
+        let targetPath = preparation.preflight.targetPaths.first
+            ?? input.path
+        let operation = try PreparedFileMutationOperation.envelope(
+            .init(
+                action: .write,
+                work: .mutation(
+                    plan: preparation.plan,
+                    failurePolicy: mutationInput.failurePolicy
+                ),
+                authorizations: [
+                    .init(
+                        rootID: input.rootID,
+                        path: input.path,
+                        targetPath: targetPath
+                    ),
+                ]
+            )
         )
 
         return Self(
             action: .write,
             rootID: input.rootID,
             path: input.path,
-            exactInput: exactInput,
-            toolPreflight: toolPreflight,
-            recorder: recorder,
-            preview: preview
+            operation: operation,
+            toolPreflight: preparation.preflight,
+            recorder: recorder
         )
     }
 
@@ -208,9 +187,6 @@ public extension AgentFileMutationPreflight {
         workspace: AgentWorkspace?,
         recorder: AgentFileMutationRecorder? = nil
     ) async throws -> Self {
-        let exactInput = try JSONToolBridge.encode(
-            input
-        )
         let mutationInput = MutateFilesToolInput(
             reason: "Prepare one structured file edit.",
             rootID: input.rootID,
@@ -222,40 +198,38 @@ public extension AgentFileMutationPreflight {
                 ),
             ]
         )
-        let toolPreflight = try await MutateFilesTool().preflight(
+        let preparation = try await MutateFilesTool().prepare(
             mutationInput,
             context: .init(
                 workspace: workspace
             )
         )
-        let preview = try Self.preview(
-            input,
-            workspace: workspace
+        let targetPath = preparation.preflight.targetPaths.first
+            ?? input.path
+        let operation = try PreparedFileMutationOperation.envelope(
+            .init(
+                action: .edit,
+                work: .mutation(
+                    plan: preparation.plan,
+                    failurePolicy: mutationInput.failurePolicy
+                ),
+                authorizations: [
+                    .init(
+                        rootID: input.rootID,
+                        path: input.path,
+                        targetPath: targetPath
+                    ),
+                ]
+            )
         )
 
         return Self(
             action: .edit,
             rootID: input.rootID,
             path: input.path,
-            exactInput: exactInput,
-            toolPreflight: toolPreflight,
-            recorder: recorder,
-            preview: preview
-        )
-    }
-
-    var approval: AgentFileMutationApproval? {
-        guard let originalFingerprint else {
-            return nil
-        }
-
-        return AgentFileMutationApproval(
-            action: action,
-            rootID: rootID,
-            path: path,
-            targetPath: targetPath,
-            originalFingerprint: originalFingerprint,
-            editedFingerprint: editedFingerprint
+            operation: operation,
+            toolPreflight: preparation.preflight,
+            recorder: recorder
         )
     }
 }
@@ -265,10 +239,9 @@ private extension AgentFileMutationPreflight {
         action: FileMutationIntentAction,
         rootID: PathAccessRootIdentifier,
         path: String,
-        exactInput: JSONValue,
+        operation: PreparedOperation.Envelope,
         toolPreflight: ToolPreflight,
-        recorder: AgentFileMutationRecorder?,
-        preview: StandardEditResult? = nil
+        recorder: AgentFileMutationRecorder?
     ) {
         let policy = recorder?.policy
         let backupPolicy = policy?.backupPolicy ?? .none
@@ -278,18 +251,12 @@ private extension AgentFileMutationPreflight {
         let willEmitDiffArtifact = policy?.emitDiffArtifact ?? false
         let targetPath = toolPreflight.targetPaths.first ?? path
 
-        var policyChecks = Self.policyChecks(
+        let policyChecks = Self.policyChecks(
             from: toolPreflight,
             willRecordSessionMutation: willRecordSessionMutation,
             willStoreBackupPayload: willStoreBackupPayload,
             willEmitDiffArtifact: willEmitDiffArtifact
         )
-
-        if preview?.originalFingerprint != nil {
-            policyChecks.append(
-                "approval_fingerprint_guard_captured"
-            )
-        }
 
         self.init(
             action: action,
@@ -317,66 +284,8 @@ private extension AgentFileMutationPreflight {
                 from: toolPreflight,
                 recorder: recorder
             ),
-            exactReplayInput: exactInput,
-            originalFingerprint: preview?.originalFingerprint,
-            editedFingerprint: preview?.editedFingerprint,
+            operation: operation,
             toolPreflight: toolPreflight
-        )
-    }
-
-    static func preview(
-        _ input: WriteRequest,
-        workspace: AgentWorkspace?
-    ) throws -> StandardEditResult? {
-        guard let workspace else {
-            return nil
-        }
-
-        let authorized = try FileToolAccess.authorize(
-            workspace: workspace,
-            rootID: input.rootID,
-            path: input.path,
-            capability: .write,
-            toolName: MutateFilesTool.identifier.rawValue,
-            type: .file
-        )
-
-        return try StandardWriter(
-            authorized.absoluteURL
-        )
-        .editor
-        .preview(
-            .replaceEntireFile(
-                with: input.content
-            ),
-            encoding: .utf8
-        )
-    }
-
-    static func preview(
-        _ input: FileEditRequest,
-        workspace: AgentWorkspace?
-    ) throws -> StandardEditResult? {
-        guard let workspace else {
-            return nil
-        }
-
-        let plan = try FileEditResolver(
-            toolName: MutateFilesTool.identifier.rawValue
-        )
-        .resolve(
-            input,
-            workspace: workspace
-        )
-
-        return try StandardWriter(
-            plan.authorized.absoluteURL
-        )
-        .editor
-        .preview(
-            plan.operations,
-            mode: plan.editMode,
-            encoding: .utf8
         )
     }
 
@@ -427,7 +336,7 @@ private extension AgentFileMutationPreflight {
             "file_mutation_preflight_only"
         )
         values.append(
-            "exact_replay_input_captured"
+            "prepared_operation_plan_captured"
         )
 
         if preflight.diffPreview != nil {

@@ -74,8 +74,9 @@ public struct RollbackFileMutationTool: AgentTool {
             source.target
         ).rollback(
             writerRecord,
-            options: try recorder.writeOptions(),
-            checkTarget: input.checkTarget
+            options: recorder.writeOptions(),
+            checkTarget: input.checkTarget,
+            context: recorder.writeExecutionContext()
         )
 
         let recorded = try await recorder.record(
@@ -90,7 +91,6 @@ public struct RollbackFileMutationTool: AgentTool {
                 additionalMetadata: [
                     "toolName": identifier.rawValue,
                     "intent_action": "rollback",
-                    "intent_action_type": FileMutationIntentAction.rollback.actionType,
                     "rollback_of": source.id.uuidString.lowercased(),
                     "rollback_source_writer_record_id": source.writerRecordID.uuidString.lowercased(),
                     "rollback_strategy": rollback.preview.strategy.rawValue

@@ -136,37 +136,3 @@ public struct RequestPathGrantToolInput: Sendable, Codable, Hashable {
         self.expiresInSeconds = expiresInSeconds
     }
 }
-
-public struct PathGrantReviewExactInputs: Sendable, Codable, Hashable {
-    public let rootID: String
-    public let label: String
-    public let requestedRootPath: String
-    public let mode: PathGrantMode
-    public let capabilities: [PathCapability]
-    public let allowedTools: [String]
-    public let reason: String
-    public let policyProfile: String
-    public let expiresAt: Date?
-
-    public init(
-        rootID: String,
-        label: String,
-        requestedRootPath: String,
-        mode: PathGrantMode,
-        capabilities: [PathCapability],
-        allowedTools: [String],
-        reason: String,
-        policyProfile: String,
-        expiresAt: Date?
-    ) {
-        self.rootID = rootID
-        self.label = label
-        self.requestedRootPath = requestedRootPath
-        self.mode = mode
-        self.capabilities = capabilities
-        self.allowedTools = allowedTools
-        self.reason = reason
-        self.policyProfile = policyProfile
-        self.expiresAt = expiresAt
-    }
-}

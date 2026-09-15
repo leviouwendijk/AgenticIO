@@ -29,7 +29,9 @@ public struct FileEditor: Sendable {
                 with: text
             ),
             encoding: options.encoding,
-            options: try options.write ?? recorder.writeOptions()
+            options: options.write ?? recorder.writeOptions(),
+            constraint: .unrestricted,
+            context: recorder.writeExecutionContext()
         )
 
         return try await recorder.record(
@@ -144,7 +146,9 @@ public struct FileEditor: Sendable {
             operations,
             mode: options.mode,
             encoding: options.encoding,
-            options: try options.write ?? recorder.writeOptions()
+            options: options.write ?? recorder.writeOptions(),
+            constraint: .unrestricted,
+            context: recorder.writeExecutionContext()
         )
 
         return try await recorder.record(

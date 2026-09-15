@@ -1,17 +1,6 @@
 import Foundation
 import Writers
 
-public enum AgentFileMutationPolicyError: Error, Sendable, LocalizedError {
-    case backupStoreRequired
-
-    public var errorDescription: String? {
-        switch self {
-        case .backupStoreRequired:
-            return "Agentic session backup policy requires an Agentic write backup store."
-        }
-    }
-}
-
 public enum AgentFileBackupPolicy: String, Sendable, Codable, Hashable, CaseIterable {
     case none
     case session_store
@@ -57,9 +46,7 @@ public struct AgentFileMutationPolicy: Sendable, Codable, Hashable {
 }
 
 public extension AgentFileMutationPolicy {
-    func writeOptions(
-        backupStore: (any WriteBackupStore)? = nil
-    ) throws -> SafeWriteOptions {
+    func writeOptions() -> SafeWriteOptions {
         var options: SafeWriteOptions
 
         switch backupPolicy {
@@ -67,13 +54,8 @@ public extension AgentFileMutationPolicy {
             options = .overwriteWithoutBackup
 
         case .session_store:
-            guard let backupStore else {
-                throw AgentFileMutationPolicyError.backupStoreRequired
-            }
-
             options = .overwriting(
                 backupPolicy: .external_store,
-                backupStore: backupStore,
                 maxBackupSets: nil
             )
 
@@ -84,13 +66,8 @@ public extension AgentFileMutationPolicy {
             )
 
         case .both:
-            guard let backupStore else {
-                throw AgentFileMutationPolicyError.backupStoreRequired
-            }
-
             options = .overwriting(
                 backupPolicy: .external_store,
-                backupStore: backupStore,
                 maxBackupSets: nil
             )
         }

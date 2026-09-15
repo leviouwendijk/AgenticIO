@@ -39,6 +39,10 @@ let package = Package(
             branch: "master"
         ),
         .package(
+            url: "https://github.com/leviouwendijk/Version.git",
+            branch: "master"
+        ),
+        .package(
             url: "https://github.com/leviouwendijk/Schema.git",
             branch: "master"
         ),
@@ -114,6 +118,10 @@ let package = Package(
                 .product(
                     name: "Primitives",
                     package: "Primitives"
+                ),
+                .product(
+                    name: "Version",
+                    package: "Version"
                 ),
                 .product(
                     name: "Schema",

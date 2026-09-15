@@ -253,6 +253,19 @@ public struct MutateFilesToolOutput: Sendable, Codable, Hashable {
     }
 }
 
+public struct MutateFilesToolPreparation: Sendable {
+    public let plan: StandardMutationPlan
+    public let preflight: ToolPreflight
+
+    public init(
+        plan: StandardMutationPlan,
+        preflight: ToolPreflight
+    ) {
+        self.plan = plan
+        self.preflight = preflight
+    }
+}
+
 public struct MutateFilesTool: AgentTool {
     public typealias Input = MutateFilesToolInput
     public typealias Output = MutateFilesToolOutput
@@ -290,10 +303,10 @@ public struct MutateFilesTool: AgentTool {
     }
 
 
-    private func preflightInternal(
+    private func prepareInternal(
         _ input: Input,
         workspace: AgentWorkspace?
-    ) async throws -> ToolPreflight {
+    ) async throws -> MutateFilesToolPreparation {
         let workspace = try FileToolSupport.requireWorkspace(
             workspace,
             toolName: name
@@ -314,8 +327,7 @@ public struct MutateFilesTool: AgentTool {
                 context: context
             )
         )
-
-        return .init(
+        let preflight = ToolPreflight(
             toolName: name,
             risk: risk,
             workspaceRoot: workspace.rootURL.path,
@@ -372,12 +384,27 @@ public struct MutateFilesTool: AgentTool {
                 authorized: authorized
             )
         )
+
+        return .init(
+            plan: plan,
+            preflight: preflight
+        )
     }
 
-    public func preflight(
+    private func preflightInternal(
+        _ input: Input,
+        workspace: AgentWorkspace?
+    ) async throws -> ToolPreflight {
+        try await prepareInternal(
+            input,
+            workspace: workspace
+        ).preflight
+    }
+
+    public func prepare(
         _ input: Input,
         context toolContext: AgentToolExecutionContext
-    ) async throws -> ToolPreflight {
+    ) async throws -> MutateFilesToolPreparation {
         let targetedInput = try workspaceTargetedInput(
             input,
             context: toolContext
@@ -387,10 +414,20 @@ public struct MutateFilesTool: AgentTool {
             context: mergedMutationContext(
                 toolContext: toolContext
             )
-        ).preflightInternal(
+        ).prepareInternal(
             targetedInput,
             workspace: toolContext.workspace
         )
+    }
+
+    public func preflight(
+        _ input: Input,
+        context toolContext: AgentToolExecutionContext
+    ) async throws -> ToolPreflight {
+        try await prepare(
+            input,
+            context: toolContext
+        ).preflight
     }
 
     private func callInternal(

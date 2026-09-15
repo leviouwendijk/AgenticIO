@@ -14,6 +14,21 @@ enum AgenticIOFlowSuite: TestFlowRegistry {
 
     static let flows: [TestFlow] = [
         TestFlow(
+            "prepared-operation-authoring",
+            tags: [
+                "agentic-io",
+                "prepared-operation",
+                "prepared-intent",
+                "mutation",
+                "path-grant",
+                "persistence",
+                "version",
+            ]
+        ) {
+            try await AgenticIOFlowTesting
+                .runPreparedOperationAuthoring()
+        },
+        TestFlow(
             "mutate-files-workspace-targeting",
             tags: [
                 "agentic-io",

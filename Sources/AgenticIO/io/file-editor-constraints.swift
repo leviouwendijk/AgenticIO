@@ -177,8 +177,9 @@ extension FileEditor {
             operations,
             mode: options.mode,
             encoding: options.encoding,
-            options: try options.write ?? recorder.writeOptions(),
-            constraint: constraint
+            options: options.write ?? recorder.writeOptions(),
+            constraint: constraint,
+            context: recorder.writeExecutionContext()
         )
 
         return try await recorder.record(

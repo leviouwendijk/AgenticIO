@@ -26,8 +26,12 @@ public struct AgentFileMutationRecorder: Sendable {
         self.policy = policy
     }
 
-    public func writeOptions() throws -> SafeWriteOptions {
-        try policy.writeOptions(
+    public func writeOptions() -> SafeWriteOptions {
+        policy.writeOptions()
+    }
+
+    public func writeExecutionContext() -> WriteExecutionContext {
+        .init(
             backupStore: backups
         )
     }

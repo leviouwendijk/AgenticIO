@@ -1,7 +1,6 @@
 import Agentic
 import AgenticExecution
 import Foundation
-import Primitives
 
 public struct FileMutationIntentBuilder: Sendable {
     public var sessionID: String?
@@ -18,20 +17,16 @@ public struct FileMutationIntentBuilder: Sendable {
     public func draft(
         for preflight: AgentFileMutationPreflight
     ) throws -> PreparedIntentDraft {
-        let actionType = preflight.action.actionType
         let payload = PreparedIntentReviewPayload(
             title: "\(preflight.action.title): \(preflight.targetPath)",
             summary: summary(
                 for: preflight
             ),
-            actionType: actionType,
             risk: preflight.risk,
             target: preflight.targetPath,
-            exactInputs: preflight.exactReplayInput,
             expectedSideEffects: preflight.sideEffects,
             policyChecks: preflight.policyChecks,
             warnings: preflight.warnings,
-            expiresAt: expiresAt,
             metadata: reviewMetadata(
                 for: preflight
             )
@@ -39,9 +34,9 @@ public struct FileMutationIntentBuilder: Sendable {
 
         return PreparedIntentDraft(
             sessionID: sessionID,
-            actionType: actionType,
+            operation: preflight.operation,
             reviewPayload: payload,
-            executionToolName: preflight.action.executionName,
+            expiresAt: expiresAt,
             idempotencyKey: nil,
             metadata: draftMetadata(
                 for: preflight
@@ -139,14 +134,6 @@ private extension FileMutationIntentBuilder {
             )
         ]
 
-        if let approval = preflight.approval {
-            metadata.merge(
-                approval.metadata
-            ) { _, newValue in
-                newValue
-            }
-        }
-
         return metadata
     }
 
@@ -160,14 +147,6 @@ private extension FileMutationIntentBuilder {
             "target_path": preflight.targetPath,
             "action": preflight.action.rawValue
         ]
-
-        if let approval = preflight.approval {
-            metadata.merge(
-                approval.metadata
-            ) { _, newValue in
-                newValue
-            }
-        }
 
         return metadata
     }

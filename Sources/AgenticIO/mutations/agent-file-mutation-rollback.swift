@@ -111,9 +111,6 @@ public extension AgentFileMutationPreflight {
         workspace: AgentWorkspace?,
         recorder: AgentFileMutationRecorder? = nil
     ) async throws -> Self {
-        let exactInput = try JSONToolBridge.encode(
-            input
-        )
         let sourceID = try input.normalizedMutationUUID()
         let sourceIDString = sourceID.uuidString.lowercased()
 
@@ -139,7 +136,7 @@ public extension AgentFileMutationPreflight {
             )
         }
 
-        let options = try recorder?.writeOptions() ?? .overwriteWithoutBackup
+        let options = recorder?.writeOptions() ?? .overwriteWithoutBackup
         let plan = try StandardWriter(
             mutation.target
         ).rollbackPlan(
@@ -159,6 +156,23 @@ public extension AgentFileMutationPreflight {
         let willEmitDiffArtifact = policy?.emitDiffArtifact ?? false
         let targetPath = mutation.target.standardizedFileURL.path
         let rootID = mutation.rootID ?? .project
+        let path = mutation.relativePath ?? mutation.target.lastPathComponent
+        let operation = try PreparedFileMutationOperation.envelope(
+            .init(
+                action: .rollback,
+                work: .rollback(
+                    plan: plan,
+                    sourceMutationID: sourceID
+                ),
+                authorizations: [
+                    .init(
+                        rootID: rootID,
+                        path: path,
+                        targetPath: targetPath
+                    ),
+                ]
+            )
+        )
 
         let sideEffects = rollbackSideEffects(
             willRecordSessionMutation: willRecordSessionMutation,
@@ -213,7 +227,7 @@ public extension AgentFileMutationPreflight {
         return .init(
             action: .rollback,
             rootID: rootID,
-            path: mutation.relativePath ?? mutation.target.lastPathComponent,
+            path: path,
             targetPath: targetPath,
             risk: .boundedmutate,
             backupPolicy: backupPolicy,
@@ -230,7 +244,7 @@ public extension AgentFileMutationPreflight {
             sideEffects: sideEffects,
             policyChecks: policyChecks,
             warnings: warnings,
-            exactReplayInput: exactInput,
+            operation: operation,
             toolPreflight: toolPreflight
         )
     }
