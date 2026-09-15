@@ -151,7 +151,9 @@ public extension AgentFileMutationPreflight {
             mutationInput,
             context: .init(
                 workspace: workspace
-            )
+            ),
+            writeOptions: recorder?.writeOptions()
+                ?? .overwriteWithoutBackup
         )
         let targetPath = preparation.preflight.targetPaths.first
             ?? input.path
@@ -202,7 +204,9 @@ public extension AgentFileMutationPreflight {
             mutationInput,
             context: .init(
                 workspace: workspace
-            )
+            ),
+            writeOptions: recorder?.writeOptions()
+                ?? .overwriteWithoutBackup
         )
         let targetPath = preparation.preflight.targetPaths.first
             ?? input.path

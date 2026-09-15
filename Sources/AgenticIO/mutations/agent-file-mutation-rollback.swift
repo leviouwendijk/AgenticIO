@@ -142,7 +142,8 @@ public extension AgentFileMutationPreflight {
         ).rollbackPlan(
             writerRecord,
             options: options,
-            checkTarget: input.checkTarget
+            checkTarget: input.checkTarget,
+            context: recorder?.writeExecutionContext() ?? .init()
         )
         let diffPreview = rollbackDiffPreview(
             plan.preview,

@@ -305,7 +305,8 @@ public struct MutateFilesTool: AgentTool {
 
     private func prepareInternal(
         _ input: Input,
-        workspace: AgentWorkspace?
+        workspace: AgentWorkspace?,
+        writeOptions: SafeWriteOptions = .overwriteWithoutBackup
     ) async throws -> MutateFilesToolPreparation {
         let workspace = try FileToolSupport.requireWorkspace(
             workspace,
@@ -320,7 +321,8 @@ public struct MutateFilesTool: AgentTool {
         ).mutations.plan(
             workspaceEntries(
                 input,
-                workspace: workspace
+                workspace: workspace,
+                writeOptions: writeOptions
             ),
             metadata: mutationMetadata(
                 input: input,
@@ -403,7 +405,8 @@ public struct MutateFilesTool: AgentTool {
 
     public func prepare(
         _ input: Input,
-        context toolContext: AgentToolExecutionContext
+        context toolContext: AgentToolExecutionContext,
+        writeOptions: SafeWriteOptions = .overwriteWithoutBackup
     ) async throws -> MutateFilesToolPreparation {
         let targetedInput = try workspaceTargetedInput(
             input,
@@ -416,7 +419,8 @@ public struct MutateFilesTool: AgentTool {
             )
         ).prepareInternal(
             targetedInput,
-            workspace: toolContext.workspace
+            workspace: toolContext.workspace,
+            writeOptions: writeOptions
         )
     }
 
@@ -778,14 +782,16 @@ private extension MutateFilesTool {
 
     func workspaceEntries(
         _ input: MutateFilesToolInput,
-        workspace: AgentWorkspace
+        workspace: AgentWorkspace,
+        writeOptions: SafeWriteOptions = .overwriteWithoutBackup
     ) throws -> [WorkspaceMutationEntry] {
         try input.entries.map { entry in
             try entry.workspaceEntry(
                 defaultRootID: input.rootID,
                 toolName: name,
                 workspace: workspace,
-                fileEditPolicy: fileEditPolicy
+                fileEditPolicy: fileEditPolicy,
+                writeOptions: writeOptions
             )
         }
     }
@@ -978,7 +984,8 @@ private extension MutateFilesToolEntry {
         defaultRootID: PathAccessRootIdentifier,
         toolName: String,
         workspace: AgentWorkspace,
-        fileEditPolicy: FileEditPolicy
+        fileEditPolicy: FileEditPolicy,
+        writeOptions: SafeWriteOptions
     ) throws -> WorkspaceMutationEntry {
         let rootID = rootID ?? defaultRootID
 
@@ -990,7 +997,7 @@ private extension MutateFilesToolEntry {
                 content: try requiredContent(
                     toolName: toolName
                 ),
-                options: .overwriteWithoutBackup
+                options: writeOptions
             )
 
         case .replace_text:
@@ -1001,7 +1008,7 @@ private extension MutateFilesToolEntry {
                     toolName: toolName
                 ),
                 policy: replacePolicy ?? .upsert,
-                options: .overwriteWithoutBackup
+                options: writeOptions
             )
 
         case .edit_text:
@@ -1032,7 +1039,7 @@ private extension MutateFilesToolEntry {
                 mode: resolved.editMode,
                 constraint: constraint,
                 options: .init(
-                    write: .overwriteWithoutBackup
+                    write: writeOptions
                 )
             )
 

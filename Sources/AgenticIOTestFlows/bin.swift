@@ -29,6 +29,20 @@ enum AgenticIOFlowSuite: TestFlowRegistry {
                 .runPreparedOperationAuthoring()
         },
         TestFlow(
+            "prepared-file-mutation-execution",
+            tags: [
+                "agentic-io",
+                "prepared-operation",
+                "execution",
+                "mutation",
+                "rollback",
+                "persistence",
+            ]
+        ) {
+            try await AgenticIOFlowTesting
+                .runPreparedFileMutationExecution()
+        },
+        TestFlow(
             "mutate-files-workspace-targeting",
             tags: [
                 "agentic-io",
