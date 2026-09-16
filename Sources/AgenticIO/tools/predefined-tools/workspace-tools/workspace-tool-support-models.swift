@@ -93,11 +93,9 @@ public struct PathGrantSuggestion: Sendable, Codable, Hashable {
     }
 }
 
-/// Model-facing input for Request pathGrant.
+/// Model-facing input for requesting temporary workspace path access.
 @JSONSchema
 public struct RequestPathGrantToolInput: Sendable, Codable, Hashable {
-    /// Optional session identifier associated with the request.
-    public let sessionID: String?
     /// Absolute directory path proposed as a temporary named root.
     public let requestedRootPath: String
     /// Optional preferred identifier for the proposed root.
@@ -109,13 +107,10 @@ public struct RequestPathGrantToolInput: Sendable, Codable, Hashable {
     public let reason: String
     /// Optional policy profile for the requested root.
     public let policyProfile: String?
-    /// Requested temporary authority lifetime. Defaults to this turn.
-    public let lifetime: PathGrantLifetime?
-    /// Optional maximum wall-clock duration once the grant becomes active.
+    /// Optional maximum wall-clock duration once granted.
     public let expiresInSeconds: TimeInterval?
 
     public init(
-        sessionID: String? = nil,
         requestedRootPath: String,
         suggestedRootID: String? = nil,
         label: String? = nil,
@@ -124,10 +119,8 @@ public struct RequestPathGrantToolInput: Sendable, Codable, Hashable {
         allowedTools: [String]? = nil,
         reason: String,
         policyProfile: String? = nil,
-        lifetime: PathGrantLifetime? = nil,
         expiresInSeconds: TimeInterval? = nil
     ) {
-        self.sessionID = sessionID
         self.requestedRootPath = requestedRootPath
         self.suggestedRootID = suggestedRootID
         self.label = label
@@ -136,7 +129,6 @@ public struct RequestPathGrantToolInput: Sendable, Codable, Hashable {
         self.allowedTools = allowedTools
         self.reason = reason
         self.policyProfile = policyProfile
-        self.lifetime = lifetime
         self.expiresInSeconds = expiresInSeconds
     }
 }

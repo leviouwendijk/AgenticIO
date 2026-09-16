@@ -65,12 +65,6 @@ extension PathGrantMode:
     }
 }
 
-extension PathGrantLifetime: JSONSchemaProviding {
-    public static var jsonschema: JSONSchema {
-        .string(cases: allCases.map(\.rawValue))
-    }
-}
-
 extension PathSegmentType:
     @retroactive JSONSchemaProviding
 {

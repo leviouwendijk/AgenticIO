@@ -7,13 +7,7 @@ import PathParsing
 import Primitives
 
 public struct CoreWorkspaceToolSet: AgentToolSet {
-    public let preparedIntentManager: PreparedIntentManager?
-
-    public init(
-        preparedIntentManager: PreparedIntentManager? = nil
-    ) {
-        self.preparedIntentManager = preparedIntentManager
-    }
+    public init() {}
 
     public func register(
         into registry: inout ToolRegistry
@@ -24,14 +18,7 @@ public struct CoreWorkspaceToolSet: AgentToolSet {
             ListPathGrantsTool()
             ExplainPathAccessTool()
             FindPathsTool()
-        }
-
-        if let preparedIntentManager {
-            try registry.register(
-                RequestPathGrantTool(
-                    manager: preparedIntentManager
-                )
-            )
+            RequestPathGrantTool()
         }
     }
 }

@@ -82,75 +82,47 @@ extension AgenticIOFlowTesting {
             "prepared intent draft uses the typed operation envelope as its execution authority"
         )
 
-        let store = PreparedOperationAuthoringIntentStore()
-        let manager = PreparedIntentManager(
-            store: store
-        )
-        let pathGrantOutput = try await RequestPathGrantTool(
-            manager: manager
-        ).call(
+        let workspaceRequest = try await RequestPathGrantTool().call(
             .init(
-                sessionID: "fixture-session",
                 requestedRootPath: fixture.rootURL.path,
                 suggestedRootID: "fixture_external",
-                reason: "Exercise typed path grant prepared-operation authoring.",
+                reason: "Exercise native workspace access request authoring.",
                 expiresInSeconds: 300
             ),
             context: .init(
                 workspace: fixture.workspace
             )
         )
-        let pathGrantIntent = try await manager.get(
-            pathGrantOutput.intentID
-        )
-        let pathGrantPlan = try PreparedPathGrantOperation.plan(
-            from: pathGrantIntent.operation
-        )
 
         try Expect.equal(
-            pathGrantOutput.operationIdentifier,
-            PreparedPathGrantOperation.schema.identifier.rawValue,
-            "path grant output exposes prepared-operation identity instead of a legacy action type"
-        )
-        try Expect.equal(
-            pathGrantPlan.lifetime,
-            .turn,
-            "path grant requests default to turn-scoped temporary authority"
-        )
-        try Expect.equal(
-            pathGrantPlan.durationSeconds,
+            workspaceRequest.durationSeconds,
             300,
-            "path grant operation retains optional wall-clock duration independently from authority lifetime"
+            "workspace access request retains optional wall-clock duration independently from human-selected authority lifetime"
         )
         try Expect.equal(
-            pathGrantPlan.overlay.roots.count,
+            workspaceRequest.overlay.roots.count,
             1,
-            "path grant operation captures one exact temporary root overlay"
+            "workspace access request captures one exact temporary root overlay"
         )
 
-        guard let grantedRoot = pathGrantPlan.overlay.roots.first else {
+        guard let grantedRoot = workspaceRequest.overlay.roots.first else {
             throw PreparedOperationAuthoringFixtureError.missingGrantedRoot
         }
 
         try Expect.equal(
             grantedRoot.root.id.rawValue,
             "fixture_external",
-            "path grant operation retains the exact requested root identifier"
+            "workspace access request retains the exact requested root identifier"
         )
         try Expect.equal(
             grantedRoot.root.rootURL.standardizedFileURL.path,
             fixture.rootURL.standardizedFileURL.path,
-            "path grant operation retains the exact normalized requested root"
+            "workspace access request retains the exact normalized requested root"
         )
         try Expect.equal(
             grantedRoot.grant.mode,
             .read_only,
-            "path grant operation retains the exact requested grant mode"
-        )
-        try Expect.equal(
-            pathGrantIntent.expiresAt,
-            nil,
-            "temporary grant lifetime is not conflated with prepared-intent approval expiry"
+            "workspace access request retains the exact requested grant mode"
         )
 
         return [
@@ -159,8 +131,8 @@ extension AgenticIOFlowTesting {
                 preflight.operation.schema.identifier.rawValue
             ),
             .field(
-                "path_grant_operation",
-                pathGrantIntent.operation.schema.identifier.rawValue
+                "workspace_access_request",
+                grantedRoot.root.id.rawValue
             ),
             .field(
                 "typed_writers_plan",
@@ -177,39 +149,6 @@ extension AgenticIOFlowTesting {
 private enum PreparedOperationAuthoringFixtureError: Error {
     case unexpectedWork
     case missingGrantedRoot
-}
-
-private actor PreparedOperationAuthoringIntentStore:
-    PreparedIntentStore
-{
-    private var intents:
-        [PreparedIntentIdentifier: PreparedIntent] = [:]
-
-    func load(
-        id: PreparedIntentIdentifier
-    ) async throws -> PreparedIntent? {
-        intents[id]
-    }
-
-    func list() async throws -> [PreparedIntent] {
-        Array(
-            intents.values
-        )
-    }
-
-    func save(
-        _ intent: PreparedIntent
-    ) async throws {
-        intents[intent.id] = intent
-    }
-
-    func delete(
-        id: PreparedIntentIdentifier
-    ) async throws {
-        intents.removeValue(
-            forKey: id
-        )
-    }
 }
 
 private struct PreparedOperationAuthoringFixture {
