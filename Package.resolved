@@ -1,5 +1,5 @@
 {
-  "originHash" : "55fdc0cafc43b308510a79c565ca077cc9fd99ff31cd49f7e172ff38ae190e21",
+  "originHash" : "09fd03a1203cb0fc6289da731d681e934f6d61cc431f88d4f828a30be13c1afb",
   "pins" : [
     {
       "identity" : "agentic",
@@ -16,7 +16,7 @@
       "location" : "https://github.com/leviouwendijk/AgenticExecution.git",
       "state" : {
         "branch" : "master",
-        "revision" : "8173a58be4ad67bae4729bb1e7185ca24b39faea"
+        "revision" : "a78f57922c402a7061602f5ec7f1f6423efe8d2f"
       }
     },
     {
@@ -43,7 +43,7 @@
       "location" : "https://github.com/leviouwendijk/Atomos.git",
       "state" : {
         "branch" : "master",
-        "revision" : "7c42aff0baef9cc1a500ec7207caad8146dfeac8"
+        "revision" : "06c6b3af18ebc4e8af671a0eca21d23d99664eef"
       }
     },
     {
