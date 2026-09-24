@@ -8,41 +8,6 @@ import Primitives
 import Schema
 import Macros
 
-@JSONSchema
-public struct RemoveEmptyDirectoriesToolInput:
-    Sendable,
-    Codable,
-    Hashable
-{
-    /// Workspace root identifier. Defaults to project.
-    public let rootID: PathAccessRootIdentifier?
-
-    /// Directory paths to remove only if each is literally empty.
-    public let paths: [String]
-
-    public init(
-        rootID: PathAccessRootIdentifier? = nil,
-        paths: [String]
-    ) {
-        self.rootID = rootID
-        self.paths = paths
-    }
-
-}
-
-public struct RemoveEmptyDirectoriesToolOutput: Result, Hashable {
-    public static var jsonschema: JSONSchema {
-        .object()
-    }
-
-    public let removed: [String]
-
-    public init(
-        removed: [String]
-    ) {
-        self.removed = removed
-    }
-}
 
 public enum RemoveEmptyDirectoriesToolError:
     Error,
@@ -78,8 +43,42 @@ public enum RemoveEmptyDirectoriesToolError:
 public extension SystemIO.Tools {
     @Tool
     struct RemoveEmptyDirectories: Tool {
-        public typealias Input = RemoveEmptyDirectoriesToolInput
-        public typealias Output = RemoveEmptyDirectoriesToolOutput
+        @JSONSchema
+        public struct Input:
+            Sendable,
+            Codable,
+            Hashable
+        {
+            /// Workspace root identifier. Defaults to project.
+            public let rootID: PathAccessRootIdentifier?
+
+            /// Directory paths to remove only if each is literally empty.
+            public let paths: [String]
+
+            public init(
+                rootID: PathAccessRootIdentifier? = nil,
+                paths: [String]
+            ) {
+                self.rootID = rootID
+                self.paths = paths
+            }
+
+        }
+
+        public struct Output: Result, Hashable {
+            public static var jsonschema: JSONSchema {
+                .object()
+            }
+
+            public let removed: [String]
+
+            public init(
+                removed: [String]
+            ) {
+                self.removed = removed
+            }
+        }
+
         public static let purpose =
             """
             Remove explicitly named workspace directories only when they are real, non-symlink directories containing zero entries.
@@ -170,7 +169,7 @@ public extension SystemIO.Tools {
                 )
             }
 
-            return RemoveEmptyDirectoriesToolOutput(
+            return Output(
                 removed: authorized.map(
                     \.presentationPath
                 )
@@ -201,7 +200,7 @@ public extension SystemIO.Tools {
 
 private extension SystemIO.Tools.RemoveEmptyDirectories {
     func authorizedPaths(
-        _ input: RemoveEmptyDirectoriesToolInput,
+        _ input: SystemIO.Tools.RemoveEmptyDirectories.Input,
         workspace: WorkspaceContext
     ) throws -> [AuthorizedPath] {
         guard !input.paths.isEmpty else {

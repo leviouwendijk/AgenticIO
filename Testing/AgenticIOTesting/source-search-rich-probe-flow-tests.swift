@@ -13,7 +13,7 @@ extension AgenticIOFlowTesting {
         }
 
         let schema = String(
-            describing: SearchSourcesToolInput.jsonschema
+            describing: SystemIO.Tools.SearchSources.Input.jsonschema
         )
 
         try Expect.contains(
@@ -43,7 +43,7 @@ extension AgenticIOFlowTesting {
         )
 
         let output = try await SystemIO.Tools.SearchSources().call(
-            SearchSourcesToolInput(
+            SystemIO.Tools.SearchSources.Input(
                                 includes: [
                                     "Sources/RichPlain.swift",
                                     "Sources/RichStrong.swift",

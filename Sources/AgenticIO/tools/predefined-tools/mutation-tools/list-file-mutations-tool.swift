@@ -6,43 +6,43 @@ import Primitives
 import Schema
 import Macros
 
-/// Model-facing input for List fileMutations.
-@JSONSchema
-public struct ListFileMutationsToolInput: Sendable, Codable, Hashable {
-    /// Optional workspace path used to filter mutation history.
-    public let path: String?
-    /// Optional prepared intent identifier used to filter mutation history.
-    public let preparedIntentID: String?
-    /// Whether to return only rollbackable mutations.
-    public let rollbackableOnly: Bool
-    /// Whether to include recorded mutations that produced no content change.
-    public let includeUnchanged: Bool
-    /// Whether to return newest mutations first.
-    public let latestFirst: Bool
-    /// Optional maximum number of mutation records to return.
-    public let limit: Int?
-
-    public init(
-        path: String? = nil,
-        preparedIntentID: String? = nil,
-        rollbackableOnly: Bool = false,
-        includeUnchanged: Bool = true,
-        latestFirst: Bool = true,
-        limit: Int? = nil
-    ) {
-        self.path = path
-        self.preparedIntentID = preparedIntentID
-        self.rollbackableOnly = rollbackableOnly
-        self.includeUnchanged = includeUnchanged
-        self.latestFirst = latestFirst
-        self.limit = limit
-    }
-}
 
 public extension SystemIO.Tools {
     @Tool
     struct ListFileMutations: Tool {
-        public typealias Input = ListFileMutationsToolInput
+        /// Model-facing input for List fileMutations.
+        @JSONSchema
+        public struct Input: Sendable, Codable, Hashable {
+            /// Optional workspace path used to filter mutation history.
+            public let path: String?
+            /// Optional prepared intent identifier used to filter mutation history.
+            public let preparedIntentID: String?
+            /// Whether to return only rollbackable mutations.
+            public let rollbackableOnly: Bool
+            /// Whether to include recorded mutations that produced no content change.
+            public let includeUnchanged: Bool
+            /// Whether to return newest mutations first.
+            public let latestFirst: Bool
+            /// Optional maximum number of mutation records to return.
+            public let limit: Int?
+
+            public init(
+                path: String? = nil,
+                preparedIntentID: String? = nil,
+                rollbackableOnly: Bool = false,
+                includeUnchanged: Bool = true,
+                latestFirst: Bool = true,
+                limit: Int? = nil
+            ) {
+                self.path = path
+                self.preparedIntentID = preparedIntentID
+                self.rollbackableOnly = rollbackableOnly
+                self.includeUnchanged = includeUnchanged
+                self.latestFirst = latestFirst
+                self.limit = limit
+            }
+        }
+
         public typealias Output = AgentFileMutationHistoryList
 
         public static let purpose = "List recorded file mutations for the current Agentic session mutation store."
@@ -100,7 +100,7 @@ public extension SystemIO.Tools {
 
 private extension SystemIO.Tools.ListFileMutations {
     func summary(
-        for input: ListFileMutationsToolInput
+        for input: SystemIO.Tools.ListFileMutations.Input
     ) -> String {
         var parts = [
             "List recorded file mutations."
@@ -140,7 +140,7 @@ private extension SystemIO.Tools.ListFileMutations {
     }
 }
 
-private extension ListFileMutationsToolInput {
+private extension SystemIO.Tools.ListFileMutations.Input {
     var normalizedPath: String? {
         normalized(
             path

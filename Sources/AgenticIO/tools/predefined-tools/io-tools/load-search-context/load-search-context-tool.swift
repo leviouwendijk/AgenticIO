@@ -124,52 +124,8 @@ public struct SourceContextCandidateInput:
     }
 }
 
-@JSONSchema
-public struct LoadSearchContextToolInput:
-    Sendable,
-    Codable,
-    Hashable
-{
-    @Schema(required: false)
-    public let rootID: PathAccessRootIdentifier
 
-    public let candidates: [SourceContextCandidateInput]
-
-    @Schema(required: false)
-    public let beforeLines: Int
-
-    @Schema(required: false)
-    public let afterLines: Int
-
-    @Schema(required: false)
-    public let maximumCandidates: Int
-
-    @Schema(required: false)
-    public let maximumLinesPerCandidate: Int
-
-    @Schema(required: false)
-    public let maximumTotalLines: Int
-
-    public init(
-        rootID: PathAccessRootIdentifier = .project,
-        candidates: [SourceContextCandidateInput],
-        beforeLines: Int = 3,
-        afterLines: Int = 3,
-        maximumCandidates: Int = 8,
-        maximumLinesPerCandidate: Int = 120,
-        maximumTotalLines: Int = 320
-    ) {
-        self.rootID = rootID
-        self.candidates = candidates
-        self.beforeLines = beforeLines
-        self.afterLines = afterLines
-        self.maximumCandidates = maximumCandidates
-        self.maximumLinesPerCandidate = maximumLinesPerCandidate
-        self.maximumTotalLines = maximumTotalLines
-    }
-}
-
-private extension LoadSearchContextToolInput {
+private extension SystemIO.Tools.LoadSearchContext.Input {
     enum CodingKeys: String, CodingKey {
         case rootID
         case candidates
@@ -181,7 +137,7 @@ private extension LoadSearchContextToolInput {
     }
 }
 
-public extension LoadSearchContextToolInput {
+public extension SystemIO.Tools.LoadSearchContext.Input {
     init(
         from decoder: any Decoder
     ) throws {
@@ -225,7 +181,51 @@ public extension LoadSearchContextToolInput {
 public extension SystemIO.Tools {
     @Tool
     struct LoadSearchContext: Tool {
-        public typealias Input = LoadSearchContextToolInput
+        @JSONSchema
+        public struct Input:
+            Sendable,
+            Codable,
+            Hashable
+        {
+            @Schema(required: false)
+            public let rootID: PathAccessRootIdentifier
+
+            public let candidates: [SourceContextCandidateInput]
+
+            @Schema(required: false)
+            public let beforeLines: Int
+
+            @Schema(required: false)
+            public let afterLines: Int
+
+            @Schema(required: false)
+            public let maximumCandidates: Int
+
+            @Schema(required: false)
+            public let maximumLinesPerCandidate: Int
+
+            @Schema(required: false)
+            public let maximumTotalLines: Int
+
+            public init(
+                rootID: PathAccessRootIdentifier = .project,
+                candidates: [SourceContextCandidateInput],
+                beforeLines: Int = 3,
+                afterLines: Int = 3,
+                maximumCandidates: Int = 8,
+                maximumLinesPerCandidate: Int = 120,
+                maximumTotalLines: Int = 320
+            ) {
+                self.rootID = rootID
+                self.candidates = candidates
+                self.beforeLines = beforeLines
+                self.afterLines = afterLines
+                self.maximumCandidates = maximumCandidates
+                self.maximumLinesPerCandidate = maximumLinesPerCandidate
+                self.maximumTotalLines = maximumTotalLines
+            }
+        }
+
         public typealias Output = SourceContextResult
 
         public static let purpose = "Load bounded exact source slices from search_sources candidates after reauthorizing paths and validating that source fingerprints are still current."
@@ -358,7 +358,7 @@ public extension SystemIO.Tools {
 
 private extension SystemIO.Tools.LoadSearchContext {
     func request(
-        from input: LoadSearchContextToolInput
+        from input: SystemIO.Tools.LoadSearchContext.Input
     ) throws -> SourceContextRequest {
         SourceContextRequest(
             rootID: input.rootID,

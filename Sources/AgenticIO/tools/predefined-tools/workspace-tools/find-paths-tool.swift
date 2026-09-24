@@ -80,74 +80,6 @@ public struct FindPathsQueryInput: Sendable, Codable, Hashable {
     }
 }
 
-/// Model-facing input for Find paths.
-@JSONSchema
-public struct FindPathsToolInput: Sendable, Codable, Hashable {
-    /// Optional workspace root identifier.
-    public let rootID: PathAccessRootIdentifier?
-    /// Optional legacy single path-name query. Used when queries is omitted or empty.
-    public let query: String?
-    /// Optional weighted path-name probes. When non-empty, these take precedence over query.
-    public let queries: [FindPathsQueryInput]?
-    /// Optional include patterns.
-    public let includes: [String]?
-    /// Optional exclude patterns.
-    public let excludes: [String]?
-    /// Whether to scan recursively when maxdepth is omitted. Defaults to true.
-    public let recursive: Bool?
-    /// Optional maximum traversal depth. When provided, this overrides recursive.
-    public let maxdepth: Int?
-    /// Whether hidden paths are included.
-    public let includeHidden: Bool?
-    /// Whether directory symlinks are followed.
-    public let followSymlinks: Bool?
-    /// Whether files are returned.
-    public let includeFiles: Bool?
-    /// Whether directories are returned.
-    public let includeDirectories: Bool?
-    /// Optional Search strategy. Defaults to contains to preserve existing behavior.
-    public let strategy: FindPathsStrategy?
-    /// Whether Search matching is case-sensitive. Defaults to false.
-    public let caseSensitive: Bool?
-    /// Optional minimum Search score. Defaults to 1.
-    public let minimumScore: Int?
-    /// Optional maximum number of returned paths. Defaults to 100.
-    public let maxEntries: Int?
-
-    public init(
-        rootID: PathAccessRootIdentifier? = nil,
-        query: String? = nil,
-        queries: [FindPathsQueryInput]? = nil,
-        includes: [String]? = nil,
-        excludes: [String]? = nil,
-        recursive: Bool? = nil,
-        maxdepth: Int? = nil,
-        includeHidden: Bool? = nil,
-        followSymlinks: Bool? = nil,
-        includeFiles: Bool? = nil,
-        includeDirectories: Bool? = nil,
-        strategy: FindPathsStrategy? = nil,
-        caseSensitive: Bool? = nil,
-        minimumScore: Int? = nil,
-        maxEntries: Int? = nil
-    ) {
-        self.rootID = rootID
-        self.query = query
-        self.queries = queries
-        self.includes = includes
-        self.excludes = excludes
-        self.recursive = recursive
-        self.maxdepth = maxdepth
-        self.includeHidden = includeHidden
-        self.followSymlinks = followSymlinks
-        self.includeFiles = includeFiles
-        self.includeDirectories = includeDirectories
-        self.strategy = strategy
-        self.caseSensitive = caseSensitive
-        self.minimumScore = minimumScore
-        self.maxEntries = maxEntries
-    }
-}
 
 public struct FindPathsToolEvidence: Sendable, Codable, Hashable {
     public let queryID: String?
@@ -193,37 +125,105 @@ public struct FindPathsToolEntry: Sendable, Codable, Hashable {
     }
 }
 
-public struct FindPathsToolOutput: Result, Hashable {
-    public static var jsonschema: JSONSchema {
-        .object()
-    }
-
-    public let rootID: String
-    public let searchedPathCount: Int?
-    public let candidateCount: Int?
-    public let entries: [FindPathsToolEntry]
-    public let truncated: Bool
-
-    public init(
-        rootID: String,
-        entries: [FindPathsToolEntry],
-        truncated: Bool,
-        searchedPathCount: Int? = nil,
-        candidateCount: Int? = nil
-    ) {
-        self.rootID = rootID
-        self.searchedPathCount = searchedPathCount
-        self.candidateCount = candidateCount
-        self.entries = entries
-        self.truncated = truncated
-    }
-}
 
 public extension SystemIO.Tools {
     @Tool
     struct FindPaths: Tool {
-        public typealias Input = FindPathsToolInput
-        public typealias Output = FindPathsToolOutput
+        /// Model-facing input for Find paths.
+        @JSONSchema
+        public struct Input: Sendable, Codable, Hashable {
+            /// Optional workspace root identifier.
+            public let rootID: PathAccessRootIdentifier?
+            /// Optional legacy single path-name query. Used when queries is omitted or empty.
+            public let query: String?
+            /// Optional weighted path-name probes. When non-empty, these take precedence over query.
+            public let queries: [FindPathsQueryInput]?
+            /// Optional include patterns.
+            public let includes: [String]?
+            /// Optional exclude patterns.
+            public let excludes: [String]?
+            /// Whether to scan recursively when maxdepth is omitted. Defaults to true.
+            public let recursive: Bool?
+            /// Optional maximum traversal depth. When provided, this overrides recursive.
+            public let maxdepth: Int?
+            /// Whether hidden paths are included.
+            public let includeHidden: Bool?
+            /// Whether directory symlinks are followed.
+            public let followSymlinks: Bool?
+            /// Whether files are returned.
+            public let includeFiles: Bool?
+            /// Whether directories are returned.
+            public let includeDirectories: Bool?
+            /// Optional Search strategy. Defaults to contains to preserve existing behavior.
+            public let strategy: FindPathsStrategy?
+            /// Whether Search matching is case-sensitive. Defaults to false.
+            public let caseSensitive: Bool?
+            /// Optional minimum Search score. Defaults to 1.
+            public let minimumScore: Int?
+            /// Optional maximum number of returned paths. Defaults to 100.
+            public let maxEntries: Int?
+
+            public init(
+                rootID: PathAccessRootIdentifier? = nil,
+                query: String? = nil,
+                queries: [FindPathsQueryInput]? = nil,
+                includes: [String]? = nil,
+                excludes: [String]? = nil,
+                recursive: Bool? = nil,
+                maxdepth: Int? = nil,
+                includeHidden: Bool? = nil,
+                followSymlinks: Bool? = nil,
+                includeFiles: Bool? = nil,
+                includeDirectories: Bool? = nil,
+                strategy: FindPathsStrategy? = nil,
+                caseSensitive: Bool? = nil,
+                minimumScore: Int? = nil,
+                maxEntries: Int? = nil
+            ) {
+                self.rootID = rootID
+                self.query = query
+                self.queries = queries
+                self.includes = includes
+                self.excludes = excludes
+                self.recursive = recursive
+                self.maxdepth = maxdepth
+                self.includeHidden = includeHidden
+                self.followSymlinks = followSymlinks
+                self.includeFiles = includeFiles
+                self.includeDirectories = includeDirectories
+                self.strategy = strategy
+                self.caseSensitive = caseSensitive
+                self.minimumScore = minimumScore
+                self.maxEntries = maxEntries
+            }
+        }
+
+        public struct Output: Result, Hashable {
+            public static var jsonschema: JSONSchema {
+                .object()
+            }
+
+            public let rootID: String
+            public let searchedPathCount: Int?
+            public let candidateCount: Int?
+            public let entries: [FindPathsToolEntry]
+            public let truncated: Bool
+
+            public init(
+                rootID: String,
+                entries: [FindPathsToolEntry],
+                truncated: Bool,
+                searchedPathCount: Int? = nil,
+                candidateCount: Int? = nil
+            ) {
+                self.rootID = rootID
+                self.searchedPathCount = searchedPathCount
+                self.candidateCount = candidateCount
+                self.entries = entries
+                self.truncated = truncated
+            }
+        }
+
 
         public static let purpose = "Find and rank path names inside an authorized workspace root without reading file contents, with optional bounded traversal depth."
         public static let risk: ActionRisk = .observe
@@ -347,7 +347,7 @@ public extension SystemIO.Tools {
                     )
                     : entries
 
-                return FindPathsToolOutput(
+                return Output(
                     rootID: workspace.rootIdentifier.rawValue,
                     entries: returned.map {
                         .init(
@@ -384,7 +384,7 @@ public extension SystemIO.Tools {
                 )
             )
 
-            return FindPathsToolOutput(
+            return Output(
                 rootID: workspace.rootIdentifier.rawValue,
                 entries: result.hits.map { hit in
                     .init(
@@ -473,7 +473,7 @@ internal extension SystemIO.Tools.FindPaths {
     }
 
     func resolvedMaxDepth(
-        _ input: FindPathsToolInput
+        _ input: SystemIO.Tools.FindPaths.Input
     ) -> Int? {
         if let maxdepth = input.maxdepth {
             return max(
@@ -509,7 +509,7 @@ internal extension SystemIO.Tools.FindPaths {
     }
 
     func normalizedQueries(
-        _ input: FindPathsToolInput
+        _ input: SystemIO.Tools.FindPaths.Input
     ) -> [SearchQuery] {
         let explicit = (input.queries ?? []).map {
             SearchQuery(

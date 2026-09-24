@@ -14,7 +14,7 @@ extension AgenticIOFlowTesting {
         }
 
         let tool = SystemIO.Tools.MutateFiles()
-        let input = MutateFilesToolInput(
+        let input = SystemIO.Tools.MutateFiles.Input(
                         entries: [
                             .init(
                                 kind: .replace_text,
@@ -88,7 +88,7 @@ extension AgenticIOFlowTesting {
             encoding: .utf8
         )
 
-        let copyInput = MutateFilesToolInput(
+        let copyInput = SystemIO.Tools.MutateFiles.Input(
             failurePolicy: .stop,
             entries: [
                 .init(
@@ -142,7 +142,7 @@ extension AgenticIOFlowTesting {
             "workspace-targeted mutate_files directory copy reports no rollback plan"
         )
 
-        let escapingInput = MutateFilesToolInput(
+        let escapingInput = SystemIO.Tools.MutateFiles.Input(
                         entries: [
                             .init(
                                 kind: .replace_text,

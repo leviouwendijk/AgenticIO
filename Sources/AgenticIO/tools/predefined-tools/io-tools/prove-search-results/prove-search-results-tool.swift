@@ -222,60 +222,8 @@ public enum SourceProofCardinalityInput:
     }
 }
 
-@JSONSchema
-public struct ProveSearchResultsToolInput:
-    Sendable,
-    Codable,
-    Hashable
-{
-    /// Workspace root identifier. Defaults to project.
-    @Schema(required: false)
-    public let rootID: PathAccessRootIdentifier
 
-    /// Search candidate references to freshness-validate and prove.
-    public let candidates: [SourceContextCandidateInput]
-
-    /// Candidate-local structural specification.
-    public let specification: SourceProofSpecificationInput
-
-    /// Required match cardinality per candidate. Defaults to at least one.
-    @Schema(required: false)
-    public let cardinality: SourceProofCardinalityInput
-
-    /// Maximum candidate count admitted for proof.
-    @Schema(required: false)
-    public let maximumCandidates: Int
-
-    /// Maximum lines admitted from one candidate.
-    @Schema(required: false)
-    public let maximumLinesPerCandidate: Int
-
-    /// Maximum lines admitted across the request.
-    @Schema(required: false)
-    public let maximumTotalLines: Int
-
-    public init(
-        rootID: PathAccessRootIdentifier = .project,
-        candidates: [SourceContextCandidateInput],
-        specification: SourceProofSpecificationInput,
-        cardinality: SourceProofCardinalityInput = .atLeast(
-            count: 1
-        ),
-        maximumCandidates: Int = 8,
-        maximumLinesPerCandidate: Int = 120,
-        maximumTotalLines: Int = 320
-    ) {
-        self.rootID = rootID
-        self.candidates = candidates
-        self.specification = specification
-        self.cardinality = cardinality
-        self.maximumCandidates = maximumCandidates
-        self.maximumLinesPerCandidate = maximumLinesPerCandidate
-        self.maximumTotalLines = maximumTotalLines
-    }
-}
-
-private extension ProveSearchResultsToolInput {
+private extension SystemIO.Tools.ProveSearchResults.Input {
     enum CodingKeys:
         String,
         CodingKey
@@ -290,7 +238,7 @@ private extension ProveSearchResultsToolInput {
     }
 }
 
-public extension ProveSearchResultsToolInput {
+public extension SystemIO.Tools.ProveSearchResults.Input {
     init(
         from decoder: any Decoder
     ) throws {
@@ -393,17 +341,6 @@ public struct SourceCandidateProofResult:
     public let matches: [SourceProofMatchResult]
 }
 
-public struct ProveSearchResultsToolOutput: Result, Hashable {
-    public static var jsonschema: JSONSchema {
-        .object()
-    }
-
-    public let rootID: String
-    public let candidateCount: Int
-    public let provenCandidateCount: Int
-    public let matchCount: Int
-    public let proofs: [SourceCandidateProofResult]
-}
 
 public enum ProveSearchResultsToolError:
     Error,
@@ -431,8 +368,71 @@ public enum ProveSearchResultsToolError:
 public extension SystemIO.Tools {
     @Tool
     struct ProveSearchResults: Tool {
-        public typealias Input = ProveSearchResultsToolInput
-        public typealias Output = ProveSearchResultsToolOutput
+        @JSONSchema
+        public struct Input:
+            Sendable,
+            Codable,
+            Hashable
+        {
+            /// Workspace root identifier. Defaults to project.
+            @Schema(required: false)
+            public let rootID: PathAccessRootIdentifier
+
+            /// Search candidate references to freshness-validate and prove.
+            public let candidates: [SourceContextCandidateInput]
+
+            /// Candidate-local structural specification.
+            public let specification: SourceProofSpecificationInput
+
+            /// Required match cardinality per candidate. Defaults to at least one.
+            @Schema(required: false)
+            public let cardinality: SourceProofCardinalityInput
+
+            /// Maximum candidate count admitted for proof.
+            @Schema(required: false)
+            public let maximumCandidates: Int
+
+            /// Maximum lines admitted from one candidate.
+            @Schema(required: false)
+            public let maximumLinesPerCandidate: Int
+
+            /// Maximum lines admitted across the request.
+            @Schema(required: false)
+            public let maximumTotalLines: Int
+
+            public init(
+                rootID: PathAccessRootIdentifier = .project,
+                candidates: [SourceContextCandidateInput],
+                specification: SourceProofSpecificationInput,
+                cardinality: SourceProofCardinalityInput = .atLeast(
+                    count: 1
+                ),
+                maximumCandidates: Int = 8,
+                maximumLinesPerCandidate: Int = 120,
+                maximumTotalLines: Int = 320
+            ) {
+                self.rootID = rootID
+                self.candidates = candidates
+                self.specification = specification
+                self.cardinality = cardinality
+                self.maximumCandidates = maximumCandidates
+                self.maximumLinesPerCandidate = maximumLinesPerCandidate
+                self.maximumTotalLines = maximumTotalLines
+            }
+        }
+
+        public struct Output: Result, Hashable {
+            public static var jsonschema: JSONSchema {
+                .object()
+            }
+
+            public let rootID: String
+            public let candidateCount: Int
+            public let provenCandidateCount: Int
+            public let matchCount: Int
+            public let proofs: [SourceCandidateProofResult]
+        }
+
 
         public static let purpose =
             """
@@ -612,7 +612,7 @@ public extension SystemIO.Tools {
                 )
             }
 
-            return ProveSearchResultsToolOutput(
+            return Output(
                 rootID: input.rootID.rawValue,
                 candidateCount: result.candidateCount,
                 provenCandidateCount: result.provenCandidateCount,
@@ -632,7 +632,7 @@ private extension SystemIO.Tools.ProveSearchResults {
     }
 
     func sourceContextRequest(
-        from input: ProveSearchResultsToolInput
+        from input: SystemIO.Tools.ProveSearchResults.Input
     ) throws -> SourceContextRequest {
         SourceContextRequest(
             rootID: input.rootID,
@@ -648,7 +648,7 @@ private extension SystemIO.Tools.ProveSearchResults {
     }
 
     func proofMaterials(
-        input: ProveSearchResultsToolInput,
+        input: SystemIO.Tools.ProveSearchResults.Input,
         context: SourceContextResult
     ) throws -> [ProofMaterial] {
         try input.candidates.map {

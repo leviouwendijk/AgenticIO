@@ -78,36 +78,8 @@ public struct MutateFilesToolEntry: Sendable, Codable, Hashable {
     }
 }
 
-@JSONSchema
-public struct MutateFilesToolInput: Sendable, Codable, Hashable {
-    /// Brief reason for this coherent mutation pass.
-    public let reason: String?
 
-    /// Default workspace root identifier. Usually use 'project'.
-    @Schema(required: false)
-    public let rootID: PathAccessRootIdentifier
-
-    /// Failure behavior for the pass.
-    @Schema(required: false)
-    public let failurePolicy: StandardMutationFailurePolicy
-
-    /// Ordered file mutation entries. All entries are planned and applied as one pass.
-    public let entries: [MutateFilesToolEntry]
-
-    public init(
-        reason: String? = nil,
-        rootID: PathAccessRootIdentifier = .project,
-        failurePolicy: StandardMutationFailurePolicy = .rollback_applied,
-        entries: [MutateFilesToolEntry]
-    ) {
-        self.reason = reason
-        self.rootID = rootID
-        self.failurePolicy = failurePolicy
-        self.entries = entries
-    }
-}
-
-private extension MutateFilesToolInput {
+private extension SystemIO.Tools.MutateFiles.Input {
     enum CodingKeys: String, CodingKey {
         case reason
         case rootID
@@ -116,7 +88,7 @@ private extension MutateFilesToolInput {
     }
 }
 
-public extension MutateFilesToolInput {
+public extension SystemIO.Tools.MutateFiles.Input {
     init(
         from decoder: any Decoder
     ) throws {
@@ -204,58 +176,6 @@ public struct MutateFilesToolRecordOutput: Sendable, Codable, Hashable {
     }
 }
 
-public struct MutateFilesToolOutput: Result, Hashable {
-    public static var jsonschema: JSONSchema {
-        .object()
-    }
-
-    public let planID: UUID
-    public let resultID: UUID
-    public let status: String
-    public let entryCount: Int
-    public let targetCount: Int
-    public let creates: Int
-    public let updates: Int
-    public let deletes: Int
-    public let unchanged: Int
-    public let appliedEntryIDs: [UUID]
-    public let rollbackAvailable: Bool
-    public let failureMessage: String?
-    public let entries: [MutateFilesToolEntryOutput]
-    public let records: [MutateFilesToolRecordOutput]
-
-    public init(
-        planID: UUID,
-        resultID: UUID,
-        status: String,
-        entryCount: Int,
-        targetCount: Int,
-        creates: Int,
-        updates: Int,
-        deletes: Int,
-        unchanged: Int,
-        appliedEntryIDs: [UUID],
-        rollbackAvailable: Bool,
-        failureMessage: String?,
-        entries: [MutateFilesToolEntryOutput],
-        records: [MutateFilesToolRecordOutput]
-    ) {
-        self.planID = planID
-        self.resultID = resultID
-        self.status = status
-        self.entryCount = entryCount
-        self.targetCount = targetCount
-        self.creates = creates
-        self.updates = updates
-        self.deletes = deletes
-        self.unchanged = unchanged
-        self.appliedEntryIDs = appliedEntryIDs
-        self.rollbackAvailable = rollbackAvailable
-        self.failureMessage = failureMessage
-        self.entries = entries
-        self.records = records
-    }
-}
 
 public struct MutateFilesToolPreparation: Sendable {
     public let plan: StandardMutationPlan
@@ -273,8 +193,88 @@ public struct MutateFilesToolPreparation: Sendable {
 public extension SystemIO.Tools {
     @Tool
     struct MutateFiles: Tool {
-        public typealias Input = MutateFilesToolInput
-        public typealias Output = MutateFilesToolOutput
+        @JSONSchema
+        public struct Input: Sendable, Codable, Hashable {
+            /// Brief reason for this coherent mutation pass.
+            public let reason: String?
+
+            /// Default workspace root identifier. Usually use 'project'.
+            @Schema(required: false)
+            public let rootID: PathAccessRootIdentifier
+
+            /// Failure behavior for the pass.
+            @Schema(required: false)
+            public let failurePolicy: StandardMutationFailurePolicy
+
+            /// Ordered file mutation entries. All entries are planned and applied as one pass.
+            public let entries: [MutateFilesToolEntry]
+
+            public init(
+                reason: String? = nil,
+                rootID: PathAccessRootIdentifier = .project,
+                failurePolicy: StandardMutationFailurePolicy = .rollback_applied,
+                entries: [MutateFilesToolEntry]
+            ) {
+                self.reason = reason
+                self.rootID = rootID
+                self.failurePolicy = failurePolicy
+                self.entries = entries
+            }
+        }
+
+        public struct Output: Result, Hashable {
+            public static var jsonschema: JSONSchema {
+                .object()
+            }
+
+            public let planID: UUID
+            public let resultID: UUID
+            public let status: String
+            public let entryCount: Int
+            public let targetCount: Int
+            public let creates: Int
+            public let updates: Int
+            public let deletes: Int
+            public let unchanged: Int
+            public let appliedEntryIDs: [UUID]
+            public let rollbackAvailable: Bool
+            public let failureMessage: String?
+            public let entries: [MutateFilesToolEntryOutput]
+            public let records: [MutateFilesToolRecordOutput]
+
+            public init(
+                planID: UUID,
+                resultID: UUID,
+                status: String,
+                entryCount: Int,
+                targetCount: Int,
+                creates: Int,
+                updates: Int,
+                deletes: Int,
+                unchanged: Int,
+                appliedEntryIDs: [UUID],
+                rollbackAvailable: Bool,
+                failureMessage: String?,
+                entries: [MutateFilesToolEntryOutput],
+                records: [MutateFilesToolRecordOutput]
+            ) {
+                self.planID = planID
+                self.resultID = resultID
+                self.status = status
+                self.entryCount = entryCount
+                self.targetCount = targetCount
+                self.creates = creates
+                self.updates = updates
+                self.deletes = deletes
+                self.unchanged = unchanged
+                self.appliedEntryIDs = appliedEntryIDs
+                self.rollbackAvailable = rollbackAvailable
+                self.failureMessage = failureMessage
+                self.entries = entries
+                self.records = records
+            }
+        }
+
 
         public static let purpose = "Apply one coherent pass of file mutations in the workspace."
         public static let risk: ActionRisk = .boundedmutate
@@ -618,9 +618,9 @@ public extension SystemIO.Tools {
 
 private extension SystemIO.Tools.MutateFiles {
     func workspaceTargetedInput(
-        _ input: MutateFilesToolInput,
+        _ input: SystemIO.Tools.MutateFiles.Input,
         workspace _: WorkspaceContext?
-    ) throws -> MutateFilesToolInput {
+    ) throws -> SystemIO.Tools.MutateFiles.Input {
         input
     }
 
@@ -634,7 +634,7 @@ private extension SystemIO.Tools.MutateFiles {
     }
 
     func authorizeEntries(
-        _ input: MutateFilesToolInput,
+        _ input: SystemIO.Tools.MutateFiles.Input,
         workspace: WorkspaceContext
     ) throws -> [[AuthorizedPath]] {
         try input.entries.map { entry in
@@ -712,7 +712,7 @@ private extension SystemIO.Tools.MutateFiles {
     }
 
     func workspaceEntries(
-        _ input: MutateFilesToolInput,
+        _ input: SystemIO.Tools.MutateFiles.Input,
         workspace: WorkspaceContext,
         writeOptions: SafeWriteOptions = .overwriteWithoutBackup
     ) throws -> [WorkspaceMutationEntry] {
@@ -728,7 +728,7 @@ private extension SystemIO.Tools.MutateFiles {
     }
 
     func preflightSummary(
-        input: MutateFilesToolInput,
+        input: SystemIO.Tools.MutateFiles.Input,
         plan: StandardMutationPlan
     ) -> String {
         let reason = input.reason?.trimmingCharacters(
@@ -743,7 +743,7 @@ private extension SystemIO.Tools.MutateFiles {
     }
 
     func estimatedByteCount(
-        input: MutateFilesToolInput
+        input: SystemIO.Tools.MutateFiles.Input
     ) -> Int {
         input.entries.reduce(0) { partial, entry in
             partial + (entry.content?.utf8.count ?? 0)
@@ -799,8 +799,8 @@ private extension SystemIO.Tools.MutateFiles {
     func output(
         plan: StandardMutationPlan,
         result: StandardMutationResult
-    ) -> MutateFilesToolOutput {
-        MutateFilesToolOutput(
+    ) -> SystemIO.Tools.MutateFiles.Output {
+        SystemIO.Tools.MutateFiles.Output(
             planID: plan.id,
             resultID: result.id,
             status: result.status.rawValue,
@@ -854,7 +854,7 @@ private extension SystemIO.Tools.MutateFiles {
     }
 
     func mutationMetadata(
-        input: MutateFilesToolInput,
+        input: SystemIO.Tools.MutateFiles.Input,
         context: AgentFileMutationContext
     ) -> [String: String] {
         var metadata = context.metadata

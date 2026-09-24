@@ -5,12 +5,156 @@ import Path
 import Primitives
 import Schema
 import Readers
+import Macros
+import Position
+
+private extension SystemIO.Tools.ReadFile.Input {
+    enum CodingKeys: String, CodingKey {
+        case rootID
+        case path
+        case startLine
+        case endLine
+        case maxLines
+        case includeLineNumbers
+    }
+}
+
+public extension SystemIO.Tools.ReadFile.Input {
+    init(
+        from decoder: any Decoder
+    ) throws {
+        let container = try decoder.container(
+            keyedBy: CodingKeys.self
+        )
+
+        self.init(
+            rootID: try container.decodeIfPresent(
+                PathAccessRootIdentifier.self,
+                forKey: .rootID
+            ) ?? .project,
+            path: try container.decode(
+                String.self,
+                forKey: .path
+            ),
+            startLine: try container.decodeIfPresent(
+                Int.self,
+                forKey: .startLine
+            ),
+            endLine: try container.decodeIfPresent(
+                Int.self,
+                forKey: .endLine
+            ),
+            maxLines: try container.decodeIfPresent(
+                Int.self,
+                forKey: .maxLines
+            ),
+            includeLineNumbers: try container.decodeIfPresent(
+                Bool.self,
+                forKey: .includeLineNumbers
+            ) ?? false
+        )
+    }
+}
+
+public struct ReadFileLine: Sendable, Codable, Hashable {
+    public let number: Int
+    public let text: String
+
+    public init(
+        number: Int,
+        text: String
+    ) {
+        self.number = number
+        self.text = text
+    }
+}
 
 public extension SystemIO.Tools {
     @Tool
     struct ReadFile: Tool {
-        public typealias Input = ReadFileToolInput
-        public typealias Output = ReadFileToolOutput
+        @JSONSchema
+        public struct Input: Sendable, Codable, Hashable {
+            /// Workspace root identifier. Usually use 'project'.
+            @Schema(required: false)
+            public let rootID: PathAccessRootIdentifier
+
+            /// Path to the file relative to the workspace root.
+            public let path: String
+
+            /// Optional 1-based first line to read.
+            public let startLine: Int?
+
+            /// Optional 1-based final line to read.
+            public let endLine: Int?
+
+            /// Optional maximum number of lines to read.
+            public let maxLines: Int?
+
+            /// Whether to include numbered display text in the returned display field. The content field always remains raw source text.
+            @Schema(required: false)
+            public let includeLineNumbers: Bool
+
+            public init(
+                rootID: PathAccessRootIdentifier = .project,
+                path: String,
+                startLine: Int? = nil,
+                endLine: Int? = nil,
+                maxLines: Int? = nil,
+                includeLineNumbers: Bool = false
+            ) {
+                self.rootID = rootID
+                self.path = path
+                self.startLine = startLine
+                self.endLine = endLine
+                self.maxLines = maxLines
+                self.includeLineNumbers = includeLineNumbers
+            }
+        }
+
+        public struct Output: Result, Hashable {
+            public static var jsonschema: JSONSchema {
+                .object()
+            }
+
+            public let rootID: String
+            public let path: String
+            public let content: String
+            public let display: String?
+            public let lines: [ReadFileLine]
+            public let lineRange: LineRange?
+            public let lineCount: Int
+            public let totalLineCount: Int
+            public let byteCount: Int
+            public let truncated: Bool
+            public let encoding: String?
+
+            public init(
+                rootID: String,
+                path: String,
+                content: String,
+                display: String? = nil,
+                lines: [ReadFileLine] = [],
+                lineRange: LineRange?,
+                lineCount: Int,
+                totalLineCount: Int,
+                byteCount: Int,
+                truncated: Bool,
+                encoding: String?
+            ) {
+                self.rootID = rootID
+                self.path = path
+                self.content = content
+                self.display = display
+                self.lines = lines
+                self.lineRange = lineRange
+                self.lineCount = lineCount
+                self.totalLineCount = totalLineCount
+                self.byteCount = byteCount
+                self.truncated = truncated
+                self.encoding = encoding
+            }
+        }
+
 
         public static let purpose = "Read a file from the workspace, optionally constrained to a line window."
         public static let risk: ActionRisk = .observe
@@ -148,7 +292,7 @@ public extension SystemIO.Tools {
                 structuredLines = []
             }
 
-            return ReadFileToolOutput(
+            return Output(
                 rootID: authorized.rootIdentifier.rawValue,
                 path: authorized.presentationPath,
                 content: rawContent,
@@ -175,7 +319,7 @@ private extension SystemIO.Tools.ReadFile {
     }
 
     func summary(
-        for input: ReadFileToolInput,
+        for input: SystemIO.Tools.ReadFile.Input,
         renderedPath: String,
         sensitivityReason: String?
     ) -> String {
@@ -267,7 +411,7 @@ private extension SystemIO.Tools.ReadFile {
     }
 
     func estimatedLineCount(
-        for input: ReadFileToolInput
+        for input: SystemIO.Tools.ReadFile.Input
     ) -> Int? {
         if let maxLines = input.maxLines {
             return maxLines

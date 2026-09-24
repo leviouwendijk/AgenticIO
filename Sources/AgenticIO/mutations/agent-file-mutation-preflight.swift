@@ -136,7 +136,7 @@ public extension AgentFileMutationPreflight {
         workspace: WorkspaceContext?,
         recorder: AgentFileMutationRecorder? = nil
     ) async throws -> Self {
-        let mutationInput = MutateFilesToolInput(
+        let mutationInput = SystemIO.Tools.MutateFiles.Input(
             reason: "Prepare one whole-file replacement.",
             rootID: input.rootID,
             entries: [
@@ -187,7 +187,7 @@ public extension AgentFileMutationPreflight {
         workspace: WorkspaceContext?,
         recorder: AgentFileMutationRecorder? = nil
     ) async throws -> Self {
-        let mutationInput = MutateFilesToolInput(
+        let mutationInput = SystemIO.Tools.MutateFiles.Input(
             reason: "Prepare one structured file edit.",
             rootID: input.rootID,
             entries: [

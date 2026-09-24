@@ -6,27 +6,27 @@ import Primitives
 import Schema
 import Macros
 
-/// Model-facing input for Inspect fileMutation.
-@JSONSchema
-public struct InspectFileMutationToolInput: Sendable, Codable, Hashable {
-    /// Exact recorded mutation identifier.
-    public let id: String
-    /// Whether to load the referenced diff artifact when available.
-    public let loadDiffArtifact: Bool
-
-    public init(
-        id: String,
-        loadDiffArtifact: Bool = true
-    ) {
-        self.id = id
-        self.loadDiffArtifact = loadDiffArtifact
-    }
-}
 
 public extension SystemIO.Tools {
     @Tool
     struct InspectFileMutation: Tool {
-        public typealias Input = InspectFileMutationToolInput
+        /// Model-facing input for Inspect fileMutation.
+        @JSONSchema
+        public struct Input: Sendable, Codable, Hashable {
+            /// Exact recorded mutation identifier.
+            public let id: String
+            /// Whether to load the referenced diff artifact when available.
+            public let loadDiffArtifact: Bool
+
+            public init(
+                id: String,
+                loadDiffArtifact: Bool = true
+            ) {
+                self.id = id
+                self.loadDiffArtifact = loadDiffArtifact
+            }
+        }
+
         public typealias Output = AgentFileMutationInspection
 
         public static let purpose = "Inspect one recorded file mutation and optionally load its diff artifact."

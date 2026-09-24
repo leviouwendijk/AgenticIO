@@ -89,34 +89,6 @@ public struct PathGrantSuggestion: Sendable, Codable, Hashable {
     }
 }
 
-@JSONSchema
-public struct RequestPathGrantToolInput: Sendable, Codable, Hashable {
-    public let requestedRootPath: String
-    public let suggestedRootID: String?
-    public let label: String?
-    public let capabilities: [WorkspaceCapability]?
-    public let reason: String
-    public let policyProfile: String?
-    public let expiresInSeconds: TimeInterval?
-
-    public init(
-        requestedRootPath: String,
-        suggestedRootID: String? = nil,
-        label: String? = nil,
-        capabilities: [WorkspaceCapability]? = nil,
-        reason: String,
-        policyProfile: String? = nil,
-        expiresInSeconds: TimeInterval? = nil
-    ) {
-        self.requestedRootPath = requestedRootPath
-        self.suggestedRootID = suggestedRootID
-        self.label = label
-        self.capabilities = capabilities
-        self.reason = reason
-        self.policyProfile = policyProfile
-        self.expiresInSeconds = expiresInSeconds
-    }
-}
 
 @JSONSchema
 public struct WorkspaceAccessRequest: Result, Hashable {

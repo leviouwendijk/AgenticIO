@@ -4,11 +4,41 @@ import Workspace
 import Foundation
 import Primitives
 import Path
+import Schema
+import Macros
 
 public extension SystemIO.Tools {
     @Tool
     struct RequestPathGrant: Tool {
-        public typealias Input = RequestPathGrantToolInput
+        @JSONSchema
+        public struct Input: Sendable, Codable, Hashable {
+            public let requestedRootPath: String
+            public let suggestedRootID: String?
+            public let label: String?
+            public let capabilities: [WorkspaceCapability]?
+            public let reason: String
+            public let policyProfile: String?
+            public let expiresInSeconds: TimeInterval?
+
+            public init(
+                requestedRootPath: String,
+                suggestedRootID: String? = nil,
+                label: String? = nil,
+                capabilities: [WorkspaceCapability]? = nil,
+                reason: String,
+                policyProfile: String? = nil,
+                expiresInSeconds: TimeInterval? = nil
+            ) {
+                self.requestedRootPath = requestedRootPath
+                self.suggestedRootID = suggestedRootID
+                self.label = label
+                self.capabilities = capabilities
+                self.reason = reason
+                self.policyProfile = policyProfile
+                self.expiresInSeconds = expiresInSeconds
+            }
+        }
+
         public typealias Output = WorkspaceAccessRequest
 
         public static let purpose = "Request temporary workspace access to an existing directory. The runtime may suspend so a human can resolve the request."

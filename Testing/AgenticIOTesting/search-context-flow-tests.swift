@@ -27,7 +27,7 @@ extension AgenticIOFlowTesting {
         )
 
         let schema = String(
-            describing: LoadSearchContextToolInput.jsonschema
+            describing: SystemIO.Tools.LoadSearchContext.Input.jsonschema
         )
 
         for field in [
@@ -48,7 +48,7 @@ extension AgenticIOFlowTesting {
         }
 
         let searchOutput = try await SystemIO.Tools.SearchSources().call(
-            SearchSourcesToolInput(
+            SystemIO.Tools.SearchSources.Input(
                                 includes: [
                                     "Sources/**",
                                 ],
@@ -89,7 +89,7 @@ extension AgenticIOFlowTesting {
         )
 
         let tool = SystemIO.Tools.LoadSearchContext()
-        let input = LoadSearchContextToolInput(
+        let input = SystemIO.Tools.LoadSearchContext.Input(
             candidates: [
                 .init(
                     candidate

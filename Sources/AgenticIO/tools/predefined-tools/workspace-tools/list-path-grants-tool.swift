@@ -7,42 +7,41 @@ import Schema
 import Macros
 import Path
 
-/// Model-facing input for List pathGrants.
-@JSONSchema
-public struct ListPathGrantsToolInput: Sendable, Codable, Hashable {
-    /// Optional root identifier used to filter grants.
-    public let rootID: PathAccessRootIdentifier?
-    /// Whether expired grants are included.
-    public let includeExpired: Bool?
-
-    public init(
-        rootID: PathAccessRootIdentifier? = nil,
-        includeExpired: Bool? = nil
-    ) {
-        self.rootID = rootID
-        self.includeExpired = includeExpired
-    }
-}
-
-public struct ListPathGrantsToolOutput: Result, Hashable {
-    public static var jsonschema: JSONSchema {
-        .object()
-    }
-
-    public let grants: [WorkspaceGrantToolSummary]
-
-    public init(
-        grants: [WorkspaceGrantToolSummary]
-    ) {
-        self.grants = grants
-    }
-}
 
 public extension SystemIO.Tools {
     @Tool
     struct ListPathGrants: Tool {
-        public typealias Input = ListPathGrantsToolInput
-        public typealias Output = ListPathGrantsToolOutput
+        /// Model-facing input for List pathGrants.
+        @JSONSchema
+        public struct Input: Sendable, Codable, Hashable {
+            /// Optional root identifier used to filter grants.
+            public let rootID: PathAccessRootIdentifier?
+            /// Whether expired grants are included.
+            public let includeExpired: Bool?
+
+            public init(
+                rootID: PathAccessRootIdentifier? = nil,
+                includeExpired: Bool? = nil
+            ) {
+                self.rootID = rootID
+                self.includeExpired = includeExpired
+            }
+        }
+
+        public struct Output: Result, Hashable {
+            public static var jsonschema: JSONSchema {
+                .object()
+            }
+
+            public let grants: [WorkspaceGrantToolSummary]
+
+            public init(
+                grants: [WorkspaceGrantToolSummary]
+            ) {
+                self.grants = grants
+            }
+        }
+
 
         public static let purpose = "List active workspace path grants and their capabilities."
         public static let risk: ActionRisk = .observe
@@ -92,7 +91,7 @@ public extension SystemIO.Tools {
                 return true
             }
 
-            return ListPathGrantsToolOutput(
+            return Output(
                 grants: grants.map {
                     WorkspaceGrantToolSummary(
                         grant: $0,

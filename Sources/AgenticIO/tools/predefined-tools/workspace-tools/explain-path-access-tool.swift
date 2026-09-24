@@ -6,84 +6,83 @@ import Schema
 import Macros
 import Path
 
-/// Model-facing input for Explain pathAccess.
-@JSONSchema
-public struct ExplainPathAccessToolInput: Sendable, Codable, Hashable {
-    /// Optional workspace root identifier.
-    public let rootID: PathAccessRootIdentifier?
-    /// Root-relative path whose access should be explained.
-    public let path: String
-    /// Requested path capability to evaluate.
-    public let capability: WorkspaceCapability
-    /// Optional tool name to evaluate against grant restrictions.
-    public let toolName: String?
-    /// Optional expected path segment type.
-    public let type: PathSegmentType?
-
-    public init(
-        rootID: PathAccessRootIdentifier? = nil,
-        path: String,
-        capability: WorkspaceCapability = .read,
-        toolName: String? = nil,
-        type: PathSegmentType? = nil
-    ) {
-        self.rootID = rootID
-        self.path = path
-        self.capability = capability
-        self.toolName = toolName
-        self.type = type
-    }
-}
-
-public struct ExplainPathAccessToolOutput: Result, Hashable {
-    public static var jsonschema: JSONSchema {
-        .object()
-    }
-
-    public let allowed: Bool
-    public let rootID: String
-    public let path: String
-    public let capability: WorkspaceCapability
-    public let toolName: String
-    public let resolvedPath: String?
-    public let decision: String?
-    public let matchedRule: String?
-    public let reason: String
-    public let policyChecks: [String]
-    public let suggestedGrant: PathGrantSuggestion?
-
-    public init(
-        allowed: Bool,
-        rootID: String,
-        path: String,
-        capability: WorkspaceCapability,
-        toolName: String,
-        resolvedPath: String?,
-        decision: String?,
-        matchedRule: String?,
-        reason: String,
-        policyChecks: [String],
-        suggestedGrant: PathGrantSuggestion? = nil
-    ) {
-        self.allowed = allowed
-        self.rootID = rootID
-        self.path = path
-        self.capability = capability
-        self.toolName = toolName
-        self.resolvedPath = resolvedPath
-        self.decision = decision
-        self.matchedRule = matchedRule
-        self.reason = reason
-        self.policyChecks = policyChecks
-        self.suggestedGrant = suggestedGrant
-    }
-}
 
 public extension SystemIO.Tools {
     @Tool
     struct ExplainPathAccess: Tool {
-        public typealias Input = ExplainPathAccessToolInput
-        public typealias Output = ExplainPathAccessToolOutput
+        /// Model-facing input for Explain pathAccess.
+        @JSONSchema
+        public struct Input: Sendable, Codable, Hashable {
+            /// Optional workspace root identifier.
+            public let rootID: PathAccessRootIdentifier?
+            /// Root-relative path whose access should be explained.
+            public let path: String
+            /// Requested path capability to evaluate.
+            public let capability: WorkspaceCapability
+            /// Optional tool name to evaluate against grant restrictions.
+            public let toolName: String?
+            /// Optional expected path segment type.
+            public let type: PathSegmentType?
+
+            public init(
+                rootID: PathAccessRootIdentifier? = nil,
+                path: String,
+                capability: WorkspaceCapability = .read,
+                toolName: String? = nil,
+                type: PathSegmentType? = nil
+            ) {
+                self.rootID = rootID
+                self.path = path
+                self.capability = capability
+                self.toolName = toolName
+                self.type = type
+            }
+        }
+
+        public struct Output: Result, Hashable {
+            public static var jsonschema: JSONSchema {
+                .object()
+            }
+
+            public let allowed: Bool
+            public let rootID: String
+            public let path: String
+            public let capability: WorkspaceCapability
+            public let toolName: String
+            public let resolvedPath: String?
+            public let decision: String?
+            public let matchedRule: String?
+            public let reason: String
+            public let policyChecks: [String]
+            public let suggestedGrant: PathGrantSuggestion?
+
+            public init(
+                allowed: Bool,
+                rootID: String,
+                path: String,
+                capability: WorkspaceCapability,
+                toolName: String,
+                resolvedPath: String?,
+                decision: String?,
+                matchedRule: String?,
+                reason: String,
+                policyChecks: [String],
+                suggestedGrant: PathGrantSuggestion? = nil
+            ) {
+                self.allowed = allowed
+                self.rootID = rootID
+                self.path = path
+                self.capability = capability
+                self.toolName = toolName
+                self.resolvedPath = resolvedPath
+                self.decision = decision
+                self.matchedRule = matchedRule
+                self.reason = reason
+                self.policyChecks = policyChecks
+                self.suggestedGrant = suggestedGrant
+            }
+        }
+
 
         public static let purpose = "Explain whether a root-relative path is accessible for a requested capability and why."
         public static let risk: ActionRisk = .observe
@@ -130,7 +129,7 @@ public extension SystemIO.Tools {
 
             guard let workspace else {
                 let rootID = input.rootID ?? .project
-                return ExplainPathAccessToolOutput(
+                return Output(
                     allowed: false,
                     rootID: rootID.rawValue,
                     path: input.path,
@@ -148,7 +147,7 @@ public extension SystemIO.Tools {
 
             if let requestedRoot = input.rootID,
                requestedRoot != workspace.rootIdentifier {
-                return ExplainPathAccessToolOutput(
+                return Output(
                     allowed: false,
                     rootID: workspace.rootIdentifier.rawValue,
                     path: input.path,
@@ -177,7 +176,7 @@ public extension SystemIO.Tools {
                 let authorized = authorization.authorizedPath
                 let evaluation = authorized.evaluation
 
-                return ExplainPathAccessToolOutput(
+                return Output(
                     allowed: true,
                     rootID: authorized.rootIdentifier.rawValue,
                     path: input.path,
@@ -193,7 +192,7 @@ public extension SystemIO.Tools {
                     ]
                 )
             } catch {
-                return ExplainPathAccessToolOutput(
+                return Output(
                     allowed: false,
                     rootID: workspace.rootIdentifier.rawValue,
                     path: input.path,

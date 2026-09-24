@@ -5,41 +5,40 @@ import Primitives
 import Schema
 import Macros
 
-/// Model-facing input for List pathRoots.
-@JSONSchema
-public struct ListPathRootsToolInput: Sendable, Codable, Hashable {
-    /// Whether root diagnostics are included.
-    public let includeDiagnostics: Bool?
-
-    public init(
-        includeDiagnostics: Bool? = nil
-    ) {
-        self.includeDiagnostics = includeDiagnostics
-    }
-}
-
-public struct ListPathRootsToolOutput: Result, Hashable {
-    public static var jsonschema: JSONSchema {
-        .object()
-    }
-
-    public let defaultRootID: String?
-    public let roots: [WorkspaceRootToolSummary]
-
-    public init(
-        defaultRootID: String?,
-        roots: [WorkspaceRootToolSummary]
-    ) {
-        self.defaultRootID = defaultRootID
-        self.roots = roots
-    }
-}
 
 public extension SystemIO.Tools {
     @Tool
     struct ListPathRoots: Tool {
-        public typealias Input = ListPathRootsToolInput
-        public typealias Output = ListPathRootsToolOutput
+        /// Model-facing input for List pathRoots.
+        @JSONSchema
+        public struct Input: Sendable, Codable, Hashable {
+            /// Whether root diagnostics are included.
+            public let includeDiagnostics: Bool?
+
+            public init(
+                includeDiagnostics: Bool? = nil
+            ) {
+                self.includeDiagnostics = includeDiagnostics
+            }
+        }
+
+        public struct Output: Result, Hashable {
+            public static var jsonschema: JSONSchema {
+                .object()
+            }
+
+            public let defaultRootID: String?
+            public let roots: [WorkspaceRootToolSummary]
+
+            public init(
+                defaultRootID: String?,
+                roots: [WorkspaceRootToolSummary]
+            ) {
+                self.defaultRootID = defaultRootID
+                self.roots = roots
+            }
+        }
+
 
         public static let purpose = "List named workspace path roots without scanning or reading file contents."
         public static let risk: ActionRisk = .observe
@@ -75,7 +74,7 @@ public extension SystemIO.Tools {
                 toolName: Self.identifier.rawValue
             )
 
-            return ListPathRootsToolOutput(
+            return Output(
                 defaultRootID: workspace.defaultRootIdentifier?.rawValue,
                 roots: WorkspaceToolSupport.rootSummaries(
                     workspace: workspace,

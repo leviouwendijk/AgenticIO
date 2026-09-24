@@ -66,110 +66,8 @@ public enum SourceSearchMode:
     }
 }
 
-/// Search file content inside one authorized workspace source universe and return compact ranked or exhaustive source ranges without returning file contents.
-@JSONSchema
-public struct SearchSourcesToolInput:
-    Sendable,
-    Codable,
-    Hashable
-{
-    /// Workspace root identifier. Defaults to project.
-    @Schema(required: false)
-    public let rootID: PathAccessRootIdentifier
 
-    /// Path include expressions resolved inside the selected workspace root. Defaults to all descendants.
-    @Schema(required: false)
-    public let includes: [String]
-
-    /// Path exclude expressions resolved inside the selected workspace root.
-    @Schema(required: false)
-    public let excludes: [String]
-
-    /// Optional Path/Selection expressions that restrict source content before search.
-    @Schema(required: false)
-    public let selections: [String]
-
-    /// Deterministic source-search probes. Each probe owns its admission role and matching strategy.
-    public let probes: [SourceSearchProbeInput]
-
-    /// Search mode. Ranked applies ranking and source diversity before delivery; exhaustive preserves every matching region. Defaults to ranked.
-    @Schema(required: false)
-    public let mode: SourceSearchMode
-
-    /// Whether matching is case-sensitive. Defaults to false.
-    @Schema(required: false)
-    public let caseSensitive: Bool
-
-    /// Minimum raw Search score accepted. Defaults to 1.
-    @Schema(required: false)
-    public let minimumScore: Int
-
-    /// Zero-based position in the deterministic semantic candidate universe. Defaults to 0.
-    @Schema(required: false)
-    public let offset: Int
-
-    /// Optional corpus fingerprint from a previous page. Continuation fails if the current source universe changed.
-    @Schema(required: false)
-    public let expectedCorpusFingerprint: SourceFingerprintInput?
-
-    /// Maximum source-line distance used to merge nearby evidence into one frontier candidate. Defaults to 3.
-    @Schema(required: false)
-    public let mergeDistanceLines: Int
-
-    /// Maximum converged source regions returned. Defaults to 16.
-    @Schema(required: false)
-    public let maximumCandidates: Int
-
-    /// Maximum candidate regions retained from any one Search document. Defaults to 2.
-    @Schema(required: false)
-    public let maximumCandidatesPerDocument: Int
-
-    public init(
-        rootID: PathAccessRootIdentifier = .project,
-        includes: [String] = ["**"],
-        excludes: [String] = [],
-        selections: [String] = [],
-        probes: [SourceSearchProbeInput],
-        mode: SourceSearchMode = .ranked,
-        caseSensitive: Bool = false,
-        minimumScore: Int = 1,
-        offset: Int = 0,
-        expectedCorpusFingerprint: SourceFingerprintInput? = nil,
-        mergeDistanceLines: Int = 3,
-        maximumCandidates: Int = 16,
-        maximumCandidatesPerDocument: Int = 2
-    ) {
-        self.rootID = rootID
-        self.includes = includes.isEmpty
-            ? ["**"]
-            : includes
-        self.excludes = excludes
-        self.selections = selections
-        self.probes = probes
-        self.mode = mode
-        self.caseSensitive = caseSensitive
-        self.minimumScore = minimumScore
-        self.offset = max(
-            0,
-            offset
-        )
-        self.expectedCorpusFingerprint = expectedCorpusFingerprint
-        self.mergeDistanceLines = max(
-            0,
-            mergeDistanceLines
-        )
-        self.maximumCandidates = max(
-            0,
-            maximumCandidates
-        )
-        self.maximumCandidatesPerDocument = max(
-            0,
-            maximumCandidatesPerDocument
-        )
-    }
-}
-
-private extension SearchSourcesToolInput {
+private extension SystemIO.Tools.SearchSources.Input {
     enum CodingKeys: String, CodingKey {
         case rootID
         case includes
@@ -187,7 +85,7 @@ private extension SearchSourcesToolInput {
     }
 }
 
-public extension SearchSourcesToolInput {
+public extension SystemIO.Tools.SearchSources.Input {
     init(
         from decoder: any Decoder
     ) throws {
@@ -255,7 +153,109 @@ public extension SearchSourcesToolInput {
 public extension SystemIO.Tools {
     @Tool
     struct SearchSources: Tool {
-        public typealias Input = SearchSourcesToolInput
+        /// Search file content inside one authorized workspace source universe and return compact ranked or exhaustive source ranges without returning file contents.
+        @JSONSchema
+        public struct Input:
+            Sendable,
+            Codable,
+            Hashable
+        {
+            /// Workspace root identifier. Defaults to project.
+            @Schema(required: false)
+            public let rootID: PathAccessRootIdentifier
+
+            /// Path include expressions resolved inside the selected workspace root. Defaults to all descendants.
+            @Schema(required: false)
+            public let includes: [String]
+
+            /// Path exclude expressions resolved inside the selected workspace root.
+            @Schema(required: false)
+            public let excludes: [String]
+
+            /// Optional Path/Selection expressions that restrict source content before search.
+            @Schema(required: false)
+            public let selections: [String]
+
+            /// Deterministic source-search probes. Each probe owns its admission role and matching strategy.
+            public let probes: [SourceSearchProbeInput]
+
+            /// Search mode. Ranked applies ranking and source diversity before delivery; exhaustive preserves every matching region. Defaults to ranked.
+            @Schema(required: false)
+            public let mode: SourceSearchMode
+
+            /// Whether matching is case-sensitive. Defaults to false.
+            @Schema(required: false)
+            public let caseSensitive: Bool
+
+            /// Minimum raw Search score accepted. Defaults to 1.
+            @Schema(required: false)
+            public let minimumScore: Int
+
+            /// Zero-based position in the deterministic semantic candidate universe. Defaults to 0.
+            @Schema(required: false)
+            public let offset: Int
+
+            /// Optional corpus fingerprint from a previous page. Continuation fails if the current source universe changed.
+            @Schema(required: false)
+            public let expectedCorpusFingerprint: SourceFingerprintInput?
+
+            /// Maximum source-line distance used to merge nearby evidence into one frontier candidate. Defaults to 3.
+            @Schema(required: false)
+            public let mergeDistanceLines: Int
+
+            /// Maximum converged source regions returned. Defaults to 16.
+            @Schema(required: false)
+            public let maximumCandidates: Int
+
+            /// Maximum candidate regions retained from any one Search document. Defaults to 2.
+            @Schema(required: false)
+            public let maximumCandidatesPerDocument: Int
+
+            public init(
+                rootID: PathAccessRootIdentifier = .project,
+                includes: [String] = ["**"],
+                excludes: [String] = [],
+                selections: [String] = [],
+                probes: [SourceSearchProbeInput],
+                mode: SourceSearchMode = .ranked,
+                caseSensitive: Bool = false,
+                minimumScore: Int = 1,
+                offset: Int = 0,
+                expectedCorpusFingerprint: SourceFingerprintInput? = nil,
+                mergeDistanceLines: Int = 3,
+                maximumCandidates: Int = 16,
+                maximumCandidatesPerDocument: Int = 2
+            ) {
+                self.rootID = rootID
+                self.includes = includes.isEmpty
+                    ? ["**"]
+                    : includes
+                self.excludes = excludes
+                self.selections = selections
+                self.probes = probes
+                self.mode = mode
+                self.caseSensitive = caseSensitive
+                self.minimumScore = minimumScore
+                self.offset = max(
+                    0,
+                    offset
+                )
+                self.expectedCorpusFingerprint = expectedCorpusFingerprint
+                self.mergeDistanceLines = max(
+                    0,
+                    mergeDistanceLines
+                )
+                self.maximumCandidates = max(
+                    0,
+                    maximumCandidates
+                )
+                self.maximumCandidatesPerDocument = max(
+                    0,
+                    maximumCandidatesPerDocument
+                )
+            }
+        }
+
         public typealias Output = SourceSearchResult
 
         public static let purpose = "Search content inside an authorized workspace source universe and return compact ranked or exhaustive source ranges without returning source contents."

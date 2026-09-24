@@ -26,7 +26,7 @@ extension AgenticIOFlowTesting {
         )
 
         let input = try JSONToolBridge.encode(
-            MutateFilesToolInput(
+            SystemIO.Tools.MutateFiles.Input(
                 entries: [
                     .init(
                         kind: .move,
@@ -48,7 +48,7 @@ extension AgenticIOFlowTesting {
             workspace: fixture.workspace
         )
         let result = try JSONToolBridge.decode(
-            MutateFilesToolOutput.self,
+            SystemIO.Tools.MutateFiles.Output.self,
             from: output
         )
 
@@ -113,7 +113,7 @@ extension AgenticIOFlowTesting {
         )
 
         let input = try JSONToolBridge.encode(
-            RemoveEmptyDirectoriesToolInput(
+            SystemIO.Tools.RemoveEmptyDirectories.Input(
                 paths: [
                     "empty",
                 ]
@@ -131,7 +131,7 @@ extension AgenticIOFlowTesting {
             workspace: fixture.workspace
         )
         let result = try JSONToolBridge.decode(
-            RemoveEmptyDirectoriesToolOutput.self,
+            SystemIO.Tools.RemoveEmptyDirectories.Output.self,
             from: output
         )
 
@@ -184,7 +184,7 @@ extension AgenticIOFlowTesting {
         )
 
         let input = try JSONToolBridge.encode(
-            RemoveEmptyDirectoriesToolInput(
+            SystemIO.Tools.RemoveEmptyDirectories.Input(
                 paths: [
                     "nonempty",
                 ]

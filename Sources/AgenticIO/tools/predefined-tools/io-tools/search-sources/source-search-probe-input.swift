@@ -124,7 +124,7 @@ public extension SourceSearchProbeInput {
     }
 }
 
-extension SearchSourcesToolInput {
+extension SystemIO.Tools.SearchSources.Input {
     func resolvedSearchProbes(
         toolName: String
     ) throws -> [SearchProbe] {

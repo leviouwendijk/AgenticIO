@@ -104,7 +104,7 @@ extension AgenticIOFlowTesting {
             AgentFileMutationHistoryList.self,
             from: try await tool.call(
                 input: try JSONToolBridge.encode(
-                    ListFileMutationsToolInput(
+                    SystemIO.Tools.ListFileMutations.Input(
                         limit: 1
                     )
                 ),
@@ -148,7 +148,7 @@ extension AgenticIOFlowTesting {
             AgentFileMutationHistoryList.self,
             from: try await tool.call(
                 input: try JSONToolBridge.encode(
-                    ListFileMutationsToolInput(
+                    SystemIO.Tools.ListFileMutations.Input(
                         preparedIntentID: "history-list-intent-2",
                         limit: 10
                     )
@@ -219,7 +219,7 @@ extension AgenticIOFlowTesting {
             AgentFileMutationHistoryList.self,
             from: try await tool.call(
                 input: try JSONToolBridge.encode(
-                    ListFileMutationsToolInput(
+                    SystemIO.Tools.ListFileMutations.Input(
                         path: "history-a.txt",
                         limit: 10
                     )
@@ -289,7 +289,7 @@ extension AgenticIOFlowTesting {
             AgentFileMutationInspection.self,
             from: try await tool.call(
                 input: try JSONToolBridge.encode(
-                    InspectFileMutationToolInput(
+                    SystemIO.Tools.InspectFileMutation.Input(
                         id: result.mutationID.uuidString.lowercased(),
                         loadDiffArtifact: false
                     )
@@ -414,7 +414,7 @@ extension AgenticIOFlowTesting {
             AgentFileMutationInspection.self,
             from: try await tool.call(
                 input: try JSONToolBridge.encode(
-                    InspectFileMutationToolInput(
+                    SystemIO.Tools.InspectFileMutation.Input(
                         id: result.mutationID.uuidString.lowercased(),
                         loadDiffArtifact: true
                     )
@@ -473,7 +473,7 @@ extension AgenticIOFlowTesting {
         ) {
             _ = try await tool.call(
                 input: try JSONToolBridge.encode(
-                    InspectFileMutationToolInput(
+                    SystemIO.Tools.InspectFileMutation.Input(
                         id: "not-a-uuid"
                     )
                 ),
@@ -486,7 +486,7 @@ extension AgenticIOFlowTesting {
         ) {
             _ = try await tool.call(
                 input: try JSONToolBridge.encode(
-                    InspectFileMutationToolInput(
+                    SystemIO.Tools.InspectFileMutation.Input(
                         id: UUID().uuidString.lowercased()
                     )
                 ),

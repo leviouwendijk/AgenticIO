@@ -14,7 +14,7 @@ extension AgenticIOFlowTesting {
         }
 
         let schema = String(
-            describing: ProveSearchResultsToolInput.jsonschema
+            describing: SystemIO.Tools.ProveSearchResults.Input.jsonschema
         )
 
         for field in [
@@ -48,7 +48,7 @@ extension AgenticIOFlowTesting {
         )
 
         let searchOutput = try await SystemIO.Tools.SearchSources().call(
-            SearchSourcesToolInput(
+            SystemIO.Tools.SearchSources.Input(
                                 includes: [
                                     "Sources/**",
                                 ],
@@ -78,7 +78,7 @@ extension AgenticIOFlowTesting {
         let candidates = search.candidates.map(
             SourceContextCandidateInput.init
         )
-        let input = ProveSearchResultsToolInput(
+        let input = SystemIO.Tools.ProveSearchResults.Input(
             candidates: candidates,
             specification: .init(
                 nodes: [

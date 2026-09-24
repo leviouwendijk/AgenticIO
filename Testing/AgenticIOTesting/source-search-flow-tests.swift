@@ -92,7 +92,7 @@ private extension AgenticIOFlowTesting {
         )
 
         let schema = String(
-            describing: SearchSourcesToolInput.jsonschema
+            describing: SystemIO.Tools.SearchSources.Input.jsonschema
         )
 
         try Expect.contains(
@@ -142,7 +142,7 @@ private extension AgenticIOFlowTesting {
         )
 
         let tool = SystemIO.Tools.SearchSources()
-        let input = SearchSourcesToolInput(
+        let input = SystemIO.Tools.SearchSources.Input(
             includes: [
                 "Sources/**",
             ],
@@ -262,7 +262,7 @@ private extension AgenticIOFlowTesting {
         )
 
         let output = try await SystemIO.Tools.SearchSources().call(
-            SearchSourcesToolInput(
+            SystemIO.Tools.SearchSources.Input(
                                 includes: [
                                     "Sources/DiversityA.swift",
                                     "Sources/DiversityB.swift",
@@ -531,7 +531,7 @@ private extension AgenticIOFlowTesting {
         )
 
         let output = try await SystemIO.Tools.SearchSources().call(
-            SearchSourcesToolInput(
+            SystemIO.Tools.SearchSources.Input(
                                 includes: [
                                     "Sources/Identifier.swift",
                                 ],

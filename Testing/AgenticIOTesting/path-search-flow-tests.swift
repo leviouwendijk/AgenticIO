@@ -27,7 +27,7 @@ extension AgenticIOFlowTesting {
         )
 
         let schema = String(
-            describing: FindPathsToolInput.jsonschema
+            describing: SystemIO.Tools.FindPaths.Input.jsonschema
         )
 
         for field in [
@@ -47,7 +47,7 @@ extension AgenticIOFlowTesting {
         }
 
         let scanSchema = String(
-            describing: ScanPathsToolInput.jsonschema
+            describing: SystemIO.Tools.ScanPaths.Input.jsonschema
         )
 
         try Expect.contains(
@@ -67,7 +67,7 @@ extension AgenticIOFlowTesting {
         )
 
         let decodedScanInput = try JSONDecoder().decode(
-            ScanPathsToolInput.self,
+            SystemIO.Tools.ScanPaths.Input.self,
             from: Data(
                 #"{"maxdepth":2}"#.utf8
             )
@@ -79,7 +79,7 @@ extension AgenticIOFlowTesting {
         )
 
         let decodedFindInput = try JSONDecoder().decode(
-            FindPathsToolInput.self,
+            SystemIO.Tools.FindPaths.Input.self,
             from: Data(
                 #"{"maxdepth":2}"#.utf8
             )
@@ -91,7 +91,7 @@ extension AgenticIOFlowTesting {
         )
 
         let rankedOutput = try await SystemIO.Tools.FindPaths().call(
-            FindPathsToolInput(
+            SystemIO.Tools.FindPaths.Input(
                                 queries: [
                                     .init(
                                         text: "A.swift",
@@ -162,7 +162,7 @@ extension AgenticIOFlowTesting {
         )
 
         let legacyOutput = try await SystemIO.Tools.FindPaths().call(
-            FindPathsToolInput(
+            SystemIO.Tools.FindPaths.Input(
                                 query: "a.SWIFT",
                                 includes: [
                                     "Sources/**",
@@ -183,7 +183,7 @@ extension AgenticIOFlowTesting {
         )
 
         let excludedOutput = try await SystemIO.Tools.FindPaths().call(
-            FindPathsToolInput(
+            SystemIO.Tools.FindPaths.Input(
                                 queries: [
                                     .init(
                                         text: "Sources"
@@ -218,7 +218,7 @@ extension AgenticIOFlowTesting {
         )
 
         let shallowFind = try await SystemIO.Tools.FindPaths().call(
-            FindPathsToolInput(
+            SystemIO.Tools.FindPaths.Input(
                 query: "A.swift",
                 recursive: true,
                 maxdepth: 1,
@@ -238,7 +238,7 @@ extension AgenticIOFlowTesting {
         )
 
         let deepFind = try await SystemIO.Tools.FindPaths().call(
-            FindPathsToolInput(
+            SystemIO.Tools.FindPaths.Input(
                 query: "A.swift",
                 recursive: false,
                 maxdepth: 2,
@@ -258,7 +258,7 @@ extension AgenticIOFlowTesting {
         )
 
         let shallowScan = try await SystemIO.Tools.ScanPaths().call(
-            ScanPathsToolInput(
+            SystemIO.Tools.ScanPaths.Input(
                 includeFiles: true,
                 includeDirectories: true,
                 recursive: true,
@@ -276,7 +276,7 @@ extension AgenticIOFlowTesting {
         )
 
         let deepScan = try await SystemIO.Tools.ScanPaths().call(
-            ScanPathsToolInput(
+            SystemIO.Tools.ScanPaths.Input(
                 includeFiles: true,
                 includeDirectories: true,
                 recursive: false,

@@ -20,7 +20,7 @@ extension AgenticIOFlowTesting {
         )
 
         let ordinary = try await tool.preflight(
-            ReadFileToolInput(
+            SystemIO.Tools.ReadFile.Input(
                                 path: "Sources/example.swift"
                             ),
             workspace: fixture.workspace
@@ -37,7 +37,7 @@ extension AgenticIOFlowTesting {
             "ordinary source read remains automatic"
         )
         let sensitive = try await tool.preflight(
-            ReadFileToolInput(
+            SystemIO.Tools.ReadFile.Input(
                                 path: "notes/private-notes.txt"
                             ),
             workspace: fixture.workspace
@@ -61,7 +61,7 @@ extension AgenticIOFlowTesting {
         )
 
         let forbidden = try await tool.preflight(
-            ReadFileToolInput(
+            SystemIO.Tools.ReadFile.Input(
                                 path: "notes/do-not-read.txt"
                             ),
             workspace: fixture.workspace

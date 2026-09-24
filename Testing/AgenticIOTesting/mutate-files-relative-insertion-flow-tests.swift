@@ -42,7 +42,7 @@ extension AgenticIOFlowTesting {
         )
         let tool = SystemIO.Tools.MutateFiles()
         let schema = String(
-            describing: MutateFilesToolInput.jsonschema
+            describing: SystemIO.Tools.MutateFiles.Input.jsonschema
         )
 
         try Expect.contains(
@@ -56,7 +56,7 @@ extension AgenticIOFlowTesting {
             "mutate_files schema exposes insert_after"
         )
 
-        let input = MutateFilesToolInput(
+        let input = SystemIO.Tools.MutateFiles.Input(
             entries: [
                 .init(
                     kind: .edit_text,
@@ -110,7 +110,7 @@ extension AgenticIOFlowTesting {
             "insert_before and insert_after lower against the original line snapshot"
         )
 
-        let invalid = MutateFilesToolInput(
+        let invalid = SystemIO.Tools.MutateFiles.Input(
             entries: [
                 .init(
                     kind: .edit_text,
