@@ -1,3 +1,5 @@
+import Agentic
+import Schema
 import Position
 
 public struct ReadSelectionToolOutputSlice: Sendable, Codable, Hashable {
@@ -16,7 +18,11 @@ public struct ReadSelectionToolOutputSlice: Sendable, Codable, Hashable {
     }
 }
 
-public struct ReadSelectionToolOutput: Sendable, Codable, Hashable {
+public struct ReadSelectionToolOutput: Result, Hashable {
+    public static var jsonschema: JSONSchema {
+        .object()
+    }
+
     public let path: String
     public let slices: [ReadSelectionToolOutputSlice]
     public let selectedLineRanges: [LineRange]

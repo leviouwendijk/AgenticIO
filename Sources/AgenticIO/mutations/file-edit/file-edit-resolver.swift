@@ -1,4 +1,4 @@
-import AgenticWorkspace
+import Workspace
 import Foundation
 import Position
 import Writers
@@ -14,7 +14,7 @@ struct FileEditResolver: Sendable {
 
     func resolve(
         _ input: FileEditRequest,
-        workspace: AgentWorkspace
+        workspace: WorkspaceContext
     ) throws -> FileEditResolution {
         let authorized = try FileToolAccess.authorize(
             workspace: workspace,

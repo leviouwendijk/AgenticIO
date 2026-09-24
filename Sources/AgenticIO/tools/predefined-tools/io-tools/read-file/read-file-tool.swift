@@ -1,177 +1,174 @@
 import Agentic
 import AgenticExecution
-import AgenticWorkspace
+import Workspace
 import Path
 import Primitives
 import Schema
+import Readers
 
-public struct ReadFileTool: AgentTool {
-    public typealias Input = ReadFileToolInput
-    public typealias Output = ReadFileToolOutput
+public extension SystemIO.Tools {
+    @Tool
+    struct ReadFile: Tool {
+        public typealias Input = ReadFileToolInput
+        public typealias Output = ReadFileToolOutput
 
-    public static let identifier: AgentToolIdentifier = "read_file"
-    public static let description = "Read a file from the workspace, optionally constrained to a line window."
-    public static let risk: ActionRisk = .observe
+        public static let purpose = "Read a file from the workspace, optionally constrained to a line window."
+        public static let risk: ActionRisk = .observe
 
-    public var identifier: AgentToolIdentifier {
-        Self.identifier
-    }
-
-    public var description: String {
-        Self.description
-    }
+        public init() {}
 
 
-    public var risk: ActionRisk {
-        Self.risk
-    }
-
-    public init() {}
-
-
-    public func preflight(
-        _ input: Input,
-        context: AgentToolExecutionContext
-    ) async throws -> ToolPreflight {
-        let workspace = try FileToolSupport.requireWorkspace(
-            context.workspace,
-            toolName: name
-        )
-
-        try FileToolSupport.validateReadWindow(
-            startLine: input.startLine,
-            endLine: input.endLine,
-            maxLines: input.maxLines
-        )
-
-        let authorized = try FileToolAccess.authorize(
-            workspace: workspace,
-            rootID: input.rootID,
-            path: input.path,
-            capability: .read,
-            toolName: name,
-            type: .file
-        )
-        let sensitivity = sensitivityAssessment(
-            for: authorized
-        )
-        let estimatedReadLines = estimatedLineCount(
-            for: input
-        )
-
-        return .init(
-            toolName: name,
-            risk: risk,
-            workspaceRoot: workspace.rootURL.path,
-            targetPaths: [
-                authorized.presentationPath
-            ],
-            summary: summary(
-                for: input,
-                renderedPath: authorized.presentationPath,
-                sensitivityReason: sensitivity.summaryReason
-            ),
-            rootIDs: [
-                input.rootID.rawValue
-            ],
-            capabilitiesRequired: [
-                .read
-            ],
-            estimatedReadLines: estimatedReadLines,
-            estimatedFileReadCount: 1,
-            policyChecks: [
-                "workspace_required",
-                "root_path_authorized",
-                "read_capability_authorized",
-                "read_window_validated",
-                "path_sensitivity_profile:\(PathSensitivityProfile.agenticConservative.id)"
-            ] + sensitivity.policyChecks,
-            warnings: sensitivity.warnings,
-            policyDirectives: sensitivity.directives
-        )
-    }
-
-    public func call(
-        _ input: Input,
-        context: AgentToolExecutionContext
-    ) async throws -> Output {
-        let workspace = try FileToolSupport.requireWorkspace(
-            context.workspace,
-            toolName: name
-        )
-
-
-        try FileToolSupport.validateReadWindow(
-            startLine: input.startLine,
-            endLine: input.endLine,
-            maxLines: input.maxLines
-        )
-
-        let authorized = try FileToolAccess.authorize(
-            workspace: workspace,
-            rootID: input.rootID,
-            path: input.path,
-            capability: .read,
-            toolName: name,
-            type: .file
-        )
-
-        let read = try workspace.readSlice(
-            authorized.path,
-            startLine: input.startLine,
-            endLine: input.endLine,
-            maxLines: input.maxLines
-        )
-
-        let rawContent: String
-        let displayContent: String?
-        let structuredLines: [ReadFileLine]
-
-        if let range = read.selectedLineRange {
-            rawContent = FileToolSupport.renderLines(
-                read.selectedLines,
-                startingAt: range.start,
-                includeLineNumbers: false
+        public func preflight(
+            _ input: Input,
+            workspace: WorkspaceContext?
+        ) async throws -> ToolPreflight {
+            let workspace = try FileToolSupport.requireWorkspace(
+                workspace,
+                toolName: Self.identifier.rawValue
             )
-            displayContent = input.includeLineNumbers
-                ? FileToolSupport.renderLines(
-                    read.selectedLines,
-                    startingAt: range.start,
-                    includeLineNumbers: true
-                )
-                : nil
-            structuredLines = read.selectedLines.enumerated().map { offset, text in
-                ReadFileLine(
-                    number: range.start + offset,
-                    text: text
-                )
-            }
-        } else {
-            rawContent = ""
-            displayContent = nil
-            structuredLines = []
+
+            try FileToolSupport.validateReadWindow(
+                toolName: Self.identifier.rawValue,
+                startLine: input.startLine,
+                endLine: input.endLine,
+                maxLines: input.maxLines
+            )
+
+            let authorized = try FileToolAccess.authorize(
+                workspace: workspace,
+                rootID: input.rootID,
+                path: input.path,
+                capability: .read,
+                toolName: Self.identifier.rawValue,
+                type: .file
+            )
+            let sensitivity = sensitivityAssessment(
+                for: authorized
+            )
+            let estimatedReadLines = estimatedLineCount(
+                for: input
+            )
+
+            return .init(
+                tool: Self.definition.identifier,
+                risk: sensitivity.risk,
+                summary: summary(
+                    for: input,
+                    renderedPath: authorized.presentationPath,
+                    sensitivityReason: sensitivity.summaryReason
+                ),
+                access: .init(
+                    targets: [
+                        authorized.presentationPath
+                    ],
+                    roots: [
+                        input.rootID.rawValue
+                    ],
+                    capabilities: [
+                        .read
+                    ]
+                ),
+                estimates: .init(
+                    read: .init(
+                        lines: estimatedReadLines,
+                        files: 1
+                    )
+                ),
+                policyChecks: [
+                    "workspace_required",
+                    "root_path_authorized",
+                    "read_capability_authorized",
+                    "read_window_validated",
+                    "path_sensitivity_profile:\(PathSensitivityProfile.agenticConservative.id)"
+                ] + sensitivity.policyChecks,
+                warnings: sensitivity.warnings
+            )
         }
 
-        return ReadFileToolOutput(
-            rootID: authorized.rootID.rawValue,
-            path: authorized.presentationPath,
-            content: rawContent,
-            display: displayContent,
-            lines: structuredLines,
-            lineRange: read.selectedLineRange,
-            lineCount: read.lineCount,
-            totalLineCount: read.totalLineCount,
-            byteCount: read.byteCount,
-            truncated: read.truncated,
-            encoding: read.encodingUsed?.name
-        )
-        
+        public func call(
+            _ input: Input,
+            workspace: WorkspaceContext?
+        ) async throws -> Output {
+            let workspace = try FileToolSupport.requireWorkspace(
+                workspace,
+                toolName: Self.identifier.rawValue
+            )
+
+
+            try FileToolSupport.validateReadWindow(
+                toolName: Self.identifier.rawValue,
+                startLine: input.startLine,
+                endLine: input.endLine,
+                maxLines: input.maxLines
+            )
+
+            let authorized = try FileToolAccess.authorize(
+                workspace: workspace,
+                rootID: input.rootID,
+                path: input.path,
+                capability: .read,
+                toolName: Self.identifier.rawValue,
+                type: .file
+            )
+
+            let read = try LineReader(
+                authorized.absoluteURL
+            ).readSlice(
+                startLine: input.startLine,
+                endLine: input.endLine,
+                maxLines: input.maxLines
+            )
+
+            let rawContent: String
+            let displayContent: String?
+            let structuredLines: [ReadFileLine]
+
+            if let range = read.selectedLineRange {
+                rawContent = FileToolSupport.renderLines(
+                    read.selectedLines,
+                    startingAt: range.start,
+                    includeLineNumbers: false
+                )
+                displayContent = input.includeLineNumbers
+                    ? FileToolSupport.renderLines(
+                        read.selectedLines,
+                        startingAt: range.start,
+                        includeLineNumbers: true
+                    )
+                    : nil
+                structuredLines = read.selectedLines.enumerated().map { offset, text in
+                    ReadFileLine(
+                        number: range.start + offset,
+                        text: text
+                    )
+                }
+            } else {
+                rawContent = ""
+                displayContent = nil
+                structuredLines = []
+            }
+
+            return ReadFileToolOutput(
+                rootID: authorized.rootIdentifier.rawValue,
+                path: authorized.presentationPath,
+                content: rawContent,
+                display: displayContent,
+                lines: structuredLines,
+                lineRange: read.selectedLineRange,
+                lineCount: read.selectedLines.count,
+                totalLineCount: read.totalLineCount,
+                byteCount: read.byteCount,
+                truncated: read.truncated,
+                encoding: read.encodingUsed?.name
+            )
+            
+        }
     }
 }
 
-private extension ReadFileTool {
+private extension SystemIO.Tools.ReadFile {
     struct SensitivityAssessment {
-        let directives: [ToolPolicyDirective]
+        let risk: ActionRisk
         let policyChecks: [String]
         let warnings: [String]
         let summaryReason: String?
@@ -227,7 +224,7 @@ private extension ReadFileTool {
     }
 
     func sensitivityAssessment(
-        for authorized: AgenticAuthorizedPath
+        for authorized: AuthorizedPath
     ) -> SensitivityAssessment {
         let rules = PathSensitivityProfile.agenticConservative
             .matchedRules(
@@ -238,21 +235,17 @@ private extension ReadFileTool {
             rules.map(\.action)
         )
 
-        let directives: [ToolPolicyDirective]
+        let risk: ActionRisk
 
         switch strongest {
         case .warn_only:
-            directives = []
+            risk = .observe
 
         case .suggest_deny:
-            directives = [
-                .require_human_review,
-            ]
+            risk = .privileged
 
         case .require_deny:
-            directives = [
-                .require_deny,
-            ]
+            risk = .forbidden
         }
 
         let primaryRule = rules.max {
@@ -260,7 +253,7 @@ private extension ReadFileTool {
         }
 
         return .init(
-            directives: directives,
+            risk: risk,
             policyChecks: rules.map {
                 "path_sensitivity_rule:\($0.id)"
             },

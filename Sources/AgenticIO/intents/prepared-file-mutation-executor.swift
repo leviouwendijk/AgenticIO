@@ -1,5 +1,5 @@
 import AgenticExecution
-import AgenticWorkspace
+import Workspace
 import Foundation
 import Path
 import Writers
@@ -71,8 +71,9 @@ public struct PreparedFileMutationExecutor:
                 authorized: authorized
             )
 
-            let writersResult = WorkspaceWriter(
-                access: workspace.accessController.paths
+            let writersResult = try WorkspaceWriter(
+                root: workspace.absoluteURL,
+                rootIdentifier: workspace.rootIdentifier
             ).mutations.apply(
                 writersPlan,
                 options: .init(
@@ -135,9 +136,9 @@ public struct PreparedFileMutationExecutor:
 private extension PreparedFileMutationExecutor {
     func authorize(
         _ authorizations: [PreparedFileMutationOperation.Authorization],
-        workspace: AgentWorkspace,
+        workspace: WorkspaceContext,
         toolName: String
-    ) throws -> [AgenticAuthorizedPath] {
+    ) throws -> [AuthorizedPath] {
         try authorizations.map { authorization in
             let authorized = try FileToolAccess.authorize(
                 workspace: workspace,
@@ -172,7 +173,7 @@ private extension PreparedFileMutationExecutor {
 
     func requireAuthorizedTargets(
         _ targets: [URL],
-        authorized: [AgenticAuthorizedPath]
+        authorized: [AuthorizedPath]
     ) throws {
         let planned = Set(
             targets.map {
@@ -227,7 +228,7 @@ private extension PreparedFileMutationExecutor {
 
     func record(
         _ records: [WriteMutationRecord],
-        authorized: [AgenticAuthorizedPath],
+        authorized: [AuthorizedPath],
         context: AgentFileMutationContext
     ) async throws -> [AgentFileMutationRecord] {
         guard let recorder else {
@@ -256,7 +257,7 @@ private extension PreparedFileMutationExecutor {
 
             let result = try await recorder.record(
                 writerRecord: record,
-                rootID: authorization.rootID,
+                rootID: authorization.rootIdentifier,
                 path: authorization.path,
                 context: context
             )

@@ -1,6 +1,6 @@
 import Agentic
 import AgenticExecution
-import AgenticWorkspace
+import Workspace
 import IO
 import Path
 import Position
@@ -222,151 +222,141 @@ public extension LoadSearchContextToolInput {
     }
 }
 
-public struct LoadSearchContextTool: AgentTool {
-    public typealias Input = LoadSearchContextToolInput
-    public typealias Output = SourceContextResult
+public extension SystemIO.Tools {
+    @Tool
+    struct LoadSearchContext: Tool {
+        public typealias Input = LoadSearchContextToolInput
+        public typealias Output = SourceContextResult
 
-    public static let identifier: AgentToolIdentifier = "load_search_context"
-    public static let description = "Load bounded exact source slices from search_sources candidates after reauthorizing paths and validating that source fingerprints are still current."
-    public static let risk: ActionRisk = .observe
+        public static let purpose = "Load bounded exact source slices from search_sources candidates after reauthorizing paths and validating that source fingerprints are still current."
+        public static let risk: ActionRisk = .observe
 
-    public let loader: SourceContextLoader
+        public let loader: SourceContextLoader
 
-    public var identifier: AgentToolIdentifier {
-        Self.identifier
-    }
-
-    public var description: String {
-        Self.description
-    }
-
-    public var risk: ActionRisk {
-        Self.risk
-    }
-
-    public init(
-        loader: SourceContextLoader = .init()
-    ) {
-        self.loader = loader
-    }
-
-    public func preflight(
-        _ input: Input,
-        context: AgentToolExecutionContext
-    ) async throws -> ToolPreflight {
-        let workspace = try FileToolSupport.requireWorkspace(
-            context.workspace,
-            toolName: name
-        )
-        let request = try request(
-            from: input
-        )
-
-        try loader.validate(
-            request
-        )
-
-        var targetPaths: [String] = []
-        var seen: Set<String> = []
-
-        for candidate in input.candidates {
-            let authorized = try FileToolAccess.authorize(
-                workspace: workspace,
-                rootID: input.rootID,
-                path: candidate.path,
-                capability: .read,
-                toolName: name,
-                type: .file
-            )
-
-            if seen.insert(
-                authorized.presentationPath
-            ).inserted {
-                targetPaths.append(
-                    authorized.presentationPath
-                )
-            }
+        public init(
+            loader: SourceContextLoader = .init()
+        ) {
+            self.loader = loader
         }
 
-        return ToolPreflight(
-            toolName: name,
-            risk: risk,
-            workspaceRoot: workspace.rootURL.path,
-            targetPaths: targetPaths,
-            summary: "Validate and admit exact source context for \(input.candidates.count) search candidate(s).",
-            rootIDs: [
-                input.rootID.rawValue,
-            ],
-            capabilitiesRequired: [
-                .read,
-            ],
-            policyChecks: [
-                "workspace_required",
-                "workspace_read_authorized",
-                "search_candidate_source_fingerprint_required",
-                "stale_search_context_rejected",
-                "selection_resolver_materialization",
-                "bounded_context_admission",
-                "no_file_mutation",
-            ]
-        )
-    }
-
-    public func call(
-        _ input: Input,
-        context: AgentToolExecutionContext
-    ) async throws -> Output {
-        let workspace = try FileToolSupport.requireWorkspace(
-            context.workspace,
-            toolName: name
-        )
-        let result = try loader.load(
-            try request(
+        public func preflight(
+            _ input: Input,
+            workspace: WorkspaceContext?
+        ) async throws -> ToolPreflight {
+            let workspace = try FileToolSupport.requireWorkspace(
+                workspace,
+                toolName: Self.identifier.rawValue
+            )
+            let request = try request(
                 from: input
-            ),
-            workspace: workspace
-        )
+            )
 
-        return result
-        
-    }
+            try loader.validate(
+                request
+            )
 
-    public func process(
-        _ output: Output,
-        input _: Input,
-        context _: AgentToolExecutionContext
-    ) -> AgentToolResultProjection? {
-        let result = output
+            var targetPaths: [String] = []
+            var seen: Set<String> = []
 
-        return .init(
-            status: "passed",
-            summary: "Loaded \(result.totalLineCount) validated source line(s) across \(result.sourceCount) source(s).",
-            facts: [
-                .init(
-                    label: "candidates",
-                    value: String(
-                        result.candidateCount
+            for candidate in input.candidates {
+                let authorized = try FileToolAccess.authorize(
+                    workspace: workspace,
+                    rootID: input.rootID,
+                    path: candidate.path,
+                    capability: .read,
+                    toolName: Self.identifier.rawValue,
+                    type: .file
+                )
+
+                if seen.insert(
+                    authorized.presentationPath
+                ).inserted {
+                    targetPaths.append(
+                        authorized.presentationPath
                     )
+                }
+            }
+
+            return ToolPreflight(
+                tool: Self.definition.identifier,
+                risk: risk,
+                summary: "Validate and admit exact source context for \(input.candidates.count) search candidate(s).",
+                access: .init(
+                    targets: targetPaths,
+                    roots: [
+                        input.rootID.rawValue,
+                    ],
+                    capabilities: [
+                        .read,
+                    ]
                 ),
-                .init(
-                    label: "sources",
-                    value: String(
-                        result.sourceCount
-                    )
+                policyChecks: [
+                    "workspace_required",
+                    "workspace_read_authorized",
+                    "search_candidate_source_fingerprint_required",
+                    "stale_search_context_rejected",
+                    "selection_resolver_materialization",
+                    "bounded_context_admission",
+                    "no_file_mutation",
+                ]
+            )
+        }
+
+        public func call(
+            _ input: Input,
+            workspace: WorkspaceContext?
+        ) async throws -> Output {
+            let workspace = try FileToolSupport.requireWorkspace(
+                workspace,
+                toolName: Self.identifier.rawValue
+            )
+            let result = try loader.load(
+                try request(
+                    from: input
                 ),
-                .init(
-                    label: "lines",
-                    value: String(
-                        result.totalLineCount
-                    )
-                ),
-            ]
+                workspace: workspace
+            )
+
+            return result
             
-        )
+        }
+
+        public func process(
+            _ output: Output,
+            input _: Input
+        ) -> ToolCall.ResultProjection? {
+            let result = output
+
+            return .init(
+                status: "passed",
+                summary: "Loaded \(result.totalLineCount) validated source line(s) across \(result.sourceCount) source(s).",
+                facts: [
+                    .init(
+                        label: "candidates",
+                        value: String(
+                            result.candidateCount
+                        )
+                    ),
+                    .init(
+                        label: "sources",
+                        value: String(
+                            result.sourceCount
+                        )
+                    ),
+                    .init(
+                        label: "lines",
+                        value: String(
+                            result.totalLineCount
+                        )
+                    ),
+                ]
+                
+            )
+        }
     }
 }
 
-private extension LoadSearchContextTool {
+private extension SystemIO.Tools.LoadSearchContext {
     func request(
         from input: LoadSearchContextToolInput
     ) throws -> SourceContextRequest {

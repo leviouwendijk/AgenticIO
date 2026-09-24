@@ -1,6 +1,6 @@
 import Agentic
 import AgenticExecution
-import AgenticWorkspace
+import Workspace
 import Path
 import PathParsing
 import Primitives
@@ -193,7 +193,11 @@ public struct FindPathsToolEntry: Sendable, Codable, Hashable {
     }
 }
 
-public struct FindPathsToolOutput: Sendable, Codable, Hashable {
+public struct FindPathsToolOutput: Result, Hashable {
+    public static var jsonschema: JSONSchema {
+        .object()
+    }
+
     public let rootID: String
     public let searchedPathCount: Int?
     public let candidateCount: Int?
@@ -215,214 +219,230 @@ public struct FindPathsToolOutput: Sendable, Codable, Hashable {
     }
 }
 
-public struct FindPathsTool: AgentTool {
-    public typealias Input = FindPathsToolInput
-    public typealias Output = FindPathsToolOutput
+public extension SystemIO.Tools {
+    @Tool
+    struct FindPaths: Tool {
+        public typealias Input = FindPathsToolInput
+        public typealias Output = FindPathsToolOutput
 
-    public static let identifier: AgentToolIdentifier = "find_paths"
-    public static let description = "Find and rank path names inside an authorized workspace root without reading file contents, with optional bounded traversal depth."
-    public static let risk: ActionRisk = .observe
+        public static let purpose = "Find and rank path names inside an authorized workspace root without reading file contents, with optional bounded traversal depth."
+        public static let risk: ActionRisk = .observe
 
-    public var identifier: AgentToolIdentifier {
-        Self.identifier
-    }
+        public init() {}
 
-    public var description: String {
-        Self.description
-    }
-
-    public var risk: ActionRisk {
-        Self.risk
-    }
-
-    public init() {}
-
-    public func preflight(
-        _ input: Input,
-        context: AgentToolExecutionContext
-    ) async throws -> ToolPreflight {
-        let rootID = input.rootID ?? .project
-        let probeCount = normalizedQueries(
-            input
-        ).count
-
-        return .init(
-            toolName: name,
-            risk: risk,
-            workspaceRoot: context.workspace?.rootURL.path,
-            summary: probeCount == 0
-                ? "List authorized path names in root '\(rootID.rawValue)'."
-                : "Search authorized path names in root '\(rootID.rawValue)' using \(probeCount) probe(s).",
-            rootIDs: [
-                rootID.rawValue,
-            ],
-            capabilitiesRequired: [
-                .scan,
-            ],
-            estimatedScanDepth: resolvedMaxDepth(
+        public func preflight(
+            _ input: Input,
+            workspace: WorkspaceContext?
+        ) async throws -> ToolPreflight {
+            let rootID = workspace?.rootIdentifier
+                ?? input.rootID
+                ?? .project
+            let probeCount = normalizedQueries(
                 input
-            ),
-            includesHiddenPaths: input.includeHidden ?? false,
-            followsSymlinks: input.followSymlinks ?? false,
-            policyChecks: [
-                "workspace_required",
-                "path_name_scan_only",
-                "authorized_paths_ranked_after_scan",
-                "no_file_content_access",
-            ]
-        )
-    }
+            ).count
 
-    public func call(
-        _ input: Input,
-        context: AgentToolExecutionContext
-    ) async throws -> Output {
-        let workspace = try WorkspaceToolSupport.requireWorkspace(
-            context.workspace,
-            toolName: name
-        )
-        let rootID = input.rootID ?? .project
-        let maxEntries = max(
-            0,
-            input.maxEntries ?? 100
-        )
-        let includes = try normalizedIncludes(
-            input.includes
-        ).map {
-            try PathParse.expression($0)
-        }
-        let excludes = try (input.excludes ?? []).map {
-            try PathParse.expression($0)
-        }
-        let scan = try workspace.scan(
-            .init(
-                includes: includes,
-                excludes: excludes
-            ),
-            rootID: rootID,
-            configuration: .init(
-                maxDepth: resolvedMaxDepth(
-                    input
+            return .init(
+                tool: Self.definition.identifier,
+                risk: risk,
+                summary: probeCount == 0
+                    ? "List authorized path names in the targeted workspace context."
+                    : "Search authorized path names in the targeted workspace context using \(probeCount) probe(s).",
+                access: .init(
+                    roots: [
+                        rootID.rawValue,
+                    ],
+                    capabilities: [
+                        .scan,
+                    ],
+                    includesHidden: input.includeHidden ?? false,
+                    followsSymlinks: input.followSymlinks ?? false
                 ),
-                includeHidden: input.includeHidden ?? false,
-                followSymlinks: input.followSymlinks ?? false,
-                emitDirectories: input.includeDirectories ?? true,
-                emitFiles: input.includeFiles ?? true
-            )
-        )
-        let entries = try workspace.authorizedEntries(
-            from: scan,
-            rootID: rootID,
-            capability: .scan,
-            toolName: name
-        )
-        let queries = normalizedQueries(
-            input
-        )
-
-        guard !queries.isEmpty else {
-            let truncated = entries.count > maxEntries
-            let returned = truncated
-                ? Array(
-                    entries.prefix(
-                        maxEntries
+                estimates: .init(
+                    scan: .init(
+                        depth: resolvedMaxDepth(
+                            input
+                        )
                     )
-                )
-                : entries
-
-            return FindPathsToolOutput(
-                rootID: rootID.rawValue,
-                entries: returned.map {
-                    .init(
-                        rootID: rootID.rawValue,
-                        path: $0.relativePath,
-                        isDirectory: $0.isDirectory
-                    )
-                },
-                truncated: truncated,
-                searchedPathCount: entries.count,
-                candidateCount: entries.count
+                ),
+                policyChecks: [
+                    "workspace_required",
+                    "workspace_context_already_targeted",
+                    "path_name_scan_only",
+                    "authorized_paths_ranked_after_scan",
+                    "no_file_content_access",
+                ]
             )
-            
         }
 
-        let corpus = SearchCorpus(
-            documents: entries.map { entry in
-                SearchDocument(
-                    id: FindPathsDocumentID(
-                        path: entry.relativePath,
-                        isDirectory: entry.isDirectory
+        public func call(
+            _ input: Input,
+            workspace: WorkspaceContext?
+        ) async throws -> Output {
+            let workspace = try WorkspaceToolSupport.requireWorkspace(
+                workspace,
+                toolName: Self.identifier.rawValue
+            )
+            try requireTargetedRoot(
+                input.rootID,
+                workspace: workspace
+            )
+
+            _ = try workspace.authorize(
+                ".",
+                capability: .scan
+            )
+
+            let maxEntries = max(
+                0,
+                input.maxEntries ?? 100
+            )
+            let includes = try normalizedIncludes(
+                input.includes
+            ).map {
+                try PathParse.expression($0)
+            }
+            let excludes = try (input.excludes ?? []).map {
+                try PathParse.expression($0)
+            }
+            let scan = try PathScan.scan(
+                .init(
+                    includes: includes,
+                    excludes: excludes
+                ),
+                relativeTo: .directoryURL(
+                    workspace.absoluteURL
+                ),
+                configuration: .init(
+                    maxDepth: resolvedMaxDepth(
+                        input
                     ),
-                    text: entry.relativePath
+                    includeHidden: input.includeHidden ?? false,
+                    followSymlinks: input.followSymlinks ?? false,
+                    emitDirectories: input.includeDirectories ?? true,
+                    emitFiles: input.includeFiles ?? true
+                )
+            )
+            let entries = try scan.matches.map { match in
+                let authorized = try workspace.authorize(
+                    match.url.path,
+                    capability: .scan
+                ).authorizedPath
+
+                return FindPathsScannedEntry(
+                    path: authorized.presentationPath,
+                    isDirectory: match.type == .directory
                 )
             }
-        )
-        let result = TextSearch.search(
-            queries,
-            in: corpus,
-            options: SearchOptions(
-                strategy: (input.strategy ?? .contains).searchStrategy,
-                caseSensitive: input.caseSensitive ?? false,
-                minimumScore: input.minimumScore ?? 1,
-                maximumResults: maxEntries
+            let queries = normalizedQueries(
+                input
             )
-        )
 
-        return FindPathsToolOutput(
-            rootID: rootID.rawValue,
-            entries: result.hits.map { hit in
-                .init(
-                    rootID: rootID.rawValue,
-                    path: hit.documentID.path,
-                    isDirectory: hit.documentID.isDirectory,
-                    score: hit.score.value,
-                    probeCount: hit.evidence.count,
-                    evidence: hit.evidence.map { evidence in
-                        FindPathsToolEvidence(
-                            queryID: evidence.queryID,
-                            query: evidence.query,
-                            strategy: FindPathsStrategy(
-                                searchStrategy: evidence.strategy
-                            ),
-                            score: evidence.score.value
+            guard !queries.isEmpty else {
+                let truncated = entries.count > maxEntries
+                let returned = truncated
+                    ? Array(
+                        entries.prefix(
+                            maxEntries
                         )
-                    }
+                    )
+                    : entries
+
+                return FindPathsToolOutput(
+                    rootID: workspace.rootIdentifier.rawValue,
+                    entries: returned.map {
+                        .init(
+                            rootID: workspace.rootIdentifier.rawValue,
+                            path: $0.path,
+                            isDirectory: $0.isDirectory
+                        )
+                    },
+                    truncated: truncated,
+                    searchedPathCount: entries.count,
+                    candidateCount: entries.count
                 )
-            },
-            truncated: result.candidateCount > result.hits.count,
-            searchedPathCount: result.searchedDocumentCount,
-            candidateCount: result.candidateCount
-        )
-        
-    }
+            }
 
-    public func process(
-        _ output: Output,
-        input _: Input,
-        context _: AgentToolExecutionContext
-    ) -> AgentToolResultProjection? {
-        let result = output
+            let corpus: SearchCorpus<FindPathsDocumentID> = SearchCorpus(
+                documents: entries.map { entry in
+                    SearchDocument(
+                        id: FindPathsDocumentID(
+                            path: entry.path,
+                            isDirectory: entry.isDirectory
+                        ),
+                        text: entry.path
+                    )
+                }
+            )
+            let result = TextSearch.search(
+                queries,
+                in: corpus,
+                options: SearchOptions(
+                    strategy: (input.strategy ?? .contains).searchStrategy,
+                    caseSensitive: input.caseSensitive ?? false,
+                    minimumScore: input.minimumScore ?? 1,
+                    maximumResults: maxEntries
+                )
+            )
 
-        return .init(
-            status: "passed",
-            summary: "find_paths returned \(result.entries.count) path(s) from \(result.searchedPathCount ?? result.entries.count) authorized path(s).",
-            facts: [
-                .init(
-                    label: "candidates",
-                    value: String(
-                        result.candidateCount ?? result.entries.count
+            return FindPathsToolOutput(
+                rootID: workspace.rootIdentifier.rawValue,
+                entries: result.hits.map { hit in
+                    .init(
+                        rootID: workspace.rootIdentifier.rawValue,
+                        path: hit.documentID.path,
+                        isDirectory: hit.documentID.isDirectory,
+                        score: hit.score.value,
+                        probeCount: hit.evidence.count,
+                        evidence: hit.evidence.map { evidence in
+                            FindPathsToolEvidence(
+                                queryID: evidence.queryID,
+                                query: evidence.query,
+                                strategy: FindPathsStrategy(
+                                    searchStrategy: evidence.strategy
+                                ),
+                                score: evidence.score.value
+                            )
+                        }
                     )
-                ),
-                .init(
-                    label: "returned",
-                    value: String(
-                        result.entries.count
-                    )
-                ),
-            ]
-            
-        )
+                },
+                truncated: result.candidateCount > result.hits.count,
+                searchedPathCount: result.searchedDocumentCount,
+                candidateCount: result.candidateCount
+            )
+        }
+
+        public func process(
+            _ output: Output,
+            input _: Input
+        ) -> ToolCall.ResultProjection? {
+            let result = output
+
+            return .init(
+                status: "passed",
+                summary: "find_paths returned \(result.entries.count) path(s) from \(result.searchedPathCount ?? result.entries.count) authorized path(s).",
+                facts: [
+                    .init(
+                        label: "candidates",
+                        value: String(
+                            result.candidateCount ?? result.entries.count
+                        )
+                    ),
+                    .init(
+                        label: "returned",
+                        value: String(
+                            result.entries.count
+                        )
+                    ),
+                ]
+                
+            )
+        }
     }
+}
+
+private struct FindPathsScannedEntry {
+    let path: String
+    let isDirectory: Bool
 }
 
 private struct FindPathsDocumentID:
@@ -434,7 +454,24 @@ private struct FindPathsDocumentID:
     let isDirectory: Bool
 }
 
-internal extension FindPathsTool {
+internal extension SystemIO.Tools.FindPaths {
+    func requireTargetedRoot(
+        _ requested: PathAccessRootIdentifier?,
+        workspace: WorkspaceContext
+    ) throws {
+        guard let requested else {
+            return
+        }
+
+        guard requested == workspace.rootIdentifier else {
+            throw PredefinedFileToolError.invalidValue(
+                tool: Self.identifier.rawValue,
+                field: "rootID",
+                reason: "rootID '\(requested.rawValue)' does not match the already-targeted workspace root '\(workspace.rootIdentifier.rawValue)'"
+            )
+        }
+    }
+
     func resolvedMaxDepth(
         _ input: FindPathsToolInput
     ) -> Int? {

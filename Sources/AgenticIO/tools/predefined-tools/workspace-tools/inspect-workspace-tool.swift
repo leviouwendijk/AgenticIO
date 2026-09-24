@@ -1,6 +1,6 @@
 import Agentic
 import AgenticExecution
-import AgenticWorkspace
+import Workspace
 import Primitives
 import Schema
 import Macros
@@ -22,7 +22,11 @@ public struct InspectWorkspaceToolInput: Sendable, Codable, Hashable {
     }
 }
 
-public struct InspectWorkspaceToolOutput: Sendable, Codable, Hashable {
+public struct InspectWorkspaceToolOutput: Result, Hashable {
+    public static var jsonschema: JSONSchema {
+        .object()
+    }
+
     public let hasWorkspace: Bool
     public let defaultRootID: String?
     public let rootCount: Int
@@ -50,89 +54,81 @@ public struct InspectWorkspaceToolOutput: Sendable, Codable, Hashable {
     }
 }
 
-public struct InspectWorkspaceTool: AgentTool {
-    public typealias Input = InspectWorkspaceToolInput
-    public typealias Output = InspectWorkspaceToolOutput
+public extension SystemIO.Tools {
+    @Tool
+    struct InspectWorkspace: Tool {
+        public typealias Input = InspectWorkspaceToolInput
+        public typealias Output = InspectWorkspaceToolOutput
 
-    public static let identifier: AgentToolIdentifier = "inspect_workspace"
-    public static let description = "Inspect attached workspace roots, grants, and diagnostics without reading file contents."
-    public static let risk: ActionRisk = .observe
+        public static let purpose = "Inspect attached workspace roots, grants, and diagnostics without reading file contents."
+        public static let risk: ActionRisk = .observe
 
-    public var identifier: AgentToolIdentifier {
-        Self.identifier
-    }
+        public init() {}
 
-    public var description: String {
-        Self.description
-    }
-
-
-    public var risk: ActionRisk {
-        Self.risk
-    }
-
-    public init() {}
-
-    public func preflight(
-        _ input: Input,
-        context: AgentToolExecutionContext
-    ) async throws -> ToolPreflight {
-        .init(
-            toolName: name,
-            risk: risk,
-            workspaceRoot: context.workspace?.rootURL.path,
-            summary: "Inspect workspace roots, grants, and diagnostics.",
-            capabilitiesRequired: [
-                .list
-            ],
-            policyChecks: [
-                "no_file_content_access",
-                "workspace_metadata_only"
-            ]
-        )
-    }
-
-    public func call(
-        _ input: Input,
-        context: AgentToolExecutionContext
-    ) async throws -> Output {
-
-        guard let workspace = context.workspace else {
-            return InspectWorkspaceToolOutput(
-                hasWorkspace: false,
-                defaultRootID: nil,
-                rootCount: 0,
-                grantCount: 0,
-                roots: [],
-                grants: [],
-                diagnostics: [
-                    "No AgentWorkspace is attached."
+        public func preflight(
+            _ input: Input,
+            workspace: WorkspaceContext?
+        ) async throws -> ToolPreflight {
+            .init(
+                tool: Self.definition.identifier,
+                risk: risk,
+                summary: "Inspect workspace roots, grants, and diagnostics.",
+                access: .init(
+                    capabilities: [
+                        .list
+                    ]
+                ),
+                policyChecks: [
+                    "no_file_content_access",
+                    "workspace_metadata_only"
                 ]
+            )
+        }
+
+        public func call(
+            _ input: Input,
+            workspace: WorkspaceContext?
+        ) async throws -> Output {
+
+            guard let workspace = workspace else {
+                return InspectWorkspaceToolOutput(
+                    hasWorkspace: false,
+                    defaultRootID: nil,
+                    rootCount: 0,
+                    grantCount: 0,
+                    roots: [],
+                    grants: [],
+                    diagnostics: [
+                        "No WorkspaceContext is attached."
+                    ]
+                )
+                
+            }
+
+            let includeDiagnostics = input.includeDiagnostics ?? true
+            let includeGrants = input.includeGrants ?? true
+
+            return InspectWorkspaceToolOutput(
+                hasWorkspace: true,
+                defaultRootID: workspace.defaultRootIdentifier?.rawValue,
+                rootCount: workspace.roots.count,
+                grantCount: workspace.grants.count,
+                roots: WorkspaceToolSupport.rootSummaries(
+                    workspace: workspace,
+                    includeDiagnostics: includeDiagnostics
+                ),
+                grants: includeGrants
+                    ? WorkspaceToolSupport.grantSummaries(
+                        workspace: workspace
+                    )
+                    : [],
+                diagnostics: includeDiagnostics
+                    ? WorkspaceToolSupport.diagnostics(
+                        workspace: workspace
+                    )
+                    : []
             )
             
         }
-
-        let includeDiagnostics = input.includeDiagnostics ?? true
-        let includeGrants = input.includeGrants ?? true
-
-        return InspectWorkspaceToolOutput(
-            hasWorkspace: true,
-            defaultRootID: workspace.accessController.defaultRootID?.rawValue,
-            rootCount: workspace.accessController.paths.roots.count,
-            grantCount: workspace.accessController.grants.count,
-            roots: WorkspaceToolSupport.rootSummaries(
-                workspace: workspace,
-                includeDiagnostics: includeDiagnostics
-            ),
-            grants: includeGrants
-                ? WorkspaceToolSupport.grantSummaries(
-                    workspace: workspace
-                )
-                : [],
-            diagnostics: includeDiagnostics
-                ? workspace.accessController.paths.summary.diagnostics.map(\.message)
-                : []
-        )
-        
     }
 }

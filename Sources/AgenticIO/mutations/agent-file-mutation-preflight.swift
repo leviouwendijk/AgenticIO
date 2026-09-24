@@ -1,6 +1,6 @@
 import Agentic
 import AgenticExecution
-import AgenticWorkspace
+import Workspace
 import Foundation
 import Path
 import Writers
@@ -16,7 +16,7 @@ public extension FileMutationIntentAction {
         switch self {
         case .write,
              .edit:
-            return MutateFilesTool.identifier.rawValue
+            return SystemIO.Tools.MutateFiles.identifier.rawValue
 
         case .rollback:
             return "rollback_file_mutation"
@@ -48,7 +48,7 @@ public struct AgentFileMutationPreflight: Sendable, Codable, Hashable {
     public let willRecordSessionMutation: Bool
     public let willStoreBackupPayload: Bool
     public let willEmitDiffArtifact: Bool
-    public let diffPreview: ToolPreflightDiffPreview?
+    public let diffPreview: ToolPreflight.Preview.Difference?
     public let estimatedByteCount: Int?
     public let estimatedWriteCount: Int
     public let estimatedChangedLineCount: Int?
@@ -69,7 +69,7 @@ public struct AgentFileMutationPreflight: Sendable, Codable, Hashable {
         willRecordSessionMutation: Bool,
         willStoreBackupPayload: Bool,
         willEmitDiffArtifact: Bool,
-        diffPreview: ToolPreflightDiffPreview?,
+        diffPreview: ToolPreflight.Preview.Difference?,
         estimatedByteCount: Int?,
         estimatedWriteCount: Int,
         estimatedChangedLineCount: Int?,
@@ -133,7 +133,7 @@ public extension AgentFileMutationPreflight {
 public extension AgentFileMutationPreflight {
     static func write(
         _ input: WriteRequest,
-        workspace: AgentWorkspace?,
+        workspace: WorkspaceContext?,
         recorder: AgentFileMutationRecorder? = nil
     ) async throws -> Self {
         let mutationInput = MutateFilesToolInput(
@@ -147,15 +147,13 @@ public extension AgentFileMutationPreflight {
                 ),
             ]
         )
-        let preparation = try await MutateFilesTool().prepare(
+        let preparation = try await SystemIO.Tools.MutateFiles().prepare(
             mutationInput,
-            context: .init(
-                workspace: workspace
-            ),
+            workspace: workspace,
             writeOptions: recorder?.writeOptions()
                 ?? .overwriteWithoutBackup
         )
-        let targetPath = preparation.preflight.targetPaths.first
+        let targetPath = preparation.preflight.access.targets.first
             ?? input.path
         let operation = try PreparedFileMutationOperation.envelope(
             .init(
@@ -186,7 +184,7 @@ public extension AgentFileMutationPreflight {
 
     static func edit(
         _ input: FileEditRequest,
-        workspace: AgentWorkspace?,
+        workspace: WorkspaceContext?,
         recorder: AgentFileMutationRecorder? = nil
     ) async throws -> Self {
         let mutationInput = MutateFilesToolInput(
@@ -200,15 +198,13 @@ public extension AgentFileMutationPreflight {
                 ),
             ]
         )
-        let preparation = try await MutateFilesTool().prepare(
+        let preparation = try await SystemIO.Tools.MutateFiles().prepare(
             mutationInput,
-            context: .init(
-                workspace: workspace
-            ),
+            workspace: workspace,
             writeOptions: recorder?.writeOptions()
                 ?? .overwriteWithoutBackup
         )
-        let targetPath = preparation.preflight.targetPaths.first
+        let targetPath = preparation.preflight.access.targets.first
             ?? input.path
         let operation = try PreparedFileMutationOperation.envelope(
             .init(
@@ -253,7 +249,7 @@ private extension AgentFileMutationPreflight {
         let willRecordSessionMutation = recorder != nil
         let willStoreBackupPayload = backupPolicy == .session_store || backupPolicy == .both
         let willEmitDiffArtifact = policy?.emitDiffArtifact ?? false
-        let targetPath = toolPreflight.targetPaths.first ?? path
+        let targetPath = toolPreflight.access.targets.first ?? path
 
         let policyChecks = Self.policyChecks(
             from: toolPreflight,
@@ -273,10 +269,10 @@ private extension AgentFileMutationPreflight {
             willRecordSessionMutation: willRecordSessionMutation,
             willStoreBackupPayload: willStoreBackupPayload,
             willEmitDiffArtifact: willEmitDiffArtifact,
-            diffPreview: toolPreflight.diffPreview,
-            estimatedByteCount: toolPreflight.estimatedByteCount ?? toolPreflight.estimatedWriteBytes,
-            estimatedWriteCount: toolPreflight.estimatedWriteCount,
-            estimatedChangedLineCount: toolPreflight.estimatedChangedLineCount,
+            diffPreview: toolPreflight.preview.difference,
+            estimatedByteCount: toolPreflight.estimates.bytes ?? toolPreflight.estimates.write.bytes,
+            estimatedWriteCount: toolPreflight.estimates.write.count,
+            estimatedChangedLineCount: toolPreflight.estimates.write.changedLines,
             sideEffects: Self.sideEffects(
                 from: toolPreflight,
                 willRecordSessionMutation: willRecordSessionMutation,
@@ -343,7 +339,7 @@ private extension AgentFileMutationPreflight {
             "prepared_operation_plan_captured"
         )
 
-        if preflight.diffPreview != nil {
+        if preflight.preview.difference != nil {
             values.append(
                 "diff_preview_generated"
             )
@@ -384,7 +380,7 @@ private extension AgentFileMutationPreflight {
             )
         }
 
-        if preflight.diffPreview == nil {
+        if preflight.preview.difference == nil {
             values.append(
                 "No diff preview was generated for this file mutation preflight."
             )

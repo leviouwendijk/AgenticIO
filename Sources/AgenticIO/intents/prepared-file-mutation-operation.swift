@@ -63,7 +63,7 @@ public enum PreparedFileMutationOperation {
     ) throws -> PreparedOperation.Envelope {
         .init(
             schema: schema,
-            plan: try JSONValueCodec.encodeValue(
+            plan: try JSONValue.encoding(
                 plan
             )
         )
@@ -79,7 +79,7 @@ public enum PreparedFileMutationOperation {
             )
         }
 
-        return try envelope.plan.as(
+        return try envelope.plan.decode(
             Plan.self
         )
     }

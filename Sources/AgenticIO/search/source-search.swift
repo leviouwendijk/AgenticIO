@@ -1,4 +1,6 @@
-import AgenticWorkspace
+import Agentic
+import Schema
+import Workspace
 import Concatenation
 import Foundation
 import IO
@@ -151,10 +153,11 @@ public struct SourceSearchCandidate:
     }
 }
 
-public struct SourceSearchResult:
-    Sendable,
-    Codable
-{
+public struct SourceSearchResult: Result {
+    public static var jsonschema: JSONSchema {
+        .object()
+    }
+
     public let mode: SearchMode
     public let corpusFingerprint: ContentFingerprint
     public let sourceCount: Int
@@ -241,7 +244,7 @@ public actor SourceSearcher {
 
     public func search(
         _ request: SourceSearchRequest,
-        workspace: AgentWorkspace,
+        workspace: WorkspaceContext,
         toolName: String = "search_sources"
     ) throws -> SourceSearchResult {
         let probes = request.probes.filter {

@@ -1,6 +1,6 @@
 import Agentic
 import AgenticExecution
-import AgenticWorkspace
+import Workspace
 import Foundation
 import IO
 import Path
@@ -30,11 +30,11 @@ public struct RemoveEmptyDirectoriesToolInput:
 
 }
 
-public struct RemoveEmptyDirectoriesToolOutput:
-    Sendable,
-    Codable,
-    Hashable
-{
+public struct RemoveEmptyDirectoriesToolOutput: Result, Hashable {
+    public static var jsonschema: JSONSchema {
+        .object()
+    }
+
     public let removed: [String]
 
     public init(
@@ -75,148 +75,135 @@ public enum RemoveEmptyDirectoriesToolError:
     }
 }
 
-public struct RemoveEmptyDirectoriesTool:
-    AgentTool
-{
-    public typealias Input = RemoveEmptyDirectoriesToolInput
-    public typealias Output = RemoveEmptyDirectoriesToolOutput
-    public static let identifier:
-        AgentToolIdentifier =
-            "remove_empty_directories"
+public extension SystemIO.Tools {
+    @Tool
+    struct RemoveEmptyDirectories: Tool {
+        public typealias Input = RemoveEmptyDirectoriesToolInput
+        public typealias Output = RemoveEmptyDirectoriesToolOutput
+        public static let purpose =
+            """
+            Remove explicitly named workspace directories only when they are real, non-symlink directories containing zero entries.
+            """
 
-    public static let description =
-        """
-        Remove explicitly named workspace directories only when they are real, non-symlink directories containing zero entries.
-        """
-
-    public static let risk:
-        ActionRisk = .boundedmutate
+        public static let risk:
+            ActionRisk = .boundedmutate
 
 
-    public var identifier: AgentToolIdentifier {
-        Self.identifier
-    }
+        public init() {}
 
-    public var description: String {
-        Self.description
-    }
+        public func preflight(
+            _ input: Input,
+            workspace: WorkspaceContext?
+        ) async throws -> ToolPreflight {
+            let workspace = try FileToolSupport.requireWorkspace(
+                workspace,
+                toolName: Self.identifier.rawValue
+            )
+            let authorized = try authorizedPaths(
+                input,
+                workspace: workspace
+            )
 
+            try requireEmptyDirectories(
+                authorized
+            )
 
-    public var risk: ActionRisk {
-        Self.risk
-    }
-
-    public init() {}
-
-    public func preflight(
-        _ input: Input,
-        context: AgentToolExecutionContext
-    ) async throws -> ToolPreflight {
-        let workspace = try FileToolSupport.requireWorkspace(
-            context.workspace,
-            toolName: name
-        )
-        let authorized = try authorizedPaths(
-            input,
-            workspace: workspace
-        )
-
-        try requireEmptyDirectories(
-            authorized
-        )
-
-        return .init(
-            toolName: name,
-            risk: risk,
-            workspaceRoot: workspace.rootURL.path,
-            targetPaths: authorized.map(
-                \.presentationPath
-            ),
-            summary: "Remove \(authorized.count) explicitly named empty director\(authorized.count == 1 ? "y" : "ies").",
-            estimatedWriteCount: authorized.count,
-            sideEffects: [
-                "Removes only the named directories.",
-                "Does not recurse and never removes directory contents.",
-            ],
-            rootIDs: Array(
-                Set(
-                    authorized.map {
-                        $0.rootID.rawValue
-                    }
-                )
-            ).sorted(),
-            capabilitiesRequired: [
-                .write,
-            ],
-            isPreview: true,
-            policyChecks: [
-                "workspace_required",
-                "workspace_paths_authorized",
-                "directory_required",
-                "symlink_rejected",
-                "literal_empty_directory_required",
-                "non_recursive_removal",
-            ]
-        )
-    }
-
-    public func call(
-        _ input: Input,
-        context: AgentToolExecutionContext
-    ) async throws -> Output {
-        let workspace = try FileToolSupport.requireWorkspace(
-            context.workspace,
-            toolName: name
-        )
-        let authorized = try authorizedPaths(
-            input,
-            workspace: workspace
-        )
-
-        try requireEmptyDirectories(
-            authorized
-        )
-
-        for path in authorized {
-            try FileSystem.default.remove(
-                path.absoluteURL
+            return .init(
+                tool: Self.definition.identifier,
+                risk: risk,
+                summary: "Remove \(authorized.count) explicitly named empty director\(authorized.count == 1 ? "y" : "ies").",
+                access: .init(
+                    targets: authorized.map(
+                        \.presentationPath
+                    ),
+                    roots: Array(
+                        Set(
+                            authorized.map {
+                                $0.rootIdentifier.rawValue
+                            }
+                        )
+                    ).sorted(),
+                    capabilities: [
+                        .write,
+                    ]
+                ),
+                estimates: .init(
+                    write: .init(
+                        count: authorized.count
+                    )
+                ),
+                sideEffects: [
+                    "Removes only the named directories.",
+                    "Does not recurse and never removes directory contents.",
+                ],
+                policyChecks: [
+                    "workspace_required",
+                    "workspace_paths_authorized",
+                    "directory_required",
+                    "symlink_rejected",
+                    "literal_empty_directory_required",
+                    "non_recursive_removal",
+                ]
             )
         }
 
-        return RemoveEmptyDirectoriesToolOutput(
-            removed: authorized.map(
-                \.presentationPath
+        public func call(
+            _ input: Input,
+            workspace: WorkspaceContext?
+        ) async throws -> Output {
+            let workspace = try FileToolSupport.requireWorkspace(
+                workspace,
+                toolName: Self.identifier.rawValue
             )
-        )
-        
-    }
+            let authorized = try authorizedPaths(
+                input,
+                workspace: workspace
+            )
 
-    public func process(
-        _ output: Output,
-        input _: Input,
-        context _: AgentToolExecutionContext
-    ) -> AgentToolResultProjection? {
-        let result = output
+            try requireEmptyDirectories(
+                authorized
+            )
 
-        return .init(
-            status: "passed",
-            summary: "Removed \(result.removed.count) empty director\(result.removed.count == 1 ? "y" : "ies").",
-            facts: result.removed.map {
-                .init(
-                    label: $0,
-                    value: "removed"
+            for path in authorized {
+                try FileSystem.default.remove(
+                    path.absoluteURL
                 )
             }
+
+            return RemoveEmptyDirectoriesToolOutput(
+                removed: authorized.map(
+                    \.presentationPath
+                )
+            )
             
-        )
+        }
+
+        public func process(
+            _ output: Output,
+            input _: Input
+        ) -> ToolCall.ResultProjection? {
+            let result = output
+
+            return .init(
+                status: "passed",
+                summary: "Removed \(result.removed.count) empty director\(result.removed.count == 1 ? "y" : "ies").",
+                facts: result.removed.map {
+                    .init(
+                        label: $0,
+                        value: "removed"
+                    )
+                }
+                
+            )
+        }
     }
 }
 
-private extension RemoveEmptyDirectoriesTool {
+private extension SystemIO.Tools.RemoveEmptyDirectories {
     func authorizedPaths(
         _ input: RemoveEmptyDirectoriesToolInput,
-        workspace: AgentWorkspace
-    ) throws -> [AgenticAuthorizedPath] {
+        workspace: WorkspaceContext
+    ) throws -> [AuthorizedPath] {
         guard !input.paths.isEmpty else {
             throw RemoveEmptyDirectoriesToolError.emptyInput
         }
@@ -229,14 +216,14 @@ private extension RemoveEmptyDirectoriesTool {
                 rootID: rootID,
                 path: path,
                 capability: .write,
-                toolName: name,
+                toolName: Self.identifier.rawValue,
                 type: .directory
             )
         }
     }
 
     func requireEmptyDirectories(
-        _ paths: [AgenticAuthorizedPath]
+        _ paths: [AuthorizedPath]
     ) throws {
         for path in paths {
             let snapshot = try FileInspector(

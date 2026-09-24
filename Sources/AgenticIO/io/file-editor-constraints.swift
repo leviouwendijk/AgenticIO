@@ -1,4 +1,4 @@
-import AgenticWorkspace
+import Workspace
 import Foundation
 import Path
 import Writers
@@ -31,10 +31,10 @@ extension FileEditor {
         constraint: StandardEditConstraint
     ) throws -> StandardEditResult {
         try previewEdit(
-            operation,
-            at: workspace.resolve(
-                path
-            ),
+            [
+                operation,
+            ],
+            at: path,
             mode: mode,
             encoding: encoding,
             constraint: constraint
@@ -50,11 +50,11 @@ extension FileEditor {
         constraint: StandardEditConstraint
     ) throws -> StandardEditResult {
         try previewEdit(
-            operation,
-            at: workspace.resolve(
-                rawPath,
-                filetype: filetype
-            ),
+            [
+                operation,
+            ],
+            at: rawPath,
+            filetype: filetype,
             mode: mode,
             encoding: encoding,
             constraint: constraint
@@ -68,12 +68,13 @@ extension FileEditor {
         encoding: String.Encoding = .utf8,
         constraint: StandardEditConstraint
     ) throws -> StandardEditResult {
-        try StandardWriter(
-            workspace.absoluteURL(
-                for: path
-            )
-        ).editor.preview(
+        let authorized = try authorizeForIO(
+            path,
+            capability: .edit
+        )
+        return try previewEditAuthorized(
             operations,
+            authorized: authorized,
             mode: mode,
             encoding: encoding,
             constraint: constraint
@@ -87,11 +88,13 @@ extension FileEditor {
         encoding: String.Encoding = .utf8,
         constraint: StandardEditConstraint
     ) throws -> StandardEditResult {
-        try previewEdit(
+        let authorized = try authorizeForIO(
+            path,
+            capability: .edit
+        )
+        return try previewEditAuthorized(
             operations,
-            at: workspace.resolve(
-                path
-            ),
+            authorized: authorized,
             mode: mode,
             encoding: encoding,
             constraint: constraint
@@ -106,12 +109,14 @@ extension FileEditor {
         encoding: String.Encoding = .utf8,
         constraint: StandardEditConstraint
     ) throws -> StandardEditResult {
-        try previewEdit(
+        let authorized = try authorizeForIO(
+            rawPath,
+            filetype: filetype,
+            capability: .edit
+        )
+        return try previewEditAuthorized(
             operations,
-            at: workspace.resolve(
-                rawPath,
-                filetype: filetype
-            ),
+            authorized: authorized,
             mode: mode,
             encoding: encoding,
             constraint: constraint
@@ -148,12 +153,13 @@ extension FileEditor {
         options: SafeWriteOptions = .overwrite,
         constraint: StandardEditConstraint
     ) throws -> StandardEditResult {
-        try StandardWriter(
-            workspace.absoluteURL(
-                for: path
-            )
-        ).editor.edit(
+        let authorized = try authorizeForIO(
+            path,
+            capability: .edit
+        )
+        return try editAuthorized(
             operations,
+            authorized: authorized,
             mode: mode,
             encoding: encoding,
             options: options,
@@ -169,10 +175,12 @@ extension FileEditor {
         recorder: AgentFileMutationRecorder,
         options: AgentFileEditOptions = .default
     ) async throws -> AgentFileMutationResult {
+        let authorized = try authorizeForIO(
+            path,
+            capability: .edit
+        )
         let editResult = try StandardWriter(
-            workspace.absoluteURL(
-                for: path
-            )
+            authorized.absoluteURL
         ).editor.edit(
             operations,
             mode: options.mode,
@@ -185,8 +193,46 @@ extension FileEditor {
         return try await recorder.record(
             editResult: editResult,
             operationKind: .edit_operations,
-            path: path,
+            path: authorized.path,
             context: options.mutation
+        )
+    }
+}
+
+private extension FileEditor {
+    func previewEditAuthorized(
+        _ operations: [StandardEditOperation],
+        authorized: AuthorizedPath,
+        mode: StandardEditMode,
+        encoding: String.Encoding,
+        constraint: StandardEditConstraint
+    ) throws -> StandardEditResult {
+        try StandardWriter(
+            authorized.absoluteURL
+        ).editor.preview(
+            operations,
+            mode: mode,
+            encoding: encoding,
+            constraint: constraint
+        )
+    }
+
+    func editAuthorized(
+        _ operations: [StandardEditOperation],
+        authorized: AuthorizedPath,
+        mode: StandardEditMode,
+        encoding: String.Encoding,
+        options: SafeWriteOptions,
+        constraint: StandardEditConstraint
+    ) throws -> StandardEditResult {
+        try StandardWriter(
+            authorized.absoluteURL
+        ).editor.edit(
+            operations,
+            mode: mode,
+            encoding: encoding,
+            options: options,
+            constraint: constraint
         )
     }
 }

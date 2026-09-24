@@ -1,139 +1,93 @@
 import Agentic
 import AgenticExecution
-import AgenticWorkspace
+import Workspace
 import Foundation
 import Primitives
 import Path
 
-public struct RequestPathGrantTool: AgentTool {
-    public typealias Input = RequestPathGrantToolInput
-    public typealias Output = WorkspaceAccessRequest
+public extension SystemIO.Tools {
+    @Tool
+    struct RequestPathGrant: Tool {
+        public typealias Input = RequestPathGrantToolInput
+        public typealias Output = WorkspaceAccessRequest
 
-    public static let identifier: AgentToolIdentifier = "request_path_grant"
-    public static let description = "Request temporary workspace access to an existing directory. The runtime suspends so a human can deny it or grant it for the current turn or session."
-    public static let risk: ActionRisk = .observe
+        public static let purpose = "Request temporary workspace access to an existing directory. The runtime may suspend so a human can resolve the request."
+        public static let risk: ActionRisk = .observe
 
-    public var identifier: AgentToolIdentifier {
-        Self.identifier
-    }
+        public init() {}
 
-    public var description: String {
-        Self.description
-    }
+        public func preflight(
+            _ input: Input,
+            workspace _: WorkspaceContext?
+        ) async throws -> ToolPreflight {
+            .init(
+                tool: Self.definition.identifier,
+                risk: risk,
+                summary: "Request temporary workspace access to \(input.requestedRootPath).",
+                access: .init(
+                    targets: [
+                        input.requestedRootPath
+                    ],
+                    capabilities: [
+                        .list
+                    ]
+                ),
+                sideEffects: [
+                    "requests temporary workspace authority",
+                    "does not install workspace access"
+                ],
+                policyChecks: [
+                    "requested_root_exists",
+                    "requested_root_is_directory",
+                    "grant_not_installed_by_tool",
+                    "human_resolution_required"
+                ]
+            )
+        }
 
-    public var risk: ActionRisk {
-        Self.risk
-    }
-
-    public init() {}
-
-    public func preflight(
-        _ input: Input,
-        context: AgentToolExecutionContext
-    ) async throws -> ToolPreflight {
-        .init(
-            toolName: name,
-            risk: risk,
-            workspaceRoot: context.workspace?.rootURL.path,
-            targetPaths: [
+        public func call(
+            _ input: Input,
+            workspace _: WorkspaceContext?
+        ) async throws -> Output {
+            let rootURL = try normalizedExistingDirectoryURL(
                 input.requestedRootPath
-            ],
-            summary: "Request temporary workspace access to \(input.requestedRootPath).",
-            estimatedWriteCount: 0,
-            sideEffects: [
-                "requests temporary workspace authority",
-                "does not install workspace access"
-            ],
-            capabilitiesRequired: [
-                .list
-            ],
-            isPreview: false,
-            policyChecks: [
-                "requested_root_exists",
-                "requested_root_is_directory",
-                "grant_not_installed_by_tool",
-                "human_resolution_required"
-            ]
-        )
-    }
+            )
+            let rootID = normalizedRootID(
+                input.suggestedRootID,
+                fallback: rootURL.lastPathComponent
+            )
+            let label = normalizedLabel(
+                input.label,
+                fallback: rootURL.lastPathComponent
+            )
+            let reason = try normalizedRequired(
+                input.reason,
+                field: "reason"
+            )
+            let policyProfile = try resolvedPolicyProfile(
+                input.policyProfile
+            )
+            let durationSeconds = try resolvedDurationSeconds(
+                input.expiresInSeconds
+            )
+            let capabilities = resolvedCapabilities(
+                input.capabilities
+            )
 
-    public func call(
-        _ input: Input,
-        context _: AgentToolExecutionContext
-    ) async throws -> Output {
-        let rootURL = try normalizedExistingDirectoryURL(
-            input.requestedRootPath
-        )
-        let mode = input.mode ?? .read_only
-        let capabilities = input.capabilities.flatMap { values in
-            values.isEmpty ? nil : values
-        } ?? WorkspaceToolSupport.defaultCapabilities(
-            for: mode
-        )
-        let allowedTools = input.allowedTools.flatMap { values in
-            values.isEmpty ? nil : values
-        } ?? WorkspaceToolSupport.defaultAllowedTools(
-            for: mode
-        )
-        let rootID = normalizedRootID(
-            input.suggestedRootID,
-            fallback: rootURL.lastPathComponent
-        )
-        let label = normalizedLabel(
-            input.label,
-            fallback: rootURL.lastPathComponent
-        )
-        let reason = try normalizedRequired(
-            input.reason,
-            field: "reason"
-        )
-        let policyProfile = normalizedPolicyProfile(
-            input.policyProfile
-        )
-        let accessPolicy = try resolvedAccessPolicy(
-            profile: policyProfile
-        )
-        let durationSeconds = try resolvedDurationSeconds(
-            input.expiresInSeconds
-        )
-        let grant = PathGrant(
-            id: UUID().uuidString,
-            rootID: rootID,
-            mode: mode,
-            capabilities: capabilities,
-            allowedTools: allowedTools,
-            reason: reason,
-            expiresAt: nil,
-            metadata: [
-                "policy_profile": policyProfile
-            ]
-        )
-        let overlay = try WorkspaceAccessOverlay(
-            roots: [
-                .init(
-                    root: .init(
-                        id: rootID,
-                        label: label,
-                        scope: try PathAccessScope(
-                            root: rootURL,
-                            policy: accessPolicy
-                        ),
-                        details: "Temporary workspace access requested through Agentic.",
-                        isDefault: false
-                    ),
-                    grant: grant
-                )
-            ]
-        )
-
-        return WorkspaceAccessRequest(
-            overlay: overlay,
-            durationSeconds: durationSeconds
-        )
+            return WorkspaceAccessRequest(
+                rootID: rootID.rawValue,
+                rootPath: rootURL.path,
+                label: label,
+                capabilities: capabilities,
+                reason: reason,
+                policyProfile: policyProfile,
+                durationSeconds: durationSeconds
+            )
+        }
     }
 }
 
-private extension RequestPathGrantTool {
+private extension SystemIO.Tools.RequestPathGrant {
     func normalizedExistingDirectoryURL(
         _ value: String
     ) throws -> URL {
@@ -145,7 +99,7 @@ private extension RequestPathGrantTool {
 
         guard expanded.hasPrefix("/") else {
             throw PredefinedFileToolError.invalidValue(
-                tool: name,
+                tool: Self.identifier.rawValue,
                 field: "requestedRootPath",
                 reason: "must be an absolute path or tilde-expanded path"
             )
@@ -162,7 +116,7 @@ private extension RequestPathGrantTool {
             isDirectory: &isDirectory
         ) else {
             throw PredefinedFileToolError.invalidValue(
-                tool: name,
+                tool: Self.identifier.rawValue,
                 field: "requestedRootPath",
                 reason: "path does not exist"
             )
@@ -170,7 +124,7 @@ private extension RequestPathGrantTool {
 
         guard isDirectory.boolValue else {
             throw PredefinedFileToolError.invalidValue(
-                tool: name,
+                tool: Self.identifier.rawValue,
                 field: "requestedRootPath",
                 reason: "path is not a directory"
             )
@@ -189,7 +143,7 @@ private extension RequestPathGrantTool {
 
         guard !trimmed.isEmpty else {
             throw PredefinedFileToolError.missingField(
-                tool: name,
+                tool: Self.identifier.rawValue,
                 field: field
             )
         }
@@ -235,26 +189,40 @@ private extension RequestPathGrantTool {
             ?? (fallback.isEmpty ? "Requested Root" : fallback)
     }
 
-    func normalizedPolicyProfile(
+    func resolvedPolicyProfile(
         _ value: String?
-    ) -> String {
-        normalizedOptional(value)
+    ) throws -> String {
+        let profile = normalizedOptional(value)
             ?? "workspace_default"
-    }
 
-    func resolvedAccessPolicy(
-        profile: String
-    ) throws -> PathAccessPolicy {
-        switch profile {
-        case "workspace_default":
-            return .defaults.workspace
-
-        default:
+        guard profile == "workspace_default" else {
             throw PredefinedFileToolError.invalidValue(
-                tool: name,
+                tool: Self.identifier.rawValue,
                 field: "policyProfile",
                 reason: "unsupported path grant policy profile '\(profile)'"
             )
+        }
+
+        return profile
+    }
+
+    func resolvedCapabilities(
+        _ values: [WorkspaceCapability]?
+    ) -> [WorkspaceCapability] {
+        let values = values ?? [
+            .read
+        ]
+
+        let unique = Set(
+            values.isEmpty
+                ? [
+                    .read
+                ]
+                : values
+        )
+
+        return unique.sorted {
+            $0.rawValue < $1.rawValue
         }
     }
 
@@ -264,11 +232,12 @@ private extension RequestPathGrantTool {
         guard let value else {
             return nil
         }
+
         guard value.isFinite,
               value >= 0
         else {
             throw PredefinedFileToolError.invalidValue(
-                tool: name,
+                tool: Self.identifier.rawValue,
                 field: "expiresInSeconds",
                 reason: "must be finite and non-negative"
             )

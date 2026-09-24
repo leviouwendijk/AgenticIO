@@ -1,33 +1,19 @@
 import Agentic
 import AgenticExecution
 import AgenticIO
-import AgenticWorkspace
+import Workspace
 import Foundation
-import TestFlows
+import Testing
 
 extension AgenticIOFlowTesting {
-    static func runMutateFilesWorkspaceTargeting() async throws -> [TestFlowDiagnostic] {
+    static func runMutateFilesWorkspaceTargeting() async throws -> [TestDiagnostic] {
         let fixture = try MutateFilesWorkspaceTargetFixture.make()
 
         defer {
             fixture.remove()
         }
 
-        let tool = MutateFilesTool()
-        try Expect.equal(
-            tool.execution.workingLocation,
-            .targetable,
-            "mutate_files declares targetable working-location execution"
-        )
-        let location = try fixture.workspace.location(
-            for: WorkspaceTarget(
-                subpath: "Package"
-            )
-        )
-        let context = AgentToolExecutionContext(
-            workspace: fixture.workspace,
-            workspaceLocation: location
-        )
+        let tool = SystemIO.Tools.MutateFiles()
         let input = MutateFilesToolInput(
                         entries: [
                             .init(
@@ -40,11 +26,11 @@ extension AgenticIOFlowTesting {
 
         let preflight = try await tool.preflight(
             input,
-            context: context
+            workspace: fixture.workspace
         )
 
         try Expect.equal(
-            preflight.targetPaths,
+            preflight.access.targets,
             [
                 "Package/target.txt",
             ],
@@ -53,7 +39,7 @@ extension AgenticIOFlowTesting {
 
         _ = try await tool.call(
             input,
-            context: context
+            workspace: fixture.workspace
         )
 
         try Expect.equal(
@@ -114,11 +100,11 @@ extension AgenticIOFlowTesting {
         )
         let copyPreflight = try await tool.preflight(
             copyInput,
-            context: context
+            workspace: fixture.workspace
         )
 
         try Expect.equal(
-            copyPreflight.targetPaths,
+            copyPreflight.access.targets,
             [
                 "Package/CopySource",
                 "Package/CopyDestination",
@@ -128,7 +114,7 @@ extension AgenticIOFlowTesting {
 
         let copyOutput = try await tool.call(
             copyInput,
-            context: context
+            workspace: fixture.workspace
         )
 
         try Expect.equal(
@@ -170,7 +156,7 @@ extension AgenticIOFlowTesting {
         do {
             _ = try await tool.preflight(
                 escapingInput,
-                context: context
+                workspace: fixture.workspace
             )
         } catch {
             escapeRejected = true
@@ -206,7 +192,7 @@ private struct MutateFilesWorkspaceTargetFixture {
     let containerURL: URL
     let workspaceURL: URL
     let targetDirectoryURL: URL
-    let workspace: AgentWorkspace
+    let workspace: WorkspaceContext
 
     var rootFileURL: URL {
         workspaceURL.appendingPathComponent(
@@ -246,12 +232,13 @@ private struct MutateFilesWorkspaceTargetFixture {
             withIntermediateDirectories: true
         )
 
-        let fixture = try Self(
+        let fixture = Self(
             containerURL: containerURL,
             workspaceURL: workspaceURL,
             targetDirectoryURL: targetDirectoryURL,
-            workspace: AgentWorkspace(
-                root: workspaceURL
+            workspace: try makeAgenticIOTestingWorkspace(
+                root: workspaceURL,
+                at: "Package"
             )
         )
 

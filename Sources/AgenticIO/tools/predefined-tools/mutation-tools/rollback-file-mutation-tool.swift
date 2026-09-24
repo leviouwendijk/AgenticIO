@@ -1,116 +1,118 @@
 import Agentic
 import AgenticExecution
-import AgenticWorkspace
+import Workspace
 import Difference
 import Foundation
 import Primitives
 import Writers
 
-public struct RollbackFileMutationTool: AgentTool {
-    public typealias Input = AgentFileMutationRollbackInput
-    public typealias Output = AgentFileMutationRollbackOutput
+public extension SystemIO.Tools {
+    @Tool
+    struct RollbackFileMutation: Tool {
+        public typealias Input = AgentFileMutationRollbackInput
+        public typealias Output = AgentFileMutationRollbackOutput
 
-    public let identifier: AgentToolIdentifier = .rollback_file_mutation
-    public let description = "Roll back a recorded file mutation."
-    public let risk: ActionRisk = .boundedmutate
+        public static let purpose = "Roll back a recorded file mutation."
+        public static let risk: ActionRisk = .boundedmutate
 
-    public let store: any AgentFileMutationStore
-    public let recorder: AgentFileMutationRecorder
+        public let store: any AgentFileMutationStore
+        public let recorder: AgentFileMutationRecorder
 
-    public init(
-        store: any AgentFileMutationStore,
-        recorder: AgentFileMutationRecorder
-    ) {
-        self.store = store
-        self.recorder = recorder
-    }
-
-    public func preflight(
-        _ input: Input,
-        context: AgentToolExecutionContext
-    ) async throws -> ToolPreflight {
-
-        return try await AgentFileMutationPreflight.rollback(
-            input,
-            store: store,
-            workspace: context.workspace,
-            recorder: recorder
-        ).toolPreflight
-    }
-
-    
-
-    public func call(
-        _ input: Input,
-        context: AgentToolExecutionContext
-    ) async throws -> Output {
-
-        let sourceID = try input.normalizedMutationUUID()
-        let sourceIDString = sourceID.uuidString.lowercased()
-
-        guard let source = try await store.load(
-            id: sourceID
-        ) else {
-            throw AgentFileMutationRollbackError.mutationNotFound(
-                sourceIDString
-            )
+        public init(
+            store: any AgentFileMutationStore,
+            recorder: AgentFileMutationRecorder
+        ) {
+            self.store = store
+            self.recorder = recorder
         }
 
-        guard source.rollbackable else {
-            throw AgentFileMutationRollbackError.mutationNotRollbackable(
-                sourceIDString
-            )
+        public func preflight(
+            _ input: Input,
+            workspace: WorkspaceContext?
+        ) async throws -> ToolPreflight {
+
+            return try await AgentFileMutationPreflight.rollback(
+                input,
+                store: store,
+                workspace: workspace,
+                recorder: recorder
+            ).toolPreflight
         }
 
-        guard let writerRecord = try await store.loadWriterRecord(
-            for: source
-        ) else {
-            throw AgentFileMutationRollbackError.missingWriterRecord(
-                sourceIDString
-            )
-        }
-
-        let rollback = try StandardWriter(
-            source.target
-        ).rollback(
-            writerRecord,
-            options: recorder.writeOptions(),
-            checkTarget: input.checkTarget,
-            context: recorder.writeExecutionContext()
-        )
-
-        let recorded = try await recorder.record(
-            writerRecord: rollbackRecordingRecord(
-                rollback
-            ),
-            writeResult: rollback.writeResult,
-            rootID: source.rootID,
-            path: source.path,
-            context: AgentFileMutationContext(
-                toolContext: context,
-                additionalMetadata: [
-                    "toolName": identifier.rawValue,
-                    "intent_action": "rollback",
-                    "rollback_of": source.id.uuidString.lowercased(),
-                    "rollback_source_writer_record_id": source.writerRecordID.uuidString.lowercased(),
-                    "rollback_strategy": rollback.preview.strategy.rawValue
-                ]
-            )
-        )
-
-        return AgentFileMutationRollbackOutput(
-            sourceMutationID: source.id,
-            rollbackMutationID: recorded.mutation.id,
-            writerRecordID: recorded.writerRecord.id,
-            targetPath: recorded.mutation.target.standardizedFileURL.path,
-            rollbackStrategy: rollback.preview.strategy,
-            artifactIDs: recorded.mutation.artifactIDs
-        )
         
+
+        public func call(
+            _ input: Input,
+            workspace: WorkspaceContext?
+        ) async throws -> Output {
+
+            let sourceID = try input.normalizedMutationUUID()
+            let sourceIDString = sourceID.uuidString.lowercased()
+
+            guard let source = try await store.load(
+                id: sourceID
+            ) else {
+                throw AgentFileMutationRollbackError.mutationNotFound(
+                    sourceIDString
+                )
+            }
+
+            guard source.rollbackable else {
+                throw AgentFileMutationRollbackError.mutationNotRollbackable(
+                    sourceIDString
+                )
+            }
+
+            guard let writerRecord = try await store.loadWriterRecord(
+                for: source
+            ) else {
+                throw AgentFileMutationRollbackError.missingWriterRecord(
+                    sourceIDString
+                )
+            }
+
+            let rollback = try StandardWriter(
+                source.target
+            ).rollback(
+                writerRecord,
+                options: recorder.writeOptions(),
+                checkTarget: input.checkTarget,
+                context: recorder.writeExecutionContext()
+            )
+
+            let recorded = try await recorder.record(
+                writerRecord: rollbackRecordingRecord(
+                    rollback
+                ),
+                writeResult: rollback.writeResult,
+                rootID: source.rootID,
+                path: source.path,
+                context: AgentFileMutationContext(
+                    rootID: source.rootID,
+                    metadata: [
+                        "toolName": Self.identifier.rawValue,
+                        "intent_action": "rollback",
+                        "rollback_of": source.id.uuidString.lowercased(),
+                        "rollback_source_writer_record_id": source.writerRecordID.uuidString.lowercased(),
+                        "rollback_strategy": rollback.preview.strategy.rawValue
+                    ]
+                )
+            )
+
+            return AgentFileMutationRollbackOutput(
+                sourceMutationID: source.id,
+                rollbackMutationID: recorded.mutation.id,
+                writerRecordID: recorded.writerRecord.id,
+                targetPath: recorded.mutation.target.standardizedFileURL.path,
+                rollbackStrategy: rollback.preview.strategy,
+                artifactIDs: recorded.mutation.artifactIDs
+            )
+            
+        }
     }
 }
 
-private extension RollbackFileMutationTool {
+private extension SystemIO.Tools.RollbackFileMutation {
     func rollbackRecordingRecord(
         _ rollback: WriteMutationRollbackResult
     ) -> WriteMutationRecord {

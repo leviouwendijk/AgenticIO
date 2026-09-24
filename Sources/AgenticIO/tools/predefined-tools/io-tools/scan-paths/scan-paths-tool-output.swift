@@ -1,3 +1,5 @@
+import Agentic
+import Schema
 public struct ScanPathsToolOutputEntry: Sendable, Codable, Hashable {
     public let path: String
     public let isDirectory: Bool
@@ -11,7 +13,11 @@ public struct ScanPathsToolOutputEntry: Sendable, Codable, Hashable {
     }
 }
 
-public struct ScanPathsToolOutput: Sendable, Codable, Hashable {
+public struct ScanPathsToolOutput: Result, Hashable {
+    public static var jsonschema: JSONSchema {
+        .object()
+    }
+
     public let rootID: String
     public let directory: String?
     public let entries: [ScanPathsToolOutputEntry]

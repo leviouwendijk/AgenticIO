@@ -1,3 +1,5 @@
+import Agentic
+import Schema
 import Position
 
 public struct ReadFileLine: Sendable, Codable, Hashable {
@@ -13,7 +15,11 @@ public struct ReadFileLine: Sendable, Codable, Hashable {
     }
 }
 
-public struct ReadFileToolOutput: Sendable, Codable, Hashable {
+public struct ReadFileToolOutput: Result, Hashable {
+    public static var jsonschema: JSONSchema {
+        .object()
+    }
+
     public let rootID: String
     public let path: String
     public let content: String

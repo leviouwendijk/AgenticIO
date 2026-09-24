@@ -8,7 +8,7 @@ enum PredefinedFileToolError: Error, Sendable, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .workspaceRequired(let tool):
-            return "Tool '\(tool)' requires an attached AgentWorkspace."
+            return "Tool '\(tool)' requires an attached WorkspaceContext."
 
         case .missingField(let tool, let field):
             return "Tool '\(tool)' is missing required field '\(field)'."

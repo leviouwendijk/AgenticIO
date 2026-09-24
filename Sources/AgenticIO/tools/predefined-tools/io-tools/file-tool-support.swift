@@ -1,59 +1,18 @@
-import AgenticWorkspace
 import Foundation
+import Workspace
 
 enum FileToolSupport {
     static func requireWorkspace(
-        _ workspace: AgentWorkspace?,
+        _ workspace: WorkspaceContext?,
         toolName: String
-    ) throws -> AgentWorkspace {
+    ) throws -> WorkspaceContext {
         guard let workspace else {
-            throw PredefinedFileToolError.workspaceRequired(toolName)
+            throw PredefinedFileToolError.workspaceRequired(
+                toolName
+            )
         }
 
         return workspace
-    }
-
-    static func validateReadWindow(
-        startLine: Int?,
-        endLine: Int?,
-        maxLines: Int?
-    ) throws {
-        if let startLine,
-           startLine <= 0 {
-            throw PredefinedFileToolError.invalidValue(
-                tool: "read_file",
-                field: "startLine",
-                reason: "must be greater than zero"
-            )
-        }
-
-        if let endLine,
-           endLine <= 0 {
-            throw PredefinedFileToolError.invalidValue(
-                tool: "read_file",
-                field: "endLine",
-                reason: "must be greater than zero"
-            )
-        }
-
-        if let maxLines,
-           maxLines <= 0 {
-            throw PredefinedFileToolError.invalidValue(
-                tool: "read_file",
-                field: "maxLines",
-                reason: "must be greater than zero"
-            )
-        }
-
-        if let startLine,
-           let endLine,
-           endLine < startLine {
-            throw PredefinedFileToolError.invalidValue(
-                tool: "read_file",
-                field: "endLine",
-                reason: "must be greater than or equal to startLine"
-            )
-        }
     }
 
     static func renderLines(
@@ -62,32 +21,67 @@ enum FileToolSupport {
         includeLineNumbers: Bool
     ) -> String {
         guard includeLineNumbers else {
-            return joinedLines(lines)
+            return lines.joined(separator: "\n")
         }
 
-        let endLine = startLine + max(0, lines.count - 1)
-        let width = String(max(1, endLine)).count
+        let endLine = max(
+            startLine,
+            startLine + lines.count - 1
+        )
+        let width = String(endLine).count
 
         return lines.enumerated().map { offset, line in
-            let number = startLine + offset
+            let lineNumber = startLine + offset
             let label = String(
                 format: "%\(width)d",
-                number
+                lineNumber
             )
 
             return "\(label) | \(line)"
         }.joined(separator: "\n")
     }
-}
 
-private extension FileToolSupport {
-    static func joinedLines(
-        _ lines: [String]
-    ) -> String {
-        guard !lines.isEmpty else {
-            return ""
+    static func validateReadWindow(
+        toolName: String,
+        startLine: Int?,
+        endLine: Int?,
+        maxLines: Int?
+    ) throws {
+        if let startLine,
+           startLine < 1 {
+            throw PredefinedFileToolError.invalidValue(
+                tool: toolName,
+                field: "startLine",
+                reason: "must be >= 1"
+            )
         }
 
-        return lines.joined(separator: "\n")
+        if let endLine,
+           endLine < 1 {
+            throw PredefinedFileToolError.invalidValue(
+                tool: toolName,
+                field: "endLine",
+                reason: "must be >= 1"
+            )
+        }
+
+        if let startLine,
+           let endLine,
+           endLine < startLine {
+            throw PredefinedFileToolError.invalidValue(
+                tool: toolName,
+                field: "endLine",
+                reason: "must be >= startLine"
+            )
+        }
+
+        if let maxLines,
+           maxLines < 1 {
+            throw PredefinedFileToolError.invalidValue(
+                tool: toolName,
+                field: "maxLines",
+                reason: "must be >= 1"
+            )
+        }
     }
 }

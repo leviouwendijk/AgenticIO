@@ -1,14 +1,14 @@
 import Agentic
 import AgenticExecution
 import AgenticIO
-import AgenticWorkspace
+import Workspace
 import Foundation
-import TestFlows
+import Testing
 
 extension AgenticIOFlowTesting {
     static func runPreparedOperationAuthoring()
         async throws
-        -> [TestFlowDiagnostic]
+        -> [TestDiagnostic]
     {
         let fixture = try PreparedOperationAuthoringFixture.make()
 
@@ -82,7 +82,7 @@ extension AgenticIOFlowTesting {
             "prepared intent draft uses the typed operation envelope as its execution authority"
         )
 
-        let workspaceRequest = try await RequestPathGrantTool().call(
+        let workspaceRequest = try await SystemIO.Tools.RequestPathGrant().call(
             .init(
                 requestedRootPath: fixture.rootURL.path,
                 suggestedRootID: "fixture_external",
@@ -153,7 +153,7 @@ private enum PreparedOperationAuthoringFixtureError: Error {
 
 private struct PreparedOperationAuthoringFixture {
     let rootURL: URL
-    let workspace: AgentWorkspace
+    let workspace: WorkspaceContext
 
     var fileURL: URL {
         rootURL.appendingPathComponent(
@@ -175,7 +175,7 @@ private struct PreparedOperationAuthoringFixture {
 
         let fixture = try Self(
             rootURL: rootURL,
-            workspace: AgentWorkspace(
+            workspace: WorkspaceContext(
                 root: rootURL
             )
         )

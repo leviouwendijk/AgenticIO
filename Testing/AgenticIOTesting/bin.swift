@@ -1,11 +1,28 @@
-import TestFlows
+import Testing
+
+private enum AgenticIOTestingMainError: Error {
+    case failed
+}
 
 @main
-enum AgenticIOFlowTestMain {
-    static func main() async {
-        await TestFlowCLI.run(
-            suite: AgenticIOFlowSuite.self
+struct AgenticIOTestingMain {
+    static func main() async throws {
+        let reporter = PlainTextTestReporter()
+        let result = await TestRunner.run(
+            AgenticIOFlowSuite.testSuite,
+            sink: reporter
         )
+        let rendered = await reporter.rendered()
+
+        if !rendered.isEmpty {
+            print(
+                rendered
+            )
+        }
+
+        if result.isFailure {
+            throw AgenticIOTestingMainError.failed
+        }
     }
 }
 
@@ -13,49 +30,6 @@ enum AgenticIOFlowSuite: TestFlowRegistry {
     static let title = "AgenticIO flow tests"
 
     static let flows: [TestFlow] = [
-        TestFlow(
-            "prepared-operation-authoring",
-            tags: [
-                "agentic-io",
-                "prepared-operation",
-                "prepared-intent",
-                "mutation",
-                "path-grant",
-                "persistence",
-                "version",
-            ]
-        ) {
-            try await AgenticIOFlowTesting
-                .runPreparedOperationAuthoring()
-        },
-        TestFlow(
-            "workspace-access-overlay",
-            tags: [
-                "agentic-io",
-                "agentic-workspace",
-                "path-grant",
-                "overlay",
-                "authorization",
-                "persistence",
-            ]
-        ) {
-            try await AgenticIOFlowTesting
-                .runWorkspaceAccessOverlay()
-        },
-        TestFlow(
-            "prepared-file-mutation-execution",
-            tags: [
-                "agentic-io",
-                "prepared-operation",
-                "execution",
-                "mutation",
-                "rollback",
-                "persistence",
-            ]
-        ) {
-            try await AgenticIOFlowTesting
-                .runPreparedFileMutationExecution()
-        },
         TestFlow(
             "mutate-files-workspace-targeting",
             tags: [

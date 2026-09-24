@@ -1,104 +1,96 @@
 import Agentic
 import AgenticExecution
-import AgenticWorkspace
+import Workspace
 import Position
 import Primitives
+import Readers
+import Selection
 
-public struct ReadSelectionTool: AgentTool {
-    public typealias Input = ReadSelectionToolInput
-    public typealias Output = ReadSelectionToolOutput
+public extension SystemIO.Tools {
+    @Tool
+    struct ReadSelection: Tool {
+        public typealias Input = ReadSelectionToolInput
+        public typealias Output = ReadSelectionToolOutput
 
-    public static let identifier: AgentToolIdentifier = "read_selection"
-    public static let description = "Read one or more content selections from a file in the workspace."
-    public static let risk: ActionRisk = .observe
+        public static let purpose = "Read one or more content selections from a file in the workspace."
+        public static let risk: ActionRisk = .observe
 
-    public var identifier: AgentToolIdentifier {
-        Self.identifier
-    }
+        public init() {}
 
-    public var description: String {
-        Self.description
-    }
+        public func preflight(
+            _ input: Input,
+            workspace: WorkspaceContext?
+        ) async throws -> ToolPreflight {
+            _ = try input.contentSelections()
 
-    public var risk: ActionRisk {
-        Self.risk
-    }
+            let targetPath: String
+            if let workspace {
+                targetPath = try workspace.authorize(
+                    input.path,
+                    capability: .read
+                ).authorizedPath.presentationPath
+            } else {
+                targetPath = input.path
+            }
 
-    public init() {}
-
-    public func preflight(
-        _ input: Input,
-        context: AgentToolExecutionContext
-    ) async throws -> ToolPreflight {
-        _ = try input.contentSelections()
-
-        let targetPath: String
-        if let workspace = context.workspace {
-            targetPath = try workspace.resolve(
-                input.path
-            ).presentingRelative(
-                filetype: true
+            return .init(
+                tool: Self.definition.identifier,
+                risk: risk,
+                summary: summary(
+                    for: input,
+                    renderedPath: targetPath
+                ),
+                access: .init(
+                    targets: [
+                        targetPath
+                    ]
+                ),
             )
-        } else {
-            targetPath = input.path
         }
 
-        return .init(
-            toolName: name,
-            risk: risk,
-            workspaceRoot: context.workspace?.rootURL.path,
-            targetPaths: [targetPath],
-            summary: summary(
-                for: input,
-                renderedPath: targetPath
+        public func call(
+            _ input: Input,
+            workspace: WorkspaceContext?
+        ) async throws -> Output {
+            let workspace = try FileToolSupport.requireWorkspace(
+                workspace,
+                toolName: Self.identifier.rawValue
             )
-        )
-    }
+            let authorized = try workspace.authorize(
+                input.path,
+                capability: .read
+            ).authorizedPath
+            let read = try SelectionResolver.resolve(
+                file: authorized.absoluteURL,
+                selections: try input.contentSelections()
+            )
 
-    public func call(
-        _ input: Input,
-        context: AgentToolExecutionContext
-    ) async throws -> Output {
-        let workspace = try FileToolSupport.requireWorkspace(
-            context.workspace,
-            toolName: name
-        )
-
-
-        let path = try workspace.resolve(
-            input.path
-        )
-
-        let read = try workspace.readSelections(
-            path,
-            try input.contentSelections()
-        )
-
-        let slices = read.slices.map { slice in
-            ReadSelectionToolOutputSlice(
-                lineRange: lineRange(for: slice),
-                lineCount: slice.lines.count,
-                content: render(
-                    slice: slice,
-                    includeLineNumbers: input.includeLineNumbers
+            let slices = read.slices.map { slice in
+                ReadSelectionToolOutputSlice(
+                    lineRange: lineRange(for: slice),
+                    lineCount: slice.lines.count,
+                    content: render(
+                        slice: slice,
+                        includeLineNumbers: input.includeLineNumbers
+                    )
                 )
-            )
-        }
+            }
 
-        return ReadSelectionToolOutput(
-            path: read.relativePath,
-            slices: slices,
-            selectedLineRanges: read.selectedLineRanges,
-            selectedLineCount: read.selectedLineCount,
-            totalLineCount: read.totalLineCount,
-            byteCount: read.byteCount,
-            encoding: read.encodingUsed?.name
-        )
-        
+            return ReadSelectionToolOutput(
+                path: authorized.presentationPath,
+                slices: slices,
+                selectedLineRanges: read.selectedLineRanges,
+                selectedLineCount: read.selectedLineCount,
+                totalLineCount: read.totalLineCount,
+                byteCount: read.byteCount,
+                encoding: read.encodingUsed?.name
+            )
+            
+        }
     }
 }
 
-private extension ReadSelectionTool {
+private extension SystemIO.Tools.ReadSelection {
     func summary(
         for input: ReadSelectionToolInput,
         renderedPath: String

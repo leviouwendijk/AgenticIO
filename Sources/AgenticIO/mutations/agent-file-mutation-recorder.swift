@@ -1,5 +1,5 @@
 import Agentic
-import AgenticWorkspace
+import Workspace
 import Difference
 import Foundation
 import Path

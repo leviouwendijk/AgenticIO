@@ -1,12 +1,12 @@
 import Agentic
 import AgenticExecution
 import AgenticIO
-import AgenticWorkspace
+import Workspace
 import Foundation
-import TestFlows
+import Testing
 
 extension AgenticIOFlowTesting {
-    static func runSearchContext() async throws -> [TestFlowDiagnostic] {
+    static func runSearchContext() async throws -> [TestDiagnostic] {
         let fixture = try SearchContextFixture.make()
 
         defer {
@@ -16,7 +16,7 @@ extension AgenticIOFlowTesting {
         var registry = ToolRegistry()
 
         try registry.register(
-            CoreFileToolSet()
+            from: CoreFileToolSet()
         )
 
         _ = try Expect.notNil(
@@ -47,7 +47,7 @@ extension AgenticIOFlowTesting {
             )
         }
 
-        let searchOutput = try await SearchSourcesTool().call(
+        let searchOutput = try await SystemIO.Tools.SearchSources().call(
             SearchSourcesToolInput(
                                 includes: [
                                     "Sources/**",
@@ -64,9 +64,7 @@ extension AgenticIOFlowTesting {
                                 mergeDistanceLines: 1,
                                 maximumCandidates: 8
                             ),
-            context: .init(
-                workspace: fixture.workspace
-            )
+            workspace: fixture.workspace
         )
         let search = searchOutput
         let candidate = try Expect.notNil(
@@ -90,7 +88,7 @@ extension AgenticIOFlowTesting {
             "searched candidate ends on original source line 4"
         )
 
-        let tool = LoadSearchContextTool()
+        let tool = SystemIO.Tools.LoadSearchContext()
         let input = LoadSearchContextToolInput(
             candidates: [
                 .init(
@@ -105,9 +103,7 @@ extension AgenticIOFlowTesting {
         )
         let output = try await tool.call(
             input,
-            context: .init(
-                workspace: fixture.workspace
-            )
+            workspace: fixture.workspace
         )
         let context = output
 
@@ -190,9 +186,7 @@ extension AgenticIOFlowTesting {
         do {
             _ = try await tool.call(
                 input,
-                context: .init(
-                    workspace: fixture.workspace
-                )
+                workspace: fixture.workspace
             )
         } catch let error as SourceContextLoadError {
             switch error {
@@ -220,7 +214,7 @@ extension AgenticIOFlowTesting {
 private struct SearchContextFixture {
     let root: URL
     let sourceA: URL
-    let workspace: AgentWorkspace
+    let workspace: WorkspaceContext
 
     static func make() throws -> Self {
         let root = FileManager.default.temporaryDirectory
@@ -257,7 +251,7 @@ private struct SearchContextFixture {
         return .init(
             root: root,
             sourceA: sourceA,
-            workspace: try AgentWorkspace(
+            workspace: try makeAgenticIOTestingWorkspace(
                 root: root
             )
         )

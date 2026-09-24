@@ -1,4 +1,5 @@
 import Agentic
+import Schema
 import Foundation
 import Path
 import Writers
@@ -167,7 +168,11 @@ public struct AgentFileMutationSummary: Sendable, Codable, Hashable, Identifiabl
     }
 }
 
-public struct AgentFileMutationHistoryList: Sendable, Codable, Hashable {
+public struct AgentFileMutationHistoryList: Result, Hashable {
+    public static var jsonschema: JSONSchema {
+        .object()
+    }
+
     public let mutations: [AgentFileMutationSummary]
     public let totalCount: Int
     public let returnedCount: Int
@@ -186,7 +191,11 @@ public struct AgentFileMutationHistoryList: Sendable, Codable, Hashable {
     }
 }
 
-public struct AgentFileMutationInspection: Sendable, Codable, Hashable {
+public struct AgentFileMutationInspection: Result, Hashable {
+    public static var jsonschema: JSONSchema {
+        .object()
+    }
+
     public let mutation: AgentFileMutationSummary
     public let metadata: [String: String]
     public let writerRecord: AgentWriteStoredRecordSummary

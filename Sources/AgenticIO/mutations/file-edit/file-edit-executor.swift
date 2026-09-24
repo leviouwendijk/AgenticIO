@@ -1,11 +1,11 @@
 import Agentic
-import AgenticWorkspace
+import Workspace
 import Foundation
 import Writers
 
 /// Executes one structured file edit request outside the model-facing tool layer.
 ///
-/// Model-facing file mutation goes through `MutateFilesTool`. This executor is
+/// Model-facing file mutation goes through `SystemIO.Tools.MutateFiles`. This executor is
 /// for internal single-file workflows such as prepared-intent replay while
 /// sharing the same resolver and policy semantics as `mutate_files.edit_text`.
 public struct FileEditExecutor: Sendable {
@@ -40,8 +40,8 @@ public struct FileEditExecutor: Sendable {
 
     public func preview(
         _ request: FileEditRequest,
-        workspace: AgentWorkspace,
-        authorizationToolName: String = MutateFilesTool.identifier.rawValue
+        workspace: WorkspaceContext,
+        authorizationToolName: String = SystemIO.Tools.MutateFiles.identifier.rawValue
     ) throws -> StandardEditResult {
         let resolution = try FileEditResolver(
             toolName: authorizationToolName
@@ -70,8 +70,8 @@ public struct FileEditExecutor: Sendable {
 
     public func execute(
         _ request: FileEditRequest,
-        workspace: AgentWorkspace,
-        authorizationToolName: String = MutateFilesTool.identifier.rawValue
+        workspace: WorkspaceContext,
+        authorizationToolName: String = SystemIO.Tools.MutateFiles.identifier.rawValue
     ) async throws -> Result {
         let resolution = try FileEditResolver(
             toolName: authorizationToolName
@@ -101,10 +101,10 @@ public struct FileEditExecutor: Sendable {
         try resolution.requireCurrentSnapshot()
 
         var mutationContext = context
-        mutationContext.rootID = resolution.authorized.rootID
+        mutationContext.rootID = resolution.authorized.rootIdentifier
         mutationContext.metadata["executor"] = Self.name
         mutationContext.metadata["authorization_tool_name"] = authorizationToolName
-        mutationContext.metadata["root_id"] = resolution.authorized.rootID.rawValue
+        mutationContext.metadata["root_id"] = resolution.authorized.rootIdentifier.rawValue
         mutationContext.metadata["path"] = resolution.authorized.presentationPath
 
         if let recorder {

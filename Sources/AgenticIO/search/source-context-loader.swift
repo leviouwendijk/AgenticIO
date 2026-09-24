@@ -1,4 +1,6 @@
-import AgenticWorkspace
+import Agentic
+import Schema
+import Workspace
 import Foundation
 import IO
 import Path
@@ -199,11 +201,11 @@ public struct SourceContextFile:
     }
 }
 
-public struct SourceContextResult:
-    Sendable,
-    Codable,
-    Hashable
-{
+public struct SourceContextResult: Result, Hashable {
+    public static var jsonschema: JSONSchema {
+        .object()
+    }
+
     public let rootID: String
     public let candidateCount: Int
     public let sourceCount: Int
@@ -266,7 +268,7 @@ public struct SourceContextLoader: Sendable {
 
     public func load(
         _ request: SourceContextRequest,
-        workspace: AgentWorkspace
+        workspace: WorkspaceContext
     ) throws -> SourceContextResult {
         try validate(
             request

@@ -15,9 +15,9 @@ let package = Package(
             ]
         ),
         .executable(
-            name: "aiotest",
+            name: "t_aio_all",
             targets: [
-                "AgenticIOTestFlows",
+                "AgenticIOTesting",
             ]
         ),
     ],
@@ -31,7 +31,7 @@ let package = Package(
             branch: "master"
         ),
         .package(
-            url: "https://github.com/leviouwendijk/AgenticWorkspace.git",
+            url: "https://github.com/leviouwendijk/Workspace.git",
             branch: "master"
         ),
         .package(
@@ -95,7 +95,7 @@ let package = Package(
             branch: "master"
         ),
         .package(
-            url: "https://github.com/leviouwendijk/TestFlows.git",
+            url: "https://github.com/leviouwendijk/Testing.git",
             branch: "master"
         ),
     ],
@@ -112,8 +112,8 @@ let package = Package(
                     package: "AgenticExecution"
                 ),
                 .product(
-                    name: "AgenticWorkspace",
-                    package: "AgenticWorkspace"
+                    name: "Workspace",
+                    package: "Workspace"
                 ),
                 .product(
                     name: "Primitives",
@@ -182,7 +182,7 @@ let package = Package(
             ]
         ),
         .executableTarget(
-            name: "AgenticIOTestFlows",
+            name: "AgenticIOTesting",
             dependencies: [
                 "AgenticIO",
                 .product(
@@ -194,8 +194,8 @@ let package = Package(
                     package: "AgenticExecution"
                 ),
                 .product(
-                    name: "AgenticWorkspace",
-                    package: "AgenticWorkspace"
+                    name: "Workspace",
+                    package: "Workspace"
                 ),
                 .product(
                     name: "Concatenation",
@@ -226,13 +226,41 @@ let package = Package(
                     package: "Selection"
                 ),
                 .product(
-                    name: "TestFlows",
-                    package: "TestFlows"
+                    name: "Primitives",
+                    package: "Primitives"
                 ),
-            ]
+                .product(
+                    name: "Writers",
+                    package: "Writers"
+                ),
+                .product(
+                    name: "Testing",
+                    package: "Testing"
+                ),
+            ],
+            path: "Testing/AgenticIOTesting"
         ),
     ],
     swiftLanguageModes: [
         .v6,
     ]
 )
+
+for target in package.targets {
+    switch target.type {
+    case .regular, .executable, .test, .macro:
+        var settings = target.swiftSettings ?? []
+
+        settings.append(
+            .treatAllWarnings(as: .error)
+        )
+
+        target.swiftSettings = settings
+
+    case .plugin, .system, .binary:
+        break
+
+    @unknown default:
+        break
+    }
+}

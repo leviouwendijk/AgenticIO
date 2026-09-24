@@ -1,6 +1,6 @@
 import Agentic
 import AgenticExecution
-import AgenticWorkspace
+import Workspace
 import Foundation
 import Primitives
 import Schema
@@ -39,76 +39,66 @@ public struct ListFileMutationsToolInput: Sendable, Codable, Hashable {
     }
 }
 
-public struct ListFileMutationsTool: AgentTool {
-    public typealias Input = ListFileMutationsToolInput
-    public typealias Output = AgentFileMutationHistoryList
+public extension SystemIO.Tools {
+    @Tool
+    struct ListFileMutations: Tool {
+        public typealias Input = ListFileMutationsToolInput
+        public typealias Output = AgentFileMutationHistoryList
 
-    public static let identifier: AgentToolIdentifier = .list_file_mutations
-    public static let description = "List recorded file mutations for the current Agentic session mutation store."
-    public static let risk: ActionRisk = .observe
+        public static let purpose = "List recorded file mutations for the current Agentic session mutation store."
+        public static let risk: ActionRisk = .observe
 
-    public var identifier: AgentToolIdentifier {
-        Self.identifier
-    }
+        public let store: any AgentFileMutationStore
 
-    public var description: String {
-        Self.description
-    }
+        public init(
+            store: any AgentFileMutationStore
+        ) {
+            self.store = store
+        }
 
+        public func preflight(
+            _ input: Input,
+            workspace: WorkspaceContext?
+        ) async throws -> ToolPreflight {
 
-    public var risk: ActionRisk {
-        Self.risk
-    }
-
-    public let store: any AgentFileMutationStore
-
-    public init(
-        store: any AgentFileMutationStore
-    ) {
-        self.store = store
-    }
-
-    public func preflight(
-        _ input: Input,
-        context: AgentToolExecutionContext
-    ) async throws -> ToolPreflight {
-
-        return .init(
-            toolName: name,
-            risk: risk,
-            workspaceRoot: context.workspace?.rootURL.path,
-            summary: summary(
-                for: input
-            ),
-            estimatedRuntimeSeconds: 1,
-            sideEffects: []
-        )
-    }
-
-    public func call(
-        _ input: Input,
-        context: AgentToolExecutionContext
-    ) async throws -> Output {
-        let history = AgentFileMutationHistory(
-            store: store
-        )
-        let result = try await history.list(
-            .init(
-                path: input.normalizedPath,
-                preparedIntentID: input.normalizedPreparedIntentID,
-                rollbackableOnly: input.rollbackableOnly,
-                includeUnchanged: input.includeUnchanged,
-                latestFirst: input.latestFirst,
-                limit: input.clampedLimit
+            return .init(
+                tool: Self.definition.identifier,
+                risk: risk,
+                summary: summary(
+                    for: input
+                ),
+                estimates: .init(
+                    runtime: 1
+                ),
+                sideEffects: []
             )
-        )
+        }
 
-        return result
-        
+        public func call(
+            _ input: Input,
+            workspace: WorkspaceContext?
+        ) async throws -> Output {
+            let history = AgentFileMutationHistory(
+                store: store
+            )
+            let result = try await history.list(
+                .init(
+                    path: input.normalizedPath,
+                    preparedIntentID: input.normalizedPreparedIntentID,
+                    rollbackableOnly: input.rollbackableOnly,
+                    includeUnchanged: input.includeUnchanged,
+                    latestFirst: input.latestFirst,
+                    limit: input.clampedLimit
+                )
+            )
+
+            return result
+            
+        }
     }
 }
 
-private extension ListFileMutationsTool {
+private extension SystemIO.Tools.ListFileMutations {
     func summary(
         for input: ListFileMutationsToolInput
     ) -> String {

@@ -1,5 +1,5 @@
 import Path
-import AgenticWorkspace
+import Workspace
 import Schema
 import Writers
 
@@ -49,7 +49,7 @@ extension StandardDeletePolicy:
     }
 }
 
-extension PathCapability:
+extension WorkspaceCapability:
     @retroactive JSONSchemaProviding
 {
     public static var jsonschema: JSONSchema {
@@ -57,13 +57,6 @@ extension PathCapability:
     }
 }
 
-extension PathGrantMode:
-    @retroactive JSONSchemaProviding
-{
-    public static var jsonschema: JSONSchema {
-        .string(cases: allCases.map(\.rawValue))
-    }
-}
 
 extension PathSegmentType:
     @retroactive JSONSchemaProviding

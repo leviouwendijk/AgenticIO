@@ -1,4 +1,4 @@
-import AgenticWorkspace
+import Workspace
 import Foundation
 import Path
 import Position
@@ -71,10 +71,10 @@ public struct FileEditGrant: Sendable, Codable, Hashable {
 
     public func matches(
         input: FileEditRequest,
-        authorized: AgenticAuthorizedPath
+        authorized: AuthorizedPath
     ) -> Bool {
         if let rootID,
-           rootID != authorized.rootID {
+           rootID != authorized.rootIdentifier {
             return false
         }
 
@@ -170,7 +170,7 @@ public struct FileEditPolicy: Sendable, Codable, Hashable {
 
     public func constraint(
         for input: FileEditRequest,
-        authorized: AgenticAuthorizedPath,
+        authorized: AuthorizedPath,
         operations: [StandardEditOperation]
     ) throws -> StandardEditConstraint {
         guard let grant = grants.first(where: { grant in
@@ -181,7 +181,7 @@ public struct FileEditPolicy: Sendable, Codable, Hashable {
         }) else {
             guard !requiresGrant else {
                 throw FileEditPolicyError.grant_required(
-                    rootID: authorized.rootID.rawValue,
+                    rootID: authorized.rootIdentifier.rawValue,
                     path: authorized.presentationPath
                 )
             }

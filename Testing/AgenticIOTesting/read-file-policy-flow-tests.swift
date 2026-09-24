@@ -1,20 +1,20 @@
 import Agentic
 import AgenticExecution
 import AgenticIO
-import AgenticWorkspace
+import Workspace
 import Foundation
 import Path
-import TestFlows
+import Testing
 
 extension AgenticIOFlowTesting {
-    static func runReadFilePolicy() async throws -> [TestFlowDiagnostic] {
+    static func runReadFilePolicy() async throws -> [TestDiagnostic] {
         let fixture = try ReadFilePolicyFixture.make()
 
         defer {
             fixture.remove()
         }
 
-        let tool = ReadFileTool()
+        let tool = SystemIO.Tools.ReadFile()
         let policy = ToolExecutionPolicy(
             autonomyMode: .auto_observe
         )
@@ -23,9 +23,7 @@ extension AgenticIOFlowTesting {
             ReadFileToolInput(
                                 path: "Sources/example.swift"
                             ),
-            context: .init(
-                workspace: fixture.workspace
-            )
+            workspace: fixture.workspace
         )
 
         try Expect.equal(
@@ -38,36 +36,22 @@ extension AgenticIOFlowTesting {
             .no_approval_needed,
             "ordinary source read remains automatic"
         )
-        try Expect.true(
-            ordinary.policyDirectives == nil
-                || ordinary.policyDirectives?.isEmpty == true,
-            "ordinary source read has no escalation directive"
-        )
-
         let sensitive = try await tool.preflight(
             ReadFileToolInput(
                                 path: "notes/private-notes.txt"
                             ),
-            context: .init(
-                workspace: fixture.workspace
-            )
+            workspace: fixture.workspace
         )
 
         try Expect.equal(
             sensitive.risk,
-            .observe,
-            "sensitive read keeps inherent observe risk"
+            .privileged,
+            "private path elevates the read to privileged risk"
         )
         try Expect.equal(
             policy.evaluate(sensitive),
             .needs_human_review,
-            "private path escalates observe read to human review"
-        )
-        try Expect.true(
-            sensitive.policyDirectives?.contains(
-                .require_human_review
-            ) == true,
-            "private path emits review directive"
+            "private path privileged risk requires human review"
         )
         try Expect.true(
             sensitive.summary.contains(
@@ -80,26 +64,18 @@ extension AgenticIOFlowTesting {
             ReadFileToolInput(
                                 path: "notes/do-not-read.txt"
                             ),
-            context: .init(
-                workspace: fixture.workspace
-            )
+            workspace: fixture.workspace
         )
 
         try Expect.equal(
             forbidden.risk,
-            .observe,
-            "denied read keeps inherent observe risk"
+            .forbidden,
+            "do-not-read path elevates the read to forbidden risk"
         )
         try Expect.equal(
             policy.evaluate(forbidden),
             .denied_forbidden,
             "do-not-read path is denied by sensitivity policy"
-        )
-        try Expect.true(
-            forbidden.policyDirectives?.contains(
-                .require_deny
-            ) == true,
-            "do-not-read path emits deny directive"
         )
         try Expect.true(
             forbidden.summary.contains(
@@ -127,7 +103,7 @@ extension AgenticIOFlowTesting {
 
 private struct ReadFilePolicyFixture {
     let root: URL
-    let workspace: AgentWorkspace
+    let workspace: WorkspaceContext
 
     static func make() throws -> Self {
         let root = FileManager.default.temporaryDirectory
@@ -177,9 +153,8 @@ private struct ReadFilePolicyFixture {
 
         return .init(
             root: root,
-            workspace: try AgentWorkspace(
-                root: root,
-                accessPolicy: .allowAll
+            workspace: try makeAgenticIOTestingWorkspace(
+                root: root
             )
         )
     }

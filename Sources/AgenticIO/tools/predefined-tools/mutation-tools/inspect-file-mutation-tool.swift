@@ -1,6 +1,6 @@
 import Agentic
 import AgenticExecution
-import AgenticWorkspace
+import Workspace
 import Foundation
 import Primitives
 import Schema
@@ -23,70 +23,60 @@ public struct InspectFileMutationToolInput: Sendable, Codable, Hashable {
     }
 }
 
-public struct InspectFileMutationTool: AgentTool {
-    public typealias Input = InspectFileMutationToolInput
-    public typealias Output = AgentFileMutationInspection
+public extension SystemIO.Tools {
+    @Tool
+    struct InspectFileMutation: Tool {
+        public typealias Input = InspectFileMutationToolInput
+        public typealias Output = AgentFileMutationInspection
 
-    public static let identifier: AgentToolIdentifier = .inspect_file_mutation
-    public static let description = "Inspect one recorded file mutation and optionally load its diff artifact."
-    public static let risk: ActionRisk = .observe
+        public static let purpose = "Inspect one recorded file mutation and optionally load its diff artifact."
+        public static let risk: ActionRisk = .observe
 
-    public var identifier: AgentToolIdentifier {
-        Self.identifier
-    }
+        public let store: any AgentFileMutationStore
+        public let artifactStore: (any AgentArtifactStore)?
 
-    public var description: String {
-        Self.description
-    }
+        public init(
+            store: any AgentFileMutationStore,
+            artifactStore: (any AgentArtifactStore)? = nil
+        ) {
+            self.store = store
+            self.artifactStore = artifactStore
+        }
 
+        public func preflight(
+            _ input: Input,
+            workspace: WorkspaceContext?
+        ) async throws -> ToolPreflight {
 
-    public var risk: ActionRisk {
-        Self.risk
-    }
+            return .init(
+                tool: Self.definition.identifier,
+                risk: risk,
+                summary: """
+                Inspect recorded file mutation \(input.id).
+                loadDiffArtifact: \(input.loadDiffArtifact)
+                """,
+                estimates: .init(
+                    runtime: 1
+                ),
+                sideEffects: []
+            )
+        }
 
-    public let store: any AgentFileMutationStore
-    public let artifactStore: (any AgentArtifactStore)?
+        public func call(
+            _ input: Input,
+            workspace: WorkspaceContext?
+        ) async throws -> Output {
+            let history = AgentFileMutationHistory(
+                store: store,
+                artifactStore: artifactStore
+            )
+            let inspection = try await history.inspect(
+                id: input.id,
+                loadDiffArtifact: input.loadDiffArtifact
+            )
 
-    public init(
-        store: any AgentFileMutationStore,
-        artifactStore: (any AgentArtifactStore)? = nil
-    ) {
-        self.store = store
-        self.artifactStore = artifactStore
-    }
-
-    public func preflight(
-        _ input: Input,
-        context: AgentToolExecutionContext
-    ) async throws -> ToolPreflight {
-
-        return .init(
-            toolName: name,
-            risk: risk,
-            workspaceRoot: context.workspace?.rootURL.path,
-            summary: """
-            Inspect recorded file mutation \(input.id).
-            loadDiffArtifact: \(input.loadDiffArtifact)
-            """,
-            estimatedRuntimeSeconds: 1,
-            sideEffects: []
-        )
-    }
-
-    public func call(
-        _ input: Input,
-        context: AgentToolExecutionContext
-    ) async throws -> Output {
-        let history = AgentFileMutationHistory(
-            store: store,
-            artifactStore: artifactStore
-        )
-        let inspection = try await history.inspect(
-            id: input.id,
-            loadDiffArtifact: input.loadDiffArtifact
-        )
-
-        return inspection
-        
+            return inspection
+            
+        }
     }
 }

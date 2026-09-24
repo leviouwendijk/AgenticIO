@@ -1,14 +1,14 @@
 import Agentic
 import AgenticExecution
 import AgenticIO
-import AgenticWorkspace
+import Workspace
 import Foundation
 import Schema
-import TestFlows
+import Testing
 
 extension AgenticIOFlowTesting {
     static func runMutateFilesRelativeInsertion()
-        async throws -> [TestFlowDiagnostic]
+        async throws -> [TestDiagnostic]
     {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent(
@@ -37,13 +37,10 @@ extension AgenticIOFlowTesting {
             encoding: .utf8
         )
 
-        let workspace = try AgentWorkspace(
+        let workspace = try makeAgenticIOTestingWorkspace(
             root: root
         )
-        let context = AgentToolExecutionContext(
-            workspace: workspace
-        )
-        let tool = MutateFilesTool()
+        let tool = SystemIO.Tools.MutateFiles()
         let schema = String(
             describing: MutateFilesToolInput.jsonschema
         )
@@ -88,11 +85,11 @@ extension AgenticIOFlowTesting {
 
         let preflight = try await tool.preflight(
             input,
-            context: context
+            workspace: workspace
         )
 
         try Expect.equal(
-            preflight.targetPaths,
+            preflight.access.targets,
             [
                 "sample.txt",
             ],
@@ -101,7 +98,7 @@ extension AgenticIOFlowTesting {
 
         _ = try await tool.call(
             input,
-            context: context
+            workspace: workspace
         )
 
         try Expect.equal(
@@ -137,7 +134,7 @@ extension AgenticIOFlowTesting {
         do {
             _ = try await tool.preflight(
                 invalid,
-                context: context
+                workspace: workspace
             )
         } catch {
             invalidLineRejected = true

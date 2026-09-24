@@ -1,7 +1,7 @@
 import Agentic
 import AgenticExecution
 
-public struct CoreFileMutationHistoryToolSet: AgentToolSet {
+public struct CoreFileMutationHistoryToolSet: AgentToolProvider {
     public let store: any AgentFileMutationStore
     public let recorder: AgentFileMutationRecorder
     public let artifactStore: (any AgentArtifactStore)?
@@ -16,20 +16,20 @@ public struct CoreFileMutationHistoryToolSet: AgentToolSet {
         self.artifactStore = artifactStore
     }
 
-    public func register(
+    public func registerTools(
         into registry: inout ToolRegistry
     ) throws {
         try registry.register {
-            ListFileMutationsTool(
+            SystemIO.Tools.ListFileMutations(
                 store: store
             )
 
-            InspectFileMutationTool(
+            SystemIO.Tools.InspectFileMutation(
                 store: store,
                 artifactStore: artifactStore
             )
 
-            RollbackFileMutationTool(
+            SystemIO.Tools.RollbackFileMutation(
                 store: store,
                 recorder: recorder
             )

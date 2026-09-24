@@ -1,12 +1,12 @@
-import AgenticWorkspace
+import Workspace
 import Foundation
 import Path
-import TestFlows
+import Testing
 
 extension AgenticIOFlowTesting {
     static func runWorkspaceAccessOverlay()
         async throws
-        -> [TestFlowDiagnostic]
+        -> [TestDiagnostic]
     {
         let fixtureRoot = FileManager.default.temporaryDirectory
             .appendingPathComponent(
@@ -46,7 +46,7 @@ extension AgenticIOFlowTesting {
             )
         }
 
-        let base = try AgentWorkspace(
+        let base = try WorkspaceContext(
             root: projectRoot
         )
         let rootID = PathAccessRootIdentifier(

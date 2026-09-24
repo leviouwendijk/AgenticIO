@@ -1,6 +1,6 @@
 import Agentic
 import AgenticExecution
-import AgenticWorkspace
+import Workspace
 import Difference
 import Foundation
 import Path
@@ -79,7 +79,11 @@ public extension AgentFileMutationRollbackInput {
     }
 }
 
-public struct AgentFileMutationRollbackOutput: Sendable, Codable, Hashable {
+public struct AgentFileMutationRollbackOutput: Result, Hashable {
+    public static var jsonschema: JSONSchema {
+        .object()
+    }
+
     public let sourceMutationID: UUID
     public let rollbackMutationID: UUID
     public let writerRecordID: UUID
@@ -108,7 +112,7 @@ public extension AgentFileMutationPreflight {
     static func rollback(
         _ input: AgentFileMutationRollbackInput,
         store: any AgentFileMutationStore,
-        workspace: AgentWorkspace?,
+        workspace: WorkspaceContext?,
         recorder: AgentFileMutationRecorder? = nil
     ) async throws -> Self {
         let sourceID = try input.normalizedMutationUUID()
@@ -191,38 +195,48 @@ public extension AgentFileMutationPreflight {
             hasDiffPreview: diffPreview != nil
         )
 
+        let rollbackBytes = Data(
+            plan.preview.rollbackContent.utf8
+        ).count
+        let changedLineCount = diffPreview.map {
+            $0.layout.changes.count
+        }
         let toolPreflight = ToolPreflight(
-            toolName: FileMutationIntentAction.rollback.authorizationToolName,
+            tool: .init(
+                rawValue: FileMutationIntentAction.rollback.authorizationToolName
+            ),
             risk: .boundedmutate,
-            workspaceRoot: workspace?.rootURL.path,
-            targetPaths: [
-                targetPath
-            ],
             summary: """
             Roll back recorded file mutation \(sourceIDString).
 
             Target: \(targetPath)
             Strategy: \(plan.preview.strategy.rawValue)
             """,
-            estimatedWriteCount: 1,
-            estimatedByteCount: Data(
-                plan.preview.rollbackContent.utf8
-            ).count,
+            access: .init(
+                targets: [
+                    targetPath
+                ],
+                roots: [
+                    rootID.rawValue
+                ],
+                capabilities: [
+                    .write
+                ]
+            ),
+            estimates: .init(
+                write: .init(
+                    count: 1,
+                    bytes: rollbackBytes,
+                    changedLines: changedLineCount
+                ),
+                bytes: rollbackBytes
+            ),
+            preview: .init(
+                difference: diffPreview
+            ),
             sideEffects: sideEffects,
-            rootIDs: [
-                rootID.rawValue
-            ],
-            capabilitiesRequired: [
-                .write
-            ],
-            estimatedWriteBytes: Data(
-                plan.preview.rollbackContent.utf8
-            ).count,
-            estimatedChangedLineCount: diffPreview?.changedLineCount,
-            isPreview: true,
             policyChecks: policyChecks,
-            warnings: warnings,
-            diffPreview: diffPreview
+            warnings: warnings
         )
 
         return .init(
@@ -237,11 +251,9 @@ public extension AgentFileMutationPreflight {
             willStoreBackupPayload: willStoreBackupPayload,
             willEmitDiffArtifact: willEmitDiffArtifact,
             diffPreview: diffPreview,
-            estimatedByteCount: Data(
-                plan.preview.rollbackContent.utf8
-            ).count,
+            estimatedByteCount: rollbackBytes,
             estimatedWriteCount: 1,
-            estimatedChangedLineCount: diffPreview?.changedLineCount,
+            estimatedChangedLineCount: changedLineCount,
             sideEffects: sideEffects,
             policyChecks: policyChecks,
             warnings: warnings,
@@ -272,7 +284,7 @@ public extension AgentFileMutationRollbackInput {
 private func rollbackDiffPreview(
     _ preview: WriteMutationRollbackPreview,
     displayPath: String
-) -> ToolPreflightDiffPreview? {
+) -> ToolPreflight.Preview.Difference? {
     let currentContent = preview.current.content ?? ""
     let rollbackContent = preview.rollbackContent
 
@@ -291,23 +303,14 @@ private func rollbackDiffPreview(
         difference,
         options: .unified
     )
-    let rendered = DifferenceRenderer.plain(
-        layout,
-        options: .unified
-    )
 
-    guard !rendered.trimmingCharacters(
-        in: .whitespacesAndNewlines
-    ).isEmpty else {
+    guard !layout.isEmpty else {
         return nil
     }
 
     return .init(
         title: "Rollback preview for \(displayPath)",
-        text: rendered,
-        layout: layout,
-        insertedLineCount: difference.insertions,
-        deletedLineCount: difference.deletions
+        layout: layout
     )
 }
 

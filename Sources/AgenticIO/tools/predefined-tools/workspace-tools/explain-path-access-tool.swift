@@ -1,6 +1,6 @@
 import Agentic
 import AgenticExecution
-import AgenticWorkspace
+import Workspace
 import Primitives
 import Schema
 import Macros
@@ -14,7 +14,7 @@ public struct ExplainPathAccessToolInput: Sendable, Codable, Hashable {
     /// Root-relative path whose access should be explained.
     public let path: String
     /// Requested path capability to evaluate.
-    public let capability: PathCapability
+    public let capability: WorkspaceCapability
     /// Optional tool name to evaluate against grant restrictions.
     public let toolName: String?
     /// Optional expected path segment type.
@@ -23,7 +23,7 @@ public struct ExplainPathAccessToolInput: Sendable, Codable, Hashable {
     public init(
         rootID: PathAccessRootIdentifier? = nil,
         path: String,
-        capability: PathCapability = .read,
+        capability: WorkspaceCapability = .read,
         toolName: String? = nil,
         type: PathSegmentType? = nil
     ) {
@@ -35,11 +35,15 @@ public struct ExplainPathAccessToolInput: Sendable, Codable, Hashable {
     }
 }
 
-public struct ExplainPathAccessToolOutput: Sendable, Codable, Hashable {
+public struct ExplainPathAccessToolOutput: Result, Hashable {
+    public static var jsonschema: JSONSchema {
+        .object()
+    }
+
     public let allowed: Bool
     public let rootID: String
     public let path: String
-    public let capability: PathCapability
+    public let capability: WorkspaceCapability
     public let toolName: String
     public let resolvedPath: String?
     public let decision: String?
@@ -52,7 +56,7 @@ public struct ExplainPathAccessToolOutput: Sendable, Codable, Hashable {
         allowed: Bool,
         rootID: String,
         path: String,
-        capability: PathCapability,
+        capability: WorkspaceCapability,
         toolName: String,
         resolvedPath: String?,
         decision: String?,
@@ -75,196 +79,145 @@ public struct ExplainPathAccessToolOutput: Sendable, Codable, Hashable {
     }
 }
 
-public struct ExplainPathAccessTool: AgentTool {
-    public typealias Input = ExplainPathAccessToolInput
-    public typealias Output = ExplainPathAccessToolOutput
+public extension SystemIO.Tools {
+    @Tool
+    struct ExplainPathAccess: Tool {
+        public typealias Input = ExplainPathAccessToolInput
+        public typealias Output = ExplainPathAccessToolOutput
 
-    public static let identifier: AgentToolIdentifier = "explain_path_access"
-    public static let description = "Explain whether a root-relative path is accessible for a requested capability and why."
-    public static let risk: ActionRisk = .observe
+        public static let purpose = "Explain whether a root-relative path is accessible for a requested capability and why."
+        public static let risk: ActionRisk = .observe
 
-    public var identifier: AgentToolIdentifier {
-        Self.identifier
-    }
+        public init() {}
 
-    public var description: String {
-        Self.description
-    }
+        public func preflight(
+            _ input: Input,
+            workspace: WorkspaceContext?
+        ) async throws -> ToolPreflight {
+            let rootID = workspace?.rootIdentifier
+                ?? input.rootID
+                ?? .project
 
-
-    public var risk: ActionRisk {
-        Self.risk
-    }
-
-    public init() {}
-
-    public func preflight(
-        _ input: Input,
-        context: AgentToolExecutionContext
-    ) async throws -> ToolPreflight {
-        let rootID = input.rootID ?? .project
-
-        return .init(
-            toolName: name,
-            risk: risk,
-            workspaceRoot: context.workspace?.rootURL.path,
-            targetPaths: [
-                input.path
-            ],
-            summary: "Explain \(input.capability.rawValue) access for \(rootID.rawValue):\(input.path).",
-            rootIDs: [
-                rootID.rawValue
-            ],
-            capabilitiesRequired: [
-                .list
-            ],
-            policyChecks: [
-                "no_file_content_access",
-                "access_explanation_only"
-            ]
-        )
-    }
-
-    public func call(
-        _ input: Input,
-        context: AgentToolExecutionContext
-    ) async throws -> Output {
-        let rootID = input.rootID ?? .project
-        let requestedToolName = normalizedToolName(
-            input.toolName
-        )
-
-        guard let workspace = context.workspace else {
-            return ExplainPathAccessToolOutput(
-                allowed: false,
-                rootID: rootID.rawValue,
-                path: input.path,
-                capability: input.capability,
-                toolName: requestedToolName,
-                resolvedPath: nil,
-                decision: nil,
-                matchedRule: nil,
-                reason: "No AgentWorkspace is attached.",
+            return .init(
+                tool: Self.definition.identifier,
+                risk: risk,
+                summary: "Explain \(input.capability.rawValue) access for \(rootID.rawValue):\(input.path).",
+                access: .init(
+                    targets: [
+                        input.path
+                    ],
+                    roots: [
+                        rootID.rawValue
+                    ],
+                    capabilities: [
+                        .list
+                    ]
+                ),
                 policyChecks: [
-                    "workspace_missing"
+                    "no_file_content_access",
+                    "access_explanation_only"
                 ]
             )
-            
         }
 
-        do {
-            let descendant = try workspace.accessController.paths.resolve(
-                input.path,
-                rootIdentifier: rootID,
-                type: input.type
-            )
-            let evaluation = try workspace.accessController.paths.evaluate(
-                descendant,
-                rootIdentifier: rootID,
-                type: input.type
-            )
-            let resolvedPath = descendant.presentingRelative(
-                filetype: true
+        public func call(
+            _ input: Input,
+            workspace: WorkspaceContext?
+        ) async throws -> Output {
+            let requestedToolName = normalizedToolName(
+                input.toolName
             )
 
-            guard evaluation.isAllowed else {
+            guard let workspace else {
+                let rootID = input.rootID ?? .project
                 return ExplainPathAccessToolOutput(
                     allowed: false,
                     rootID: rootID.rawValue,
                     path: input.path,
                     capability: input.capability,
                     toolName: requestedToolName,
-                    resolvedPath: resolvedPath,
-                    decision: evaluation.decision.rawValue,
-                    matchedRule: evaluation.matchedRule?.matcher.summary,
-                    reason: evaluation.matchedRule?.reason ?? "Path access policy denied this path.",
+                    resolvedPath: nil,
+                    decision: nil,
+                    matchedRule: nil,
+                    reason: "No WorkspaceContext is attached.",
                     policyChecks: [
-                        "root_resolved",
-                        "path_sandboxed",
-                        "path_policy_denied"
+                        "workspace_missing"
                     ]
                 )
-                
             }
 
-            let grants = workspace.accessController.activeGrants(
-                rootID: rootID,
-                capability: input.capability,
-                toolName: requestedToolName
-            )
-
-            guard let grant = grants.first else {
+            if let requestedRoot = input.rootID,
+               requestedRoot != workspace.rootIdentifier {
                 return ExplainPathAccessToolOutput(
                     allowed: false,
-                    rootID: rootID.rawValue,
+                    rootID: workspace.rootIdentifier.rawValue,
                     path: input.path,
                     capability: input.capability,
                     toolName: requestedToolName,
-                    resolvedPath: resolvedPath,
-                    decision: evaluation.decision.rawValue,
-                    matchedRule: evaluation.matchedRule?.matcher.summary,
-                    reason: "Path policy allows this path, but no active workspace grant allows capability '\(input.capability.rawValue)' for tool '\(requestedToolName)'.",
+                    resolvedPath: nil,
+                    decision: nil,
+                    matchedRule: nil,
+                    reason: "Requested root '\(requestedRoot.rawValue)' does not match the already-targeted workspace root '\(workspace.rootIdentifier.rawValue)'.",
                     policyChecks: [
-                        "root_resolved",
-                        "path_sandboxed",
-                        "path_policy_allowed",
-                        "grant_denied"
+                        "workspace_context_already_targeted",
+                        "root_mismatch"
                     ],
                     suggestedGrant: suggestion(
-                        rootID: rootID,
-                        capability: input.capability,
-                        toolName: requestedToolName
+                        rootID: requestedRoot,
+                        capability: input.capability
                     )
                 )
-                
             }
 
-            return ExplainPathAccessToolOutput(
-                allowed: true,
-                rootID: rootID.rawValue,
-                path: input.path,
-                capability: input.capability,
-                toolName: requestedToolName,
-                resolvedPath: resolvedPath,
-                decision: evaluation.decision.rawValue,
-                matchedRule: evaluation.matchedRule?.matcher.summary,
-                reason: "Allowed by path policy and active grant '\(grant.id)'.",
-                policyChecks: [
-                    "root_resolved",
-                    "path_sandboxed",
-                    "path_policy_allowed",
-                    "grant_allowed",
-                    "capability_allowed",
-                    "tool_allowed"
-                ]
-            )
-            
-        } catch {
-            return ExplainPathAccessToolOutput(
-                allowed: false,
-                rootID: rootID.rawValue,
-                path: input.path,
-                capability: input.capability,
-                toolName: requestedToolName,
-                resolvedPath: nil,
-                decision: nil,
-                matchedRule: nil,
-                reason: error.localizedDescription,
-                policyChecks: [
-                    "access_resolution_failed"
-                ],
-                suggestedGrant: suggestion(
-                    rootID: rootID,
-                    capability: input.capability,
-                    toolName: requestedToolName
+            do {
+                let authorization = try workspace.authorize(
+                    input.path,
+                    capability: input.capability
                 )
-            )
-            
+                let authorized = authorization.authorizedPath
+                let evaluation = authorized.evaluation
+
+                return ExplainPathAccessToolOutput(
+                    allowed: true,
+                    rootID: authorized.rootIdentifier.rawValue,
+                    path: input.path,
+                    capability: input.capability,
+                    toolName: requestedToolName,
+                    resolvedPath: authorized.presentationPath,
+                    decision: evaluation.decision.rawValue,
+                    matchedRule: evaluation.matchedRule?.matcher.summary,
+                    reason: "Allowed by the targeted workspace context for capability '\(input.capability.rawValue)'.",
+                    policyChecks: authorized.policyChecks + [
+                        "workspace_context_already_targeted",
+                        "workspace_capability_authorized"
+                    ]
+                )
+            } catch {
+                return ExplainPathAccessToolOutput(
+                    allowed: false,
+                    rootID: workspace.rootIdentifier.rawValue,
+                    path: input.path,
+                    capability: input.capability,
+                    toolName: requestedToolName,
+                    resolvedPath: nil,
+                    decision: nil,
+                    matchedRule: nil,
+                    reason: error.localizedDescription,
+                    policyChecks: [
+                        "workspace_context_already_targeted",
+                        "workspace_capability_denied"
+                    ],
+                    suggestedGrant: suggestion(
+                        rootID: workspace.rootIdentifier,
+                        capability: input.capability
+                    )
+                )
+            }
         }
     }
 }
 
-internal extension ExplainPathAccessTool {
+internal extension SystemIO.Tools.ExplainPathAccess {
     func normalizedToolName(
         _ value: String?
     ) -> String {
@@ -282,31 +235,14 @@ internal extension ExplainPathAccessTool {
 
     func suggestion(
         rootID: PathAccessRootIdentifier,
-        capability: PathCapability,
-        toolName: String
+        capability: WorkspaceCapability
     ) -> PathGrantSuggestion {
-        let mode: PathGrantMode = switch capability {
-        case .list, .scan:
-            .path_only
-
-        case .read:
-            .read_only
-
-        case .write, .edit, .create_directory:
-            .read_write
-        }
-
-        return .init(
+        .init(
             rootID: rootID.rawValue,
-            mode: mode,
-            capabilities: WorkspaceToolSupport.defaultCapabilities(
-                for: mode
-            ),
-            allowedTools: WorkspaceToolSupport.defaultAllowedTools(
-                for: mode,
-                including: toolName
-            ),
-            reason: "Request a named grant for root '\(rootID.rawValue)' before retrying this tool."
+            capabilities: [
+                capability
+            ],
+            reason: "Request capability '\(capability.rawValue)' for root '\(rootID.rawValue)' before retrying this tool."
         )
     }
 }

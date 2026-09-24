@@ -1,6 +1,6 @@
 import Agentic
 import AgenticExecution
-import AgenticWorkspace
+import Workspace
 import Primitives
 import Schema
 import Macros
@@ -18,7 +18,11 @@ public struct ListPathRootsToolInput: Sendable, Codable, Hashable {
     }
 }
 
-public struct ListPathRootsToolOutput: Sendable, Codable, Hashable {
+public struct ListPathRootsToolOutput: Result, Hashable {
+    public static var jsonschema: JSONSchema {
+        .object()
+    }
+
     public let defaultRootID: String?
     public let roots: [WorkspaceRootToolSummary]
 
@@ -31,64 +35,54 @@ public struct ListPathRootsToolOutput: Sendable, Codable, Hashable {
     }
 }
 
-public struct ListPathRootsTool: AgentTool {
-    public typealias Input = ListPathRootsToolInput
-    public typealias Output = ListPathRootsToolOutput
+public extension SystemIO.Tools {
+    @Tool
+    struct ListPathRoots: Tool {
+        public typealias Input = ListPathRootsToolInput
+        public typealias Output = ListPathRootsToolOutput
 
-    public static let identifier: AgentToolIdentifier = "list_path_roots"
-    public static let description = "List named workspace path roots without scanning or reading file contents."
-    public static let risk: ActionRisk = .observe
+        public static let purpose = "List named workspace path roots without scanning or reading file contents."
+        public static let risk: ActionRisk = .observe
 
-    public var identifier: AgentToolIdentifier {
-        Self.identifier
-    }
+        public init() {}
 
-    public var description: String {
-        Self.description
-    }
-
-
-    public var risk: ActionRisk {
-        Self.risk
-    }
-
-    public init() {}
-
-    public func preflight(
-        _ input: Input,
-        context: AgentToolExecutionContext
-    ) async throws -> ToolPreflight {
-        .init(
-            toolName: name,
-            risk: risk,
-            workspaceRoot: context.workspace?.rootURL.path,
-            summary: "List workspace path roots.",
-            capabilitiesRequired: [
-                .list
-            ],
-            policyChecks: [
-                "no_file_content_access",
-                "root_metadata_only"
-            ]
-        )
-    }
-
-    public func call(
-        _ input: Input,
-        context: AgentToolExecutionContext
-    ) async throws -> Output {
-        let workspace = try WorkspaceToolSupport.requireWorkspace(
-            context.workspace,
-            toolName: name
-        )
-
-        return ListPathRootsToolOutput(
-            defaultRootID: workspace.accessController.defaultRootID?.rawValue,
-            roots: WorkspaceToolSupport.rootSummaries(
-                workspace: workspace,
-                includeDiagnostics: input.includeDiagnostics ?? true
+        public func preflight(
+            _ input: Input,
+            workspace: WorkspaceContext?
+        ) async throws -> ToolPreflight {
+            .init(
+                tool: Self.definition.identifier,
+                risk: risk,
+                summary: "List workspace path roots.",
+                access: .init(
+                    capabilities: [
+                        .list
+                    ]
+                ),
+                policyChecks: [
+                    "no_file_content_access",
+                    "root_metadata_only"
+                ]
             )
-        )
-        
+        }
+
+        public func call(
+            _ input: Input,
+            workspace: WorkspaceContext?
+        ) async throws -> Output {
+            let workspace = try WorkspaceToolSupport.requireWorkspace(
+                workspace,
+                toolName: Self.identifier.rawValue
+            )
+
+            return ListPathRootsToolOutput(
+                defaultRootID: workspace.defaultRootIdentifier?.rawValue,
+                roots: WorkspaceToolSupport.rootSummaries(
+                    workspace: workspace,
+                    includeDiagnostics: input.includeDiagnostics ?? true
+                )
+            )
+            
+        }
     }
 }

@@ -1,6 +1,6 @@
 import Agentic
 import AgenticExecution
-import AgenticWorkspace
+import Workspace
 import Foundation
 import Primitives
 import Schema
@@ -24,7 +24,11 @@ public struct ListPathGrantsToolInput: Sendable, Codable, Hashable {
     }
 }
 
-public struct ListPathGrantsToolOutput: Sendable, Codable, Hashable {
+public struct ListPathGrantsToolOutput: Result, Hashable {
+    public static var jsonschema: JSONSchema {
+        .object()
+    }
+
     public let grants: [WorkspaceGrantToolSummary]
 
     public init(
@@ -34,80 +38,71 @@ public struct ListPathGrantsToolOutput: Sendable, Codable, Hashable {
     }
 }
 
-public struct ListPathGrantsTool: AgentTool {
-    public typealias Input = ListPathGrantsToolInput
-    public typealias Output = ListPathGrantsToolOutput
+public extension SystemIO.Tools {
+    @Tool
+    struct ListPathGrants: Tool {
+        public typealias Input = ListPathGrantsToolInput
+        public typealias Output = ListPathGrantsToolOutput
 
-    public static let identifier: AgentToolIdentifier = "list_path_grants"
-    public static let description = "List active workspace path grants and their capabilities."
-    public static let risk: ActionRisk = .observe
+        public static let purpose = "List active workspace path grants and their capabilities."
+        public static let risk: ActionRisk = .observe
 
-    public var identifier: AgentToolIdentifier {
-        Self.identifier
-    }
+        public init() {}
 
-    public var description: String {
-        Self.description
-    }
-
-
-    public var risk: ActionRisk {
-        Self.risk
-    }
-
-    public init() {}
-
-    public func preflight(
-        _ input: Input,
-        context: AgentToolExecutionContext
-    ) async throws -> ToolPreflight {
-        .init(
-            toolName: name,
-            risk: risk,
-            workspaceRoot: context.workspace?.rootURL.path,
-            summary: "List workspace path grants.",
-            capabilitiesRequired: [
-                .list
-            ],
-            policyChecks: [
-                "no_file_content_access",
-                "grant_metadata_only"
-            ]
-        )
-    }
-
-    public func call(
-        _ input: Input,
-        context: AgentToolExecutionContext
-    ) async throws -> Output {
-        let workspace = try WorkspaceToolSupport.requireWorkspace(
-            context.workspace,
-            toolName: name
-        )
-        let now = Date()
-
-        let grants = workspace.accessController.grants.filter { grant in
-            if let rootID = input.rootID,
-               grant.rootID != rootID {
-                return false
-            }
-
-            if input.includeExpired != true,
-               grant.isExpired(at: now) {
-                return false
-            }
-
-            return true
+        public func preflight(
+            _ input: Input,
+            workspace: WorkspaceContext?
+        ) async throws -> ToolPreflight {
+            .init(
+                tool: Self.definition.identifier,
+                risk: risk,
+                summary: "List workspace path grants.",
+                access: .init(
+                    capabilities: [
+                        .list
+                    ]
+                ),
+                policyChecks: [
+                    "no_file_content_access",
+                    "grant_metadata_only"
+                ]
+            )
         }
 
-        return ListPathGrantsToolOutput(
-            grants: grants.map {
-                WorkspaceGrantToolSummary(
-                    grant: $0,
-                    now: now
-                )
+        public func call(
+            _ input: Input,
+            workspace: WorkspaceContext?
+        ) async throws -> Output {
+            let workspace = try WorkspaceToolSupport.requireWorkspace(
+                workspace,
+                toolName: Self.identifier.rawValue
+            )
+            let grants = workspace.grants.filter { grant in
+                if let rootID = input.rootID,
+                   grant.rootIdentifier != rootID {
+                    return false
+                }
+
+                if input.includeExpired != true,
+                   let status = workspace.status(of: grant.id),
+                   case .expired = status {
+                    return false
+                }
+
+                return true
             }
-        )
-        
+
+            return ListPathGrantsToolOutput(
+                grants: grants.map {
+                    WorkspaceGrantToolSummary(
+                        grant: $0,
+                        status: workspace.status(
+                            of: $0.id
+                        )
+                    )
+                }
+            )
+            
+        }
     }
 }

@@ -1,6 +1,6 @@
 import Agentic
 import AgenticExecution
-import AgenticWorkspace
+import Workspace
 import Difference
 import Foundation
 import Path
@@ -204,7 +204,11 @@ public struct MutateFilesToolRecordOutput: Sendable, Codable, Hashable {
     }
 }
 
-public struct MutateFilesToolOutput: Sendable, Codable, Hashable {
+public struct MutateFilesToolOutput: Result, Hashable {
+    public static var jsonschema: JSONSchema {
+        .object()
+    }
+
     public let planID: UUID
     public let resultID: UUID
     public let status: String
@@ -266,446 +270,373 @@ public struct MutateFilesToolPreparation: Sendable {
     }
 }
 
-public struct MutateFilesTool: AgentTool {
-    public typealias Input = MutateFilesToolInput
-    public typealias Output = MutateFilesToolOutput
+public extension SystemIO.Tools {
+    @Tool
+    struct MutateFiles: Tool {
+        public typealias Input = MutateFilesToolInput
+        public typealias Output = MutateFilesToolOutput
 
-    public static let identifier: AgentToolIdentifier = .mutate_files
-    public static let description = "Apply one coherent pass of file mutations in the workspace."
-    public static let risk: ActionRisk = .boundedmutate
+        public static let purpose = "Apply one coherent pass of file mutations in the workspace."
+        public static let risk: ActionRisk = .boundedmutate
 
-    public var identifier: AgentToolIdentifier {
-        Self.identifier
-    }
+        public let context: AgentFileMutationContext
+        public let fileEditPolicy: FileEditPolicy
 
-    public var description: String {
-        Self.description
-    }
-
-
-    public var risk: ActionRisk {
-        Self.risk
-    }
-
-    public var execution: AgentToolExecutionContract {
-        .targetable
-    }
-
-    public let context: AgentFileMutationContext
-    public let fileEditPolicy: FileEditPolicy
-
-    public init(
-        context: AgentFileMutationContext = .empty,
-        fileEditPolicy: FileEditPolicy = .unrestricted
-    ) {
-        self.context = context
-        self.fileEditPolicy = fileEditPolicy
-    }
+        public init(
+            context: AgentFileMutationContext = .empty,
+            fileEditPolicy: FileEditPolicy = .unrestricted
+        ) {
+            self.context = context
+            self.fileEditPolicy = fileEditPolicy
+        }
 
 
-    private func prepareInternal(
-        _ input: Input,
-        workspace: AgentWorkspace?,
-        writeOptions: SafeWriteOptions = .overwriteWithoutBackup
-    ) async throws -> MutateFilesToolPreparation {
-        let workspace = try FileToolSupport.requireWorkspace(
-            workspace,
-            toolName: name
-        )
-        let authorized = try authorizeEntries(
-            input,
-            workspace: workspace
-        )
-        let plan = try workspaceWriter(
-            workspace
-        ).mutations.plan(
-            workspaceEntries(
-                input,
-                workspace: workspace,
-                writeOptions: writeOptions
-            ),
-            metadata: mutationMetadata(
-                input: input,
-                context: context
+        private func prepareInternal(
+            _ input: Input,
+            workspace: WorkspaceContext?,
+            writeOptions: SafeWriteOptions = .overwriteWithoutBackup
+        ) async throws -> MutateFilesToolPreparation {
+            let workspace = try FileToolSupport.requireWorkspace(
+                workspace,
+                toolName: Self.identifier.rawValue
             )
-        )
-        let preflight = ToolPreflight(
-            toolName: name,
-            risk: risk,
-            workspaceRoot: workspace.rootURL.path,
-            targetPaths: authorized
-                .flatMap { $0 }
-                .map(\.presentationPath),
-            summary: preflightSummary(
-                input: input,
-                plan: plan
-            ),
-            estimatedWriteCount: plan.entries.count,
-            estimatedByteCount: estimatedByteCount(
-                input: input
-            ),
-            sideEffects: risk.defaultSideEffects,
-            rootIDs: Array(
-                Set(
-                    authorized
-                        .flatMap { $0 }
-                        .map {
-                            $0.rootID.rawValue
-                        }
-                )
-            ).sorted(),
-            capabilitiesRequired: input.entries.contains {
-                $0.kind == .copy
-            }
-                ? [
-                    .read,
-                    .write,
-                ]
-                : [
-                    .write,
-                ],
-            estimatedWriteBytes: estimatedByteCount(
-                input: input
-            ),
-            estimatedChangedLineCount: estimatedChangedLineCount(
-                plan: plan
-            ),
-            isPreview: true,
-            policyChecks: [
-                "workspace_required",
-                "agentic_path_grants_authorized",
-                "workspace_paths_authorized",
-                "workspace_mutation_entries_resolved",
-                "standard_mutation_plan_created"
-            ],
-            warnings: plan.entries.flatMap {
-                $0.warnings.map(\.rawValue)
-            },
-            diffPreview: makeDiffPreview(
-                plan: plan,
-                authorized: authorized
-            )
-        )
-
-        return .init(
-            plan: plan,
-            preflight: preflight
-        )
-    }
-
-    private func preflightInternal(
-        _ input: Input,
-        workspace: AgentWorkspace?
-    ) async throws -> ToolPreflight {
-        try await prepareInternal(
-            input,
-            workspace: workspace
-        ).preflight
-    }
-
-    public func prepare(
-        _ input: Input,
-        context toolContext: AgentToolExecutionContext,
-        writeOptions: SafeWriteOptions = .overwriteWithoutBackup
-    ) async throws -> MutateFilesToolPreparation {
-        let targetedInput = try workspaceTargetedInput(
-            input,
-            context: toolContext
-        )
-
-        return try await Self(
-            context: mergedMutationContext(
-                toolContext: toolContext
-            )
-        ).prepareInternal(
-            targetedInput,
-            workspace: toolContext.workspace,
-            writeOptions: writeOptions
-        )
-    }
-
-    public func preflight(
-        _ input: Input,
-        context toolContext: AgentToolExecutionContext
-    ) async throws -> ToolPreflight {
-        try await prepare(
-            input,
-            context: toolContext
-        ).preflight
-    }
-
-    private func callInternal(
-        _ input: Input,
-        workspace: AgentWorkspace?
-    ) async throws -> Output {
-        let workspace = try FileToolSupport.requireWorkspace(
-            workspace,
-            toolName: name
-        )
-
-        _ = try authorizeEntries(
-            input,
-            workspace: workspace
-        )
-
-        let plan = try workspaceWriter(
-            workspace
-        ).mutations.plan(
-            workspaceEntries(
+            let authorized = try authorizeEntries(
                 input,
                 workspace: workspace
-            ),
-            metadata: mutationMetadata(
-                input: input,
-                context: context
             )
-        )
-
-        let result = workspaceWriter(
-            workspace
-        ).mutations.apply(
-            plan,
-            options: .init(
-                failure: input.failurePolicy
-            )
-        )
-
-        return output(
-            plan: plan,
-            result: result
-        )
-        
-    }
-
-    public func call(
-        _ input: Input,
-        context toolContext: AgentToolExecutionContext
-    ) async throws -> Output {
-        let targetedInput = try workspaceTargetedInput(
-            input,
-            context: toolContext
-        )
-
-        return try await Self(
-            context: mergedMutationContext(
-                toolContext: toolContext
-            )
-        ).callInternal(
-            targetedInput,
-            workspace: toolContext.workspace
-        )
-    }
-
-    public func process(
-        _ output: Output,
-        input _: Input,
-        context: AgentToolExecutionContext
-    ) -> AgentToolResultProjection? {
-        let result = output
-
-        let changedEntries = result.entries.filter {
-            $0.changeCount > 0
-                || $0.resource != "unchanged"
-        }
-
-        let rootPath =
-            context.workspace?
-                .rootURL
-                .standardizedFileURL
-                .path
-
-        func displayPath(
-            _ path: String
-        ) -> String {
-            guard path.hasPrefix("/"),
-                  let rootPath
-            else {
-                return path
-            }
-
-            let target =
-                URL(
-                    fileURLWithPath: path
-                )
-                .standardizedFileURL
-                .path
-
-            let prefix =
-                rootPath.hasSuffix("/")
-                    ? rootPath
-                    : rootPath + "/"
-
-            guard target.hasPrefix(prefix) else {
-                return path
-            }
-
-            return String(
-                target.dropFirst(
-                    prefix.count
+            let plan = try workspaceWriter(
+                workspace
+            ).mutations.plan(
+                workspaceEntries(
+                    input,
+                    workspace: workspace,
+                    writeOptions: writeOptions
+                ),
+                metadata: mutationMetadata(
+                    input: input,
+                    context: context
                 )
             )
-        }
-
-        func detail(
-            _ entry: MutateFilesToolEntryOutput
-        ) -> String {
-            var parts = [
-                entry.resource
-            ]
-
-            if entry.insertions > 0 {
-                parts.append(
-                    "+\(entry.insertions)"
-                )
-            }
-
-            if entry.deletions > 0 {
-                parts.append(
-                    "-\(entry.deletions)"
-                )
-            }
-
-            if parts.count == 1,
-               entry.changeCount > 0 {
-                parts.append(
-                    "\(entry.changeCount) changes"
-                )
-            }
-
-            return parts.joined(
-                separator: " · "
-            )
-        }
-
-        var counts: [String] = []
-
-        if result.creates > 0 {
-            counts.append(
-                "\(result.creates) created"
-            )
-        }
-
-        if result.updates > 0 {
-            counts.append(
-                "\(result.updates) updated"
-            )
-        }
-
-        if result.deletes > 0 {
-            counts.append(
-                "\(result.deletes) deleted"
-            )
-        }
-
-        if result.unchanged > 0 {
-            counts.append(
-                "\(result.unchanged) unchanged"
-            )
-        }
-
-        return .init(
-            status:
-                changedEntries.isEmpty
-                    ? "no changes"
-                    : result.status,
-            summary:
-                counts.isEmpty
-                    ? "No files changed."
-                    : counts.joined(
-                        separator: " · "
+            let preflight = ToolPreflight(
+                tool: Self.definition.identifier,
+                risk: risk,
+                summary: preflightSummary(
+                    input: input,
+                    plan: plan
+                ),
+                access: .init(
+                    targets: authorized
+                        .flatMap { $0 }
+                        .map(\.presentationPath),
+                    roots: Array(
+                        Set(
+                            authorized
+                                .flatMap { $0 }
+                                .map {
+                                    $0.rootIdentifier.rawValue
+                                }
+                        )
+                    ).sorted(),
+                    capabilities: input.entries.contains {
+                        $0.kind == .copy
+                    }
+                        ? [
+                            .read,
+                            .write,
+                        ]
+                        : [
+                            .write,
+                        ]
+                ),
+                estimates: .init(
+                    write: .init(
+                        count: plan.entries.count,
+                        bytes: estimatedByteCount(
+                            input: input
+                        ),
+                        changedLines: estimatedChangedLineCount(
+                            plan: plan
+                        )
                     ),
-            facts: changedEntries.map { entry in
-                .init(
-                    label: displayPath(
-                        entry.path
-                    ),
-                    value: detail(
-                        entry
+                    bytes: estimatedByteCount(
+                        input: input
+                    )
+                ),
+                preview: .init(
+                    difference: makeDiffPreview(
+                        plan: plan,
+                        authorized: authorized
+                    )
+                ),
+                sideEffects: risk.defaultSideEffects,
+                policyChecks: [
+                    "workspace_required",
+                    "agentic_path_grants_authorized",
+                    "workspace_paths_authorized",
+                    "workspace_mutation_entries_resolved",
+                    "standard_mutation_plan_created"
+                ],
+                warnings: plan.entries.flatMap {
+                    $0.warnings.map(\.rawValue)
+                }
+            )
+
+            return .init(
+                plan: plan,
+                preflight: preflight
+            )
+        }
+
+        private func preflightInternal(
+            _ input: Input,
+            workspace: WorkspaceContext?
+        ) async throws -> ToolPreflight {
+            try await prepareInternal(
+                input,
+                workspace: workspace
+            ).preflight
+        }
+
+        public func prepare(
+            _ input: Input,
+            workspace: WorkspaceContext?,
+            writeOptions: SafeWriteOptions = .overwriteWithoutBackup
+        ) async throws -> MutateFilesToolPreparation {
+            let targetedInput = try workspaceTargetedInput(
+                input,
+                workspace: workspace
+            )
+
+            return try await Self(
+                context: mergedMutationContext()
+            ).prepareInternal(
+                targetedInput,
+                workspace: workspace,
+                writeOptions: writeOptions
+            )
+        }
+
+        public func preflight(
+            _ input: Input,
+            workspace: WorkspaceContext?
+        ) async throws -> ToolPreflight {
+            try await prepare(
+                input,
+                workspace: workspace
+            ).preflight
+        }
+
+        private func callInternal(
+            _ input: Input,
+            workspace: WorkspaceContext?
+        ) async throws -> Output {
+            let workspace = try FileToolSupport.requireWorkspace(
+                workspace,
+                toolName: Self.identifier.rawValue
+            )
+
+            _ = try authorizeEntries(
+                input,
+                workspace: workspace
+            )
+
+            let plan = try workspaceWriter(
+                workspace
+            ).mutations.plan(
+                workspaceEntries(
+                    input,
+                    workspace: workspace
+                ),
+                metadata: mutationMetadata(
+                    input: input,
+                    context: context
+                )
+            )
+
+            let result = try workspaceWriter(
+                workspace
+            ).mutations.apply(
+                plan,
+                options: .init(
+                    failure: input.failurePolicy
+                )
+            )
+
+            return output(
+                plan: plan,
+                result: result
+            )
+            
+        }
+
+        public func call(
+            _ input: Input,
+            workspace: WorkspaceContext?
+        ) async throws -> Output {
+            let targetedInput = try workspaceTargetedInput(
+                input,
+                workspace: workspace
+            )
+
+            return try await Self(
+                context: mergedMutationContext()
+            ).callInternal(
+                targetedInput,
+                workspace: workspace
+            )
+        }
+
+        public func process(
+            _ output: Output,
+            input _: Input
+        ) -> ToolCall.ResultProjection? {
+            let result = output
+
+            let changedEntries = result.entries.filter {
+                $0.changeCount > 0
+                    || $0.resource != "unchanged"
+            }
+
+            // Canonical Tool projection is independent of invocation workspace.
+            let rootPath: String? = nil
+
+            func displayPath(
+                _ path: String
+            ) -> String {
+                guard path.hasPrefix("/"),
+                      let rootPath
+                else {
+                    return path
+                }
+
+                let target =
+                    URL(
+                        fileURLWithPath: path
+                    )
+                    .standardizedFileURL
+                    .path
+
+                let prefix =
+                    rootPath.hasSuffix("/")
+                        ? rootPath
+                        : rootPath + "/"
+
+                guard target.hasPrefix(prefix) else {
+                    return path
+                }
+
+                return String(
+                    target.dropFirst(
+                        prefix.count
                     )
                 )
             }
-            
-        )
+
+            func detail(
+                _ entry: MutateFilesToolEntryOutput
+            ) -> String {
+                var parts = [
+                    entry.resource
+                ]
+
+                if entry.insertions > 0 {
+                    parts.append(
+                        "+\(entry.insertions)"
+                    )
+                }
+
+                if entry.deletions > 0 {
+                    parts.append(
+                        "-\(entry.deletions)"
+                    )
+                }
+
+                if parts.count == 1,
+                   entry.changeCount > 0 {
+                    parts.append(
+                        "\(entry.changeCount) changes"
+                    )
+                }
+
+                return parts.joined(
+                    separator: " · "
+                )
+            }
+
+            var counts: [String] = []
+
+            if result.creates > 0 {
+                counts.append(
+                    "\(result.creates) created"
+                )
+            }
+
+            if result.updates > 0 {
+                counts.append(
+                    "\(result.updates) updated"
+                )
+            }
+
+            if result.deletes > 0 {
+                counts.append(
+                    "\(result.deletes) deleted"
+                )
+            }
+
+            if result.unchanged > 0 {
+                counts.append(
+                    "\(result.unchanged) unchanged"
+                )
+            }
+
+            return .init(
+                status:
+                    changedEntries.isEmpty
+                        ? "no changes"
+                        : result.status,
+                summary:
+                    counts.isEmpty
+                        ? "No files changed."
+                        : counts.joined(
+                            separator: " · "
+                        ),
+                facts: changedEntries.map { entry in
+                    .init(
+                        label: displayPath(
+                            entry.path
+                        ),
+                        value: detail(
+                            entry
+                        )
+                    )
+                }
+                
+            )
+        }
     }
 }
 
-private extension MutateFilesTool {
+private extension SystemIO.Tools.MutateFiles {
     func workspaceTargetedInput(
         _ input: MutateFilesToolInput,
-        context toolContext: AgentToolExecutionContext
+        workspace _: WorkspaceContext?
     ) throws -> MutateFilesToolInput {
-        guard let location = toolContext.workspaceLocation else {
-            return input
-        }
-
-        let workspace = try FileToolSupport.requireWorkspace(
-            toolContext.workspace,
-            toolName: name
-        )
-        let entries = try input.entries.map { entry in
-            let rootID = entry.rootID ?? input.rootID
-            let resourceType: PathSegmentType? =
-                entry.kind == .copy || entry.kind == .move
-                    ? nil
-                    : .file
-            let path = try workspace.resolve(
-                entry.path,
-                relativeTo: location,
-                rootID: rootID,
-                type: resourceType
-            ).presentingRelative(
-                filetype: true
-            )
-            let destination: String?
-
-            if entry.kind == .copy || entry.kind == .move {
-                destination = try workspace.resolve(
-                    entry.requiredDestination(
-                        toolName: name
-                    ),
-                    relativeTo: location,
-                    rootID: rootID,
-                    type: nil
-                ).presentingRelative(
-                    filetype: true
-                )
-            } else {
-                destination = entry.destination
-            }
-
-            return MutateFilesToolEntry(
-                kind: entry.kind,
-                rootID: entry.rootID,
-                path: path,
-                content: entry.content,
-                replacePolicy: entry.replacePolicy,
-                deletePolicy: entry.deletePolicy,
-                operations: entry.operations,
-                destination: destination,
-                createParentDirectories: entry.createParentDirectories
-            )
-        }
-
-        return MutateFilesToolInput(
-            reason: input.reason,
-            rootID: input.rootID,
-            failurePolicy: input.failurePolicy,
-            entries: entries
-        )
+        input
     }
 
     func workspaceWriter(
-        _ workspace: AgentWorkspace
-    ) -> WorkspaceWriter {
-        WorkspaceWriter(
-            access: workspace.accessController.paths
+        _ workspace: WorkspaceContext
+    ) throws -> WorkspaceWriter {
+        try WorkspaceWriter(
+            root: workspace.absoluteURL,
+            rootIdentifier: workspace.rootIdentifier
         )
     }
 
     func authorizeEntries(
         _ input: MutateFilesToolInput,
-        workspace: AgentWorkspace
-    ) throws -> [[AgenticAuthorizedPath]] {
+        workspace: WorkspaceContext
+    ) throws -> [[AuthorizedPath]] {
         try input.entries.map { entry in
             let rootID = entry.rootID ?? input.rootID
 
@@ -716,17 +647,17 @@ private extension MutateFilesTool {
                     rootID: rootID,
                     path: entry.path,
                     capability: .read,
-                    toolName: name,
+                    toolName: Self.identifier.rawValue,
                     type: nil
                 )
                 let destination = try FileToolAccess.authorize(
                     workspace: workspace,
                     rootID: rootID,
                     path: try entry.requiredDestination(
-                        toolName: name
+                        toolName: Self.identifier.rawValue
                     ),
                     capability: .write,
-                    toolName: name,
+                    toolName: Self.identifier.rawValue,
                     type: nil
                 )
 
@@ -741,17 +672,17 @@ private extension MutateFilesTool {
                     rootID: rootID,
                     path: entry.path,
                     capability: .write,
-                    toolName: name,
+                    toolName: Self.identifier.rawValue,
                     type: nil
                 )
                 let destination = try FileToolAccess.authorize(
                     workspace: workspace,
                     rootID: rootID,
                     path: try entry.requiredDestination(
-                        toolName: name
+                        toolName: Self.identifier.rawValue
                     ),
                     capability: .write,
-                    toolName: name,
+                    toolName: Self.identifier.rawValue,
                     type: nil
                 )
 
@@ -769,7 +700,7 @@ private extension MutateFilesTool {
                     rootID: rootID,
                     path: entry.path,
                     capability: .write,
-                    toolName: name,
+                    toolName: Self.identifier.rawValue,
                     type: .file
                 )
 
@@ -782,13 +713,13 @@ private extension MutateFilesTool {
 
     func workspaceEntries(
         _ input: MutateFilesToolInput,
-        workspace: AgentWorkspace,
+        workspace: WorkspaceContext,
         writeOptions: SafeWriteOptions = .overwriteWithoutBackup
     ) throws -> [WorkspaceMutationEntry] {
         try input.entries.map { entry in
             try entry.workspaceEntry(
                 defaultRootID: input.rootID,
-                toolName: name,
+                toolName: Self.identifier.rawValue,
                 workspace: workspace,
                 fileEditPolicy: fileEditPolicy,
                 writeOptions: writeOptions
@@ -829,8 +760,8 @@ private extension MutateFilesTool {
 
     func makeDiffPreview(
         plan: StandardMutationPlan,
-        authorized: [[AgenticAuthorizedPath]]
-    ) -> ToolPreflightDiffPreview {
+        authorized: [[AuthorizedPath]]
+    ) -> ToolPreflight.Preview.Difference? {
         let presentationPathsByEntryID: [UUID: String] = Dictionary(
             uniqueKeysWithValues: plan.entries.enumerated().compactMap { pair in
                 guard authorized.indices.contains(
@@ -855,13 +786,13 @@ private extension MutateFilesTool {
             ] ?? entry.target.lastPathComponent
         }
 
+        guard let layout = preview.layout else {
+            return nil
+        }
+
         return .init(
             title: preview.title,
-            contextLineCount: preview.contextLineCount,
-            text: preview.text,
-            layout: preview.layout,
-            insertedLineCount: preview.insertedLineCount,
-            deletedLineCount: preview.deletedLineCount
+            layout: layout
         )
     }
 
@@ -927,7 +858,7 @@ private extension MutateFilesTool {
         context: AgentFileMutationContext
     ) -> [String: String] {
         var metadata = context.metadata
-        metadata["tool_name"] = name
+        metadata["tool_name"] = Self.identifier.rawValue
         metadata["intent_action"] = "mutate"
         metadata["intent_action_type"] = "file_mutation_pass"
         metadata["root_id"] = input.rootID.rawValue
@@ -940,41 +871,11 @@ private extension MutateFilesTool {
         return metadata
     }
 
-    func mergedMutationContext(
-        toolContext: AgentToolExecutionContext
-    ) -> AgentFileMutationContext {
-        if context == .empty {
-            return .init(
-                toolContext: toolContext,
-                additionalMetadata: [
-                    "toolName": Self.identifier.rawValue,
-                    "intent_action": "mutate",
-                    "intent_action_type": "file_mutation_pass"
-                ]
-            )
-        }
-
+    func mergedMutationContext() -> AgentFileMutationContext {
         var mutationContext = context
-
-        if mutationContext.toolCallID == nil {
-            mutationContext.toolCallID = toolContext.toolCallID
-        }
-
-        if mutationContext.preparedIntentID == nil {
-            mutationContext.preparedIntentID = toolContext.preparedIntentID
-        }
-
-        mutationContext.metadata.merge(
-            toolContext.metadata
-        ) { old, _ in
-            old
-        }
-
         mutationContext.metadata["toolName"] = Self.identifier.rawValue
         mutationContext.metadata["intent_action"] = "mutate"
         mutationContext.metadata["intent_action_type"] = "file_mutation_pass"
-        mutationContext.metadata["execution_mode"] = toolContext.executionMode.rawValue
-
         return mutationContext
     }
 }
@@ -983,7 +884,7 @@ private extension MutateFilesToolEntry {
     func workspaceEntry(
         defaultRootID: PathAccessRootIdentifier,
         toolName: String,
-        workspace: AgentWorkspace,
+        workspace: WorkspaceContext,
         fileEditPolicy: FileEditPolicy,
         writeOptions: SafeWriteOptions
     ) throws -> WorkspaceMutationEntry {

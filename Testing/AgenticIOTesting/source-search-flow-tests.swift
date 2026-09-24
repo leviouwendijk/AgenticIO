@@ -1,7 +1,7 @@
 import Agentic
 import AgenticExecution
 import AgenticIO
-import AgenticWorkspace
+import Workspace
 import Concatenation
 import Foundation
 import Path
@@ -10,11 +10,11 @@ import Position
 import Schema
 import Search
 import Selection
-import TestFlows
+import Testing
 
 
 enum AgenticIOFlowTesting {
-    static func runSourceSearch() async throws -> [TestFlowDiagnostic] {
+    static func runSourceSearch() async throws -> [TestDiagnostic] {
         let fixture = try SourceSearchFixture.make()
         defer {
             fixture.remove()
@@ -81,7 +81,7 @@ private extension AgenticIOFlowTesting {
         var registry = ToolRegistry()
 
         try registry.register(
-            CoreFileToolSet()
+            from: CoreFileToolSet()
         )
 
         _ = try Expect.notNil(
@@ -141,7 +141,7 @@ private extension AgenticIOFlowTesting {
             "search_sources schema exposes continuation freshness guard"
         )
 
-        let tool = SearchSourcesTool()
+        let tool = SystemIO.Tools.SearchSources()
         let input = SearchSourcesToolInput(
             includes: [
                 "Sources/**",
@@ -162,9 +162,7 @@ private extension AgenticIOFlowTesting {
 
         let output = try await tool.call(
             input,
-            context: .init(
-                workspace: fixture.workspace
-            )
+            workspace: fixture.workspace
         )
         let result = output
 
@@ -263,7 +261,7 @@ private extension AgenticIOFlowTesting {
             encoding: .utf8
         )
 
-        let output = try await SearchSourcesTool().call(
+        let output = try await SystemIO.Tools.SearchSources().call(
             SearchSourcesToolInput(
                                 includes: [
                                     "Sources/DiversityA.swift",
@@ -289,9 +287,7 @@ private extension AgenticIOFlowTesting {
                                 mergeDistanceLines: 0,
                                 maximumCandidates: 3
                             ),
-            context: .init(
-                workspace: fixture.workspace
-            )
+            workspace: fixture.workspace
         )
         let result = output
 
@@ -534,7 +530,7 @@ private extension AgenticIOFlowTesting {
             encoding: .utf8
         )
 
-        let output = try await SearchSourcesTool().call(
+        let output = try await SystemIO.Tools.SearchSources().call(
             SearchSourcesToolInput(
                                 includes: [
                                     "Sources/Identifier.swift",
@@ -553,9 +549,7 @@ private extension AgenticIOFlowTesting {
                                 maximumCandidates: 16,
                                 maximumCandidatesPerDocument: 16
                             ),
-            context: .init(
-                workspace: fixture.workspace
-            )
+            workspace: fixture.workspace
         )
         let result = output
 
@@ -672,7 +666,7 @@ private extension AgenticIOFlowTesting {
 
 private struct SourceSearchFixture {
     let root: URL
-    let workspace: AgentWorkspace
+    let workspace: WorkspaceContext
 
     static func make() throws -> Self {
         let root = FileManager.default.temporaryDirectory
@@ -718,7 +712,7 @@ private struct SourceSearchFixture {
 
         return Self(
             root: root,
-            workspace: try AgentWorkspace(
+            workspace: try makeAgenticIOTestingWorkspace(
                 root: root
             )
         )

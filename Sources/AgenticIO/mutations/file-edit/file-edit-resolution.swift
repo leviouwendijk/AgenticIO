@@ -1,11 +1,12 @@
-import AgenticWorkspace
+import Workspace
+import Path
 import Foundation
 import Readers
 import Writers
 
-struct FileEditResolution: Sendable, Hashable {
+struct FileEditResolution: Sendable {
     let input: FileEditRequest
-    let authorized: AgenticAuthorizedPath
+    let authorized: AuthorizedPath
     let snapshot: StandardEditSnapshot
     let operations: [StandardEditOperation]
     let editMode: StandardEditMode

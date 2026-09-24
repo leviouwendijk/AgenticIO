@@ -1,12 +1,11 @@
 import Schema
 import Macros
 import Agentic
-import AgenticWorkspace
+import Workspace
 import Foundation
 
 public struct WorkspaceRootToolSummary: Sendable, Codable, Hashable {
     public let rootID: String
-    /// Optional human-readable root label.
     public let label: String
     public let details: String?
     public let rootPath: String
@@ -39,84 +38,72 @@ public struct WorkspaceRootToolSummary: Sendable, Codable, Hashable {
 public struct WorkspaceGrantToolSummary: Sendable, Codable, Hashable {
     public let id: String
     public let rootID: String
-    /// Optional requested grant mode.
-    public let mode: PathGrantMode
-    /// Optional explicit path capabilities.
-    public let capabilities: [PathCapability]
-    /// Optional tool allowlist for the grant.
-    public let allowedTools: [String]
-    /// Reason the additional path grant is needed.
-    public let reason: String?
+    public let capabilities: [WorkspaceCapability]
     public let expiresAt: Date?
-    public let isExpired: Bool
-    public let sourcePreparedIntentID: PreparedIntentIdentifier?
-    public let metadata: [String: String]
+    public let status: String
 
     public init(
-        grant: PathGrant,
-        now: Date = Date()
+        grant: WorkspaceGrant,
+        status: WorkspaceGrantStatus?
     ) {
-        self.id = grant.id
-        self.rootID = grant.rootID.rawValue
-        self.mode = grant.mode
-        self.capabilities = grant.capabilities
-        self.allowedTools = grant.allowedTools
-        self.reason = grant.reason
+        self.id = grant.id.rawValue
+        self.rootID = grant.rootIdentifier.rawValue
+        self.capabilities = grant.capabilities.sorted {
+            $0.rawValue < $1.rawValue
+        }
         self.expiresAt = grant.expiresAt
-        self.isExpired = grant.isExpired(
-            at: now
+        self.status = Self.statusName(
+            status
         )
-        self.sourcePreparedIntentID = grant.sourcePreparedIntentID
-        self.metadata = grant.metadata
+    }
+
+    private static func statusName(
+        _ status: WorkspaceGrantStatus?
+    ) -> String {
+        switch status {
+        case .active:
+            return "active"
+        case .expired:
+            return "expired"
+        case .invalidated:
+            return "invalidated"
+        case nil:
+            return "unknown"
+        }
     }
 }
 
 public struct PathGrantSuggestion: Sendable, Codable, Hashable {
     public let rootID: String
-    public let mode: PathGrantMode
-    public let capabilities: [PathCapability]
-    public let allowedTools: [String]
+    public let capabilities: [WorkspaceCapability]
     public let reason: String
 
     public init(
         rootID: String,
-        mode: PathGrantMode,
-        capabilities: [PathCapability],
-        allowedTools: [String],
+        capabilities: [WorkspaceCapability],
         reason: String
     ) {
         self.rootID = rootID
-        self.mode = mode
         self.capabilities = capabilities
-        self.allowedTools = allowedTools
         self.reason = reason
     }
 }
 
-/// Model-facing input for requesting temporary workspace path access.
 @JSONSchema
 public struct RequestPathGrantToolInput: Sendable, Codable, Hashable {
-    /// Absolute directory path proposed as a temporary named root.
     public let requestedRootPath: String
-    /// Optional preferred identifier for the proposed root.
     public let suggestedRootID: String?
     public let label: String?
-    public let mode: PathGrantMode?
-    public let capabilities: [PathCapability]?
-    public let allowedTools: [String]?
+    public let capabilities: [WorkspaceCapability]?
     public let reason: String
-    /// Optional policy profile for the requested root.
     public let policyProfile: String?
-    /// Optional maximum wall-clock duration once granted.
     public let expiresInSeconds: TimeInterval?
 
     public init(
         requestedRootPath: String,
         suggestedRootID: String? = nil,
         label: String? = nil,
-        mode: PathGrantMode? = nil,
-        capabilities: [PathCapability]? = nil,
-        allowedTools: [String]? = nil,
+        capabilities: [WorkspaceCapability]? = nil,
         reason: String,
         policyProfile: String? = nil,
         expiresInSeconds: TimeInterval? = nil
@@ -124,11 +111,38 @@ public struct RequestPathGrantToolInput: Sendable, Codable, Hashable {
         self.requestedRootPath = requestedRootPath
         self.suggestedRootID = suggestedRootID
         self.label = label
-        self.mode = mode
         self.capabilities = capabilities
-        self.allowedTools = allowedTools
         self.reason = reason
         self.policyProfile = policyProfile
         self.expiresInSeconds = expiresInSeconds
+    }
+}
+
+@JSONSchema
+public struct WorkspaceAccessRequest: Result, Hashable {
+    public let rootID: String
+    public let rootPath: String
+    public let label: String
+    public let capabilities: [WorkspaceCapability]
+    public let reason: String
+    public let policyProfile: String
+    public let durationSeconds: Double?
+
+    public init(
+        rootID: String,
+        rootPath: String,
+        label: String,
+        capabilities: [WorkspaceCapability],
+        reason: String,
+        policyProfile: String,
+        durationSeconds: Double?
+    ) {
+        self.rootID = rootID
+        self.rootPath = rootPath
+        self.label = label
+        self.capabilities = capabilities
+        self.reason = reason
+        self.policyProfile = policyProfile
+        self.durationSeconds = durationSeconds
     }
 }

@@ -1,6 +1,6 @@
 import Agentic
 import AgenticExecution
-import AgenticWorkspace
+import Workspace
 import Foundation
 import Parsing
 import Path
@@ -393,11 +393,11 @@ public struct SourceCandidateProofResult:
     public let matches: [SourceProofMatchResult]
 }
 
-public struct ProveSearchResultsToolOutput:
-    Sendable,
-    Codable,
-    Hashable
-{
+public struct ProveSearchResultsToolOutput: Result, Hashable {
+    public static var jsonschema: JSONSchema {
+        .object()
+    }
+
     public let rootID: String
     public let candidateCount: Int
     public let provenCandidateCount: Int
@@ -428,215 +428,203 @@ public enum ProveSearchResultsToolError:
     }
 }
 
-public struct ProveSearchResultsTool:
-    AgentTool
-{
-    public typealias Input = ProveSearchResultsToolInput
-    public typealias Output = ProveSearchResultsToolOutput
+public extension SystemIO.Tools {
+    @Tool
+    struct ProveSearchResults: Tool {
+        public typealias Input = ProveSearchResultsToolInput
+        public typealias Output = ProveSearchResultsToolOutput
 
-    public static let identifier: AgentToolIdentifier =
-        "prove_search_results"
+        public static let purpose =
+            """
+            Structurally prove freshness-validated source-search candidates through Search and Parsing. Reauthorize candidate files, reject stale fingerprints, evaluate only bounded candidate material, return exact match and capture coordinates, and never execute arbitrary code or mutate files.
+            """
 
-    public static let description =
-        """
-        Structurally prove freshness-validated source-search candidates through Search and Parsing. Reauthorize candidate files, reject stale fingerprints, evaluate only bounded candidate material, return exact match and capture coordinates, and never execute arbitrary code or mutate files.
-        """
+        public static let risk: ActionRisk = .observe
 
-    public static let risk: ActionRisk = .observe
 
-    public var identifier: AgentToolIdentifier {
-        Self.identifier
-    }
+        private let loader: SourceContextLoader
 
-    public var description: String {
-        Self.description
-    }
-
-    public var risk: ActionRisk {
-        Self.risk
-    }
-
-    private let loader: SourceContextLoader
-
-    public init() {
-        loader = SourceContextLoader(
-            toolName: Self.identifier.rawValue
-        )
-    }
-
-    public func preflight(
-        _ input: Input,
-        context: AgentToolExecutionContext
-    ) async throws -> ToolPreflight {
-        let workspace = try FileToolSupport.requireWorkspace(
-            context.workspace,
-            toolName: name
-        )
-        let request = try sourceContextRequest(
-            from: input
-        )
-
-        _ = try input.specification
-            .parserSpecification()
-            .compile()
-
-        try loader.validate(
-            request
-        )
-
-        var targetPaths: [String] = []
-        var seen: Set<String> = []
-
-        for candidate in input.candidates {
-            let authorized = try FileToolAccess.authorize(
-                workspace: workspace,
-                rootID: input.rootID,
-                path: candidate.path,
-                capability: .read,
-                toolName: name,
-                type: .file
+        public init() {
+            loader = SourceContextLoader(
+                toolName: Self.identifier.rawValue
             )
-
-            if seen.insert(
-                authorized.presentationPath
-            ).inserted {
-                targetPaths.append(
-                    authorized.presentationPath
-                )
-            }
         }
 
-        return ToolPreflight(
-            toolName: name,
-            risk: risk,
-            workspaceRoot: workspace.rootURL.path,
-            targetPaths: targetPaths,
-            summary: "Freshness-validate and structurally prove \(input.candidates.count) source search candidate(s).",
-            rootIDs: [
-                input.rootID.rawValue,
-            ],
-            capabilitiesRequired: [
-                .read,
-            ],
-            policyChecks: [
-                "workspace_required",
-                "workspace_read_authorized",
-                "search_candidate_source_fingerprint_required",
-                "stale_search_context_rejected",
-                "selection_resolver_materialization",
-                "candidate_bounded_structural_proof",
-                "structured_parser_specification",
-                "no_source_content_returned",
-                "no_file_mutation",
-            ]
-        )
-    }
-
-    public func call(
-        _ input: Input,
-        context: AgentToolExecutionContext
-    ) async throws -> Output {
-        let workspace = try FileToolSupport.requireWorkspace(
-            context.workspace,
-            toolName: name
-        )
-        let context = try loader.load(
-            try sourceContextRequest(
+        public func preflight(
+            _ input: Input,
+            workspace: WorkspaceContext?
+        ) async throws -> ToolPreflight {
+            let workspace = try FileToolSupport.requireWorkspace(
+                workspace,
+                toolName: Self.identifier.rawValue
+            )
+            let request = try sourceContextRequest(
                 from: input
-            ),
-            workspace: workspace
-        )
-        let materials = try proofMaterials(
-            input: input,
-            context: context
-        )
-        let corpus = SearchCorpus(
-            documents: materials.enumerated().map {
-                index,
-                material in
+            )
 
-                SearchDocument(
-                    id: index,
-                    text: material.text
+            _ = try input.specification
+                .parserSpecification()
+                .compile()
+
+            try loader.validate(
+                request
+            )
+
+            var targetPaths: [String] = []
+            var seen: Set<String> = []
+
+            for candidate in input.candidates {
+                let authorized = try FileToolAccess.authorize(
+                    workspace: workspace,
+                    rootID: input.rootID,
+                    path: candidate.path,
+                    capability: .read,
+                    toolName: Self.identifier.rawValue,
+                    type: .file
                 )
+
+                if seen.insert(
+                    authorized.presentationPath
+                ).inserted {
+                    targetPaths.append(
+                        authorized.presentationPath
+                    )
+                }
             }
-        )
-        let frontier = SearchFrontier(
-            mode: .exhaustive,
-            matchedDocumentCount: materials.count,
-            searchedHitCount: materials.count,
-            discoveredCandidateCount: materials.count,
-            totalCandidateCount: materials.count,
-            offset: 0,
-            candidates: materials.enumerated().map {
-                index,
-                material in
 
-                SearchCandidate(
-                    documentID: index,
-                    lineRange: LineRange(
-                        uncheckedStart: 1,
-                        uncheckedEnd: material.lines.count
-                    ),
-                    score: .zero,
-                    evidence: []
-                )
-            }
-        )
-        let specification = try input.specification
-            .parserSpecification()
-        let result = try frontier.prove(
-            in: corpus,
-            with: specification,
-            requiring: input.cardinality.parserCardinality
-        )
-        let proofs = result.proofs.map {
-            proof in
+            return ToolPreflight(
+                tool: Self.definition.identifier,
+                risk: risk,
+                summary: "Freshness-validate and structurally prove \(input.candidates.count) source search candidate(s).",
+                access: .init(
+                    targets: targetPaths,
+                    roots: [
+                        input.rootID.rawValue,
+                    ],
+                    capabilities: [
+                        .read,
+                    ]
+                ),
+                policyChecks: [
+                    "workspace_required",
+                    "workspace_read_authorized",
+                    "search_candidate_source_fingerprint_required",
+                    "stale_search_context_rejected",
+                    "selection_resolver_materialization",
+                    "candidate_bounded_structural_proof",
+                    "structured_parser_specification",
+                    "no_source_content_returned",
+                    "no_file_mutation",
+                ]
+            )
+        }
 
-            let material = materials[proof.documentID]
+        public func call(
+            _ input: Input,
+            workspace: WorkspaceContext?
+        ) async throws -> Output {
+            let workspace = try FileToolSupport.requireWorkspace(
+                workspace,
+                toolName: Self.identifier.rawValue
+            )
+            let context = try loader.load(
+                try sourceContextRequest(
+                    from: input
+                ),
+                workspace: workspace
+            )
+            let materials = try proofMaterials(
+                input: input,
+                context: context
+            )
+            let corpus = SearchCorpus(
+                documents: materials.enumerated().map {
+                    index,
+                    material in
 
-            return SourceCandidateProofResult(
-                path: material.input.path,
-                sectionKey: material.input.sectionKey,
-                sourceFingerprint: material.input.sourceFingerprint,
-                candidateLineRange: material.input.lineRange,
-                matches: proof.matches.map {
-                    match in
-
-                    SourceProofMatchResult(
-                        range: sourceRange(
-                            match.range,
-                            lines: material.lines
-                        ),
-                        captures: match.captures.map {
-                            capture in
-
-                            SourceProofCaptureResult(
-                                name: capture.name,
-                                value: capture.value,
-                                range: sourceRange(
-                                    capture.range,
-                                    lines: material.lines
-                                )
-                            )
-                        }
+                    SearchDocument(
+                        id: index,
+                        text: material.text
                     )
                 }
             )
-        }
+            let frontier = SearchFrontier(
+                mode: .exhaustive,
+                matchedDocumentCount: materials.count,
+                searchedHitCount: materials.count,
+                discoveredCandidateCount: materials.count,
+                totalCandidateCount: materials.count,
+                offset: 0,
+                candidates: materials.enumerated().map {
+                    index,
+                    material in
 
-        return ProveSearchResultsToolOutput(
-            rootID: input.rootID.rawValue,
-            candidateCount: result.candidateCount,
-            provenCandidateCount: result.provenCandidateCount,
-            matchCount: result.matchCount,
-            proofs: proofs
-        )
-        
+                    SearchCandidate(
+                        documentID: index,
+                        lineRange: LineRange(
+                            uncheckedStart: 1,
+                            uncheckedEnd: material.lines.count
+                        ),
+                        score: .zero,
+                        evidence: []
+                    )
+                }
+            )
+            let specification = try input.specification
+                .parserSpecification()
+            let result = try frontier.prove(
+                in: corpus,
+                with: specification,
+                requiring: input.cardinality.parserCardinality
+            )
+            let proofs = result.proofs.map {
+                proof in
+
+                let material = materials[proof.documentID]
+
+                return SourceCandidateProofResult(
+                    path: material.input.path,
+                    sectionKey: material.input.sectionKey,
+                    sourceFingerprint: material.input.sourceFingerprint,
+                    candidateLineRange: material.input.lineRange,
+                    matches: proof.matches.map {
+                        match in
+
+                        SourceProofMatchResult(
+                            range: sourceRange(
+                                match.range,
+                                lines: material.lines
+                            ),
+                            captures: match.captures.map {
+                                capture in
+
+                                SourceProofCaptureResult(
+                                    name: capture.name,
+                                    value: capture.value,
+                                    range: sourceRange(
+                                        capture.range,
+                                        lines: material.lines
+                                    )
+                                )
+                            }
+                        )
+                    }
+                )
+            }
+
+            return ProveSearchResultsToolOutput(
+                rootID: input.rootID.rawValue,
+                candidateCount: result.candidateCount,
+                provenCandidateCount: result.provenCandidateCount,
+                matchCount: result.matchCount,
+                proofs: proofs
+            )
+            
+        }
     }
 }
 
-private extension ProveSearchResultsTool {
+private extension SystemIO.Tools.ProveSearchResults {
     struct ProofMaterial {
         let input: SourceContextCandidateInput
         let lines: [SourceContextLine]

@@ -1,245 +1,222 @@
 import Agentic
 import AgenticExecution
-import AgenticWorkspace
+import Workspace
+import Foundation
 import Primitives
 import Schema
 import Path
 import PathParsing
 
-public struct ScanPathsTool: AgentTool {
-    public typealias Input = ScanPathsToolInput
-    public typealias Output = ScanPathsToolOutput
+public extension SystemIO.Tools {
+    @Tool
+    struct ScanPaths: Tool {
+        public typealias Input = ScanPathsToolInput
+        public typealias Output = ScanPathsToolOutput
 
-    public static let identifier: AgentToolIdentifier = "scan_paths"
-    public static let description = "Scan path topology inside an authorized workspace root using PathScan, with optional bounded traversal depth and literal directory-state filtering."
-    public static let risk: ActionRisk = .observe
+        public static let purpose = "Scan path topology inside the targeted workspace context using PathScan, with optional bounded traversal depth and literal directory-state filtering."
+        public static let risk: ActionRisk = .observe
 
+        public init() {}
 
-    public var identifier: AgentToolIdentifier {
-        Self.identifier
-    }
+        public func preflight(
+            _ input: Input,
+            workspace: WorkspaceContext?
+        ) async throws -> ToolPreflight {
+            let targetPath: String
 
-    public var description: String {
-        Self.description
-    }
-
-
-    public var risk: ActionRisk {
-        Self.risk
-    }
-
-    public init() {}
-
-    public func preflight(
-        _ input: Input,
-        context: AgentToolExecutionContext
-    ) async throws -> ToolPreflight {
-
-        let directory = try resolvedDirectoryForPreflight(
-            from: input,
-            workspace: context.workspace
-        )
-
-        let targetPaths: [String]
-        if let directory {
-            targetPaths = [
-                directory.presentingRelative(
-                    filetype: true
+            if let workspace {
+                try requireTargetedRoot(
+                    input.rootID,
+                    workspace: workspace
                 )
-            ]
-        } else {
-            targetPaths = [
-                "."
-            ]
+                let authorized = try workspace.authorize(
+                    normalizedDirectoryPath(input.path) ?? ".",
+                    capability: .scan
+                ).authorizedPath
+                try requireDirectory(
+                    authorized,
+                    field: "path"
+                )
+                targetPath = authorized.presentationPath
+            } else {
+                targetPath = normalizedDirectoryPath(input.path) ?? "."
+            }
+
+            return .init(
+                tool: Self.definition.identifier,
+                risk: risk,
+                summary: input.recursive
+                    ? "Recursively scan \(targetPath)"
+                    : "Scan direct entries in \(targetPath)",
+                access: .init(
+                    targets: [
+                        targetPath
+                    ],
+                    roots: workspace.map {
+                        [
+                            $0.rootIdentifier.rawValue
+                        ]
+                    } ?? [
+                        input.rootID.rawValue
+                    ],
+                    capabilities: [
+                        .scan
+                    ],
+                    includesHidden: input.includeHidden,
+                    followsSymlinks: input.followSymlinks
+                ),
+                estimates: .init(
+                    scan: .init(
+                        entries: input.maxEntries,
+                        depth: resolvedMaxDepth(
+                            for: input
+                        )
+                    )
+                ),
+                policyChecks: [
+                    "workspace_required",
+                    "workspace_context_already_targeted",
+                    "scan_path_authorized",
+                    "scan_configuration_estimated"
+                ]
+            )
         }
 
-        let summary = summary(
-            for: input,
-            directory: directory
-        )
+        public func call(
+            _ input: Input,
+            workspace: WorkspaceContext?
+        ) async throws -> Output {
+            let workspace = try FileToolSupport.requireWorkspace(
+                workspace,
+                toolName: Self.identifier.rawValue
+            )
+            try requireTargetedRoot(
+                input.rootID,
+                workspace: workspace
+            )
 
-        return .init(
-            toolName: name,
-            risk: risk,
-            workspaceRoot: context.workspace?.rootURL.path,
-            targetPaths: targetPaths,
-            summary: input.excludes.isEmpty
-                ? summary
-                : "\(summary) with \(input.excludes.count) exclude pattern(s)",
-            rootIDs: [
-                input.rootID.rawValue
-            ],
-            capabilitiesRequired: [
-                .scan
-            ],
-            estimatedScanEntries: input.maxEntries,
-            estimatedScanDepth: resolvedMaxDepth(
-                for: input
-            ),
-            includesHiddenPaths: input.includeHidden,
-            followsSymlinks: input.followSymlinks,
-            policyChecks: [
-                "workspace_required",
-                "root_path_resolved",
-                "scan_configuration_estimated"
-            ]
-        )
-    }
+            let directoryInput = normalizedDirectoryPath(
+                input.path
+            ) ?? "."
+            let directory = try workspace.authorize(
+                directoryInput,
+                capability: .scan
+            ).authorizedPath
+            try requireDirectory(
+                directory,
+                field: "path"
+            )
 
-    public func call(
-        _ input: Input,
-        context: AgentToolExecutionContext
-    ) async throws -> Output {
-        let workspace = try FileToolSupport.requireWorkspace(
-            context.workspace,
-            toolName: name
-        )
-
-
-        let directory = try authorizedDirectoryForCall(
-            from: input,
-            workspace: workspace
-        )
-
-        let specification = try ParsedPathScan.specification(
-            includes: [
-                includePattern(
-                    directory: directory,
-                    recursive: usesRecursivePattern(
+            let specification = try ParsedPathScan.specification(
+                includes: [
+                    usesRecursivePattern(for: input)
+                        ? "**"
+                        : "*"
+                ],
+                excludes: input.excludes
+            )
+            let result = try PathScan.scan(
+                specification,
+                relativeTo: .directoryURL(
+                    directory.absoluteURL
+                ),
+                configuration: .init(
+                    maxDepth: resolvedMaxDepth(
                         for: input
+                    ),
+                    includeHidden: input.includeHidden,
+                    followSymlinks: input.followSymlinks,
+                    emitDirectories: input.includeDirectories,
+                    emitFiles: input.includeFiles,
+                    directoryState: input.directoryState
+                )
+            )
+
+            var entries = try result.matches.compactMap { match -> ScanPathsAuthorizedEntry? in
+                guard match.url.standardizedFileURL != directory.absoluteURL.standardizedFileURL else {
+                    return nil
+                }
+
+                let authorized = try workspace.authorize(
+                    match.url.path,
+                    capability: .scan
+                ).authorizedPath
+
+                return .init(
+                    path: authorized.presentationPath,
+                    isDirectory: match.type == .directory
+                )
+            }
+
+            let truncated: Bool
+            if let maxEntries = input.maxEntries,
+               maxEntries >= 0,
+               entries.count > maxEntries {
+                entries = Array(
+                    entries.prefix(
+                        maxEntries
                     )
                 )
-            ],
-            excludes: input.excludes
-        )
+                truncated = true
+            } else {
+                truncated = false
+            }
 
-        let result = try workspace.scan(
-            specification,
-            rootID: input.rootID,
-            configuration: .init(
-                maxDepth: resolvedMaxDepth(
-                    for: input
-                ),
-                includeHidden: input.includeHidden,
-                followSymlinks: input.followSymlinks,
-                emitDirectories: input.includeDirectories,
-                emitFiles: input.includeFiles,
-                directoryState: input.directoryState
+            return ScanPathsToolOutput(
+                rootID: workspace.rootIdentifier.rawValue,
+                directory: normalizedDirectoryPath(input.path).map { _ in
+                    directory.presentationPath
+                },
+                entries: entries.map {
+                    .init(
+                        path: $0.path,
+                        isDirectory: $0.isDirectory
+                    )
+                },
+                truncated: truncated
             )
-        )
-
-        var entries = try workspace.authorizedEntries(
-            from: result,
-            rootID: input.rootID,
-            capability: .scan,
-            toolName: name,
-            excluding: directory
-        )
-
-        let truncated: Bool
-        if let maxEntries = input.maxEntries,
-           maxEntries >= 0,
-           entries.count > maxEntries {
-            entries = Array(
-                entries.prefix(
-                    maxEntries
-                )
-            )
-            truncated = true
-        } else {
-            truncated = false
         }
-
-        return ScanPathsToolOutput(
-            rootID: input.rootID.rawValue,
-            directory: directory?.presentingRelative(
-                filetype: true
-            ),
-            entries: entries.map { entry in
-                .init(
-                    path: entry.relativePath,
-                    isDirectory: entry.isDirectory
-                )
-            },
-            truncated: truncated
-        )
-        
     }
 }
 
-private extension ScanPathsTool {
-    func resolvedDirectoryForPreflight(
-        from input: ScanPathsToolInput,
-        workspace: AgentWorkspace?
-    ) throws -> DescendantPath? {
-        guard let trimmedPath = normalizedDirectoryPath(
-            input.path
-        ) else {
-            return nil
-        }
+private struct ScanPathsAuthorizedEntry {
+    let path: String
+    let isDirectory: Bool
+}
 
-        guard let workspace else {
-            return nil
-        }
-
-        let directory = try workspace.resolve(
-            rootID: input.rootID,
-            trimmedPath,
-            type: .directory
-        )
-
-        if try workspace.existingType(
-            of: directory
-        ) == .file {
+private extension SystemIO.Tools.ScanPaths {
+    func requireTargetedRoot(
+        _ requested: PathAccessRootIdentifier,
+        workspace: WorkspaceContext
+    ) throws {
+        guard requested == workspace.rootIdentifier else {
             throw PredefinedFileToolError.invalidValue(
-                tool: name,
-                field: "path",
-                reason: "must reference a directory, not a file"
+                tool: Self.identifier.rawValue,
+                field: "rootID",
+                reason: "rootID '\(requested.rawValue)' does not match the already-targeted workspace root '\(workspace.rootIdentifier.rawValue)'"
             )
         }
-
-        return directory
     }
 
-    func authorizedDirectoryForCall(
-        from input: ScanPathsToolInput,
-        workspace: AgentWorkspace
-    ) throws -> DescendantPath? {
-        guard let trimmedPath = normalizedDirectoryPath(
-            input.path
+    func requireDirectory(
+        _ authorized: AuthorizedPath,
+        field: String
+    ) throws {
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(
+            atPath: authorized.absoluteURL.path,
+            isDirectory: &isDirectory
         ) else {
-            _ = try FileToolAccess.authorize(
-                workspace: workspace,
-                rootID: input.rootID,
-                path: ".",
-                capability: .scan,
-                toolName: name,
-                type: .directory
-            )
-
-            return nil
+            return
         }
 
-        let authorized = try FileToolAccess.authorize(
-            workspace: workspace,
-            rootID: input.rootID,
-            path: trimmedPath,
-            capability: .scan,
-            toolName: name,
-            type: .directory
-        )
-
-        if try workspace.existingType(
-            of: authorized.path
-        ) == .file {
+        guard isDirectory.boolValue else {
             throw PredefinedFileToolError.invalidValue(
-                tool: name,
-                field: "path",
+                tool: Self.identifier.rawValue,
+                field: field,
                 reason: "must reference a directory, not a file"
             )
         }
-
-        return authorized.path
     }
 
     func normalizedDirectoryPath(
@@ -282,37 +259,5 @@ private extension ScanPathsTool {
         }
 
         return maxDepth > 1
-    }
-
-    func includePattern(
-        directory: DescendantPath?,
-        recursive: Bool
-    ) -> String {
-        guard let directory else {
-            return recursive ? "**" : "*"
-        }
-
-        let rendered = directory.presentingRelative(
-            filetype: true
-        )
-
-        return recursive
-            ? "\(rendered)/**"
-            : "\(rendered)/*"
-    }
-
-    func summary(
-        for input: ScanPathsToolInput,
-        directory: DescendantPath?
-    ) -> String {
-        if let directory {
-            return input.recursive
-                ? "Recursively scan \(directory.presentingRelative(filetype: true))"
-                : "Scan direct entries in \(directory.presentingRelative(filetype: true))"
-        }
-
-        return input.recursive
-            ? "Recursively scan workspace root"
-            : "Scan direct entries in workspace root"
     }
 }

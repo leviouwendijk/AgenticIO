@@ -1,9 +1,9 @@
 import Agentic
 import AgenticIO
-import AgenticWorkspace
+import Workspace
 import Foundation
 import Schema
-import TestFlows
+import Testing
 
 extension AgenticIOFlowTesting {
     static func proveRichProbeSemantics() async throws {
@@ -42,7 +42,7 @@ extension AgenticIOFlowTesting {
             "search_sources schema omits the legacy queries representation"
         )
 
-        let output = try await SearchSourcesTool().call(
+        let output = try await SystemIO.Tools.SearchSources().call(
             SearchSourcesToolInput(
                                 includes: [
                                     "Sources/RichPlain.swift",
@@ -83,9 +83,7 @@ extension AgenticIOFlowTesting {
                                 maximumCandidates: 16,
                                 maximumCandidatesPerDocument: 16
                             ),
-            context: .init(
-                workspace: fixture.workspace
-            )
+            workspace: fixture.workspace
         )
         let result = output
 
@@ -170,7 +168,7 @@ extension AgenticIOFlowTesting {
 
 private struct RichSourceSearchFixture {
     let root: URL
-    let workspace: AgentWorkspace
+    let workspace: WorkspaceContext
 
     static func make() throws -> Self {
         let root = FileManager.default.temporaryDirectory
@@ -208,7 +206,7 @@ private struct RichSourceSearchFixture {
 
         return .init(
             root: root,
-            workspace: try AgentWorkspace(
+            workspace: try makeAgenticIOTestingWorkspace(
                 root: root
             )
         )

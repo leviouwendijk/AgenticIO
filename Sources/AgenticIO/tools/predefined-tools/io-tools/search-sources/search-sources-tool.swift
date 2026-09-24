@@ -1,6 +1,6 @@
 import Agentic
 import AgenticExecution
-import AgenticWorkspace
+import Workspace
 import Concatenation
 import Foundation
 import Path
@@ -252,215 +252,205 @@ public extension SearchSourcesToolInput {
     }
 }
 
-public struct SearchSourcesTool: AgentTool {
-    public typealias Input = SearchSourcesToolInput
-    public typealias Output = SourceSearchResult
+public extension SystemIO.Tools {
+    @Tool
+    struct SearchSources: Tool {
+        public typealias Input = SearchSourcesToolInput
+        public typealias Output = SourceSearchResult
 
-    public static let identifier: AgentToolIdentifier = "search_sources"
-    public static let description = "Search content inside an authorized workspace source universe and return compact ranked or exhaustive source ranges without returning source contents."
-    public static let risk: ActionRisk = .observe
+        public static let purpose = "Search content inside an authorized workspace source universe and return compact ranked or exhaustive source ranges without returning source contents."
+        public static let risk: ActionRisk = .observe
 
-    public let searcher: SourceSearcher
+        public let searcher: SourceSearcher
 
-    public init(
-        searcher: SourceSearcher = .init()
-    ) {
-        self.searcher = searcher
-    }
+        public init(
+            searcher: SourceSearcher = .init()
+        ) {
+            self.searcher = searcher
+        }
 
-    public var identifier: AgentToolIdentifier {
-        Self.identifier
-    }
+        public func preflight(
+            _ input: Input,
+            workspace: WorkspaceContext?
+        ) async throws -> ToolPreflight {
+            let workspace = try FileToolSupport.requireWorkspace(
+                workspace,
+                toolName: Self.identifier.rawValue
+            )
 
-    public var description: String {
-        Self.description
-    }
+            let probes = try input.resolvedSearchProbes(
+                toolName: Self.identifier.rawValue
+            )
 
-    public var risk: ActionRisk {
-        Self.risk
-    }
+            _ = try FileToolAccess.authorize(
+                workspace: workspace,
+                rootID: input.rootID,
+                path: ".",
+                capability: .scan,
+                toolName: Self.identifier.rawValue,
+                type: .directory
+            )
 
-    public func preflight(
-        _ input: Input,
-        context: AgentToolExecutionContext
-    ) async throws -> ToolPreflight {
-        let workspace = try FileToolSupport.requireWorkspace(
-            context.workspace,
-            toolName: name
-        )
+            _ = try ConcatenationCorpusDefinition.parsing(
+                includes: input.includes,
+                excludes: input.excludes,
+                selections: input.selections
+            )
 
-        let probes = try input.resolvedSearchProbes(
-            toolName: name
-        )
-
-        _ = try FileToolAccess.authorize(
-            workspace: workspace,
-            rootID: input.rootID,
-            path: ".",
-            capability: .scan,
-            toolName: name,
-            type: .directory
-        )
-
-        _ = try ConcatenationCorpusDefinition.parsing(
-            includes: input.includes,
-            excludes: input.excludes,
-            selections: input.selections
-        )
-
-        return .init(
-            toolName: name,
-            risk: risk,
-            workspaceRoot: workspace.rootURL.path,
-            summary: "Search \(probes.count) source probe(s) inside root '\(input.rootID.rawValue)'.",
-            sideEffects: [],
-            rootIDs: [
-                input.rootID.rawValue,
-            ],
-            capabilitiesRequired: [
-                .scan,
-                .read,
-            ],
-            policyChecks: [
-                "workspace_required",
-                "workspace_root_scan_authorized",
-                "resolved_source_read_authorization_required",
-                "selection_resolution_bounded_to_authorized_root",
-                "retained_source_cache_only",
-                "no_source_content_returned",
-                "no_file_mutation",
-            ]
-        )
-    }
-
-    public func call(
-        _ input: Input,
-        context: AgentToolExecutionContext
-    ) async throws -> Output {
-        let workspace = try FileToolSupport.requireWorkspace(
-            context.workspace,
-            toolName: name
-        )
-        let definition = try ConcatenationCorpusDefinition.parsing(
-            includes: input.includes,
-            excludes: input.excludes,
-            selections: input.selections
-        )
-        let probes = try input.resolvedSearchProbes(
-            toolName: name
-        )
-        let request = SourceSearchRequest(
-            rootID: input.rootID,
-            definition: definition,
-            probes: probes,
-            options: SearchOptions(
-                mode: input.mode.searchMode,
-                caseSensitive: input.caseSensitive,
-                minimumScore: input.minimumScore,
-                maximumResults: nil
-            ),
-            frontierOptions: SearchFrontierOptions(
-                mergeDistanceLines: input.mergeDistanceLines,
-                maximumCandidates: input.maximumCandidates,
-                maximumCandidatesPerDocument: input.maximumCandidatesPerDocument,
-                offset: input.offset
-            ),
-            expectedCorpusFingerprint: input.expectedCorpusFingerprint?.fingerprint
-        )
-
-        let result = try await searcher.search(
-            request,
-            workspace: workspace,
-            toolName: name
-        )
-
-        return result
-        
-    }
-
-    public func process(
-        _ output: Output,
-        input _: Input,
-        context _: AgentToolExecutionContext
-    ) -> AgentToolResultProjection? {
-        let result = output
-
-        return .init(
-            status: "passed",
-            summary: "Source search (\(result.mode.rawValue)) returned \(result.returnedCandidateCount) of \(result.totalCandidateCount) candidate region(s) from offset \(result.offset) across \(result.sourceCount) retained source(s).",
-            facts: [
-                .init(
-                    label: "mode",
-                    value: result.mode.rawValue
+            return .init(
+                tool: Self.definition.identifier,
+                risk: risk,
+                summary: "Search \(probes.count) source probe(s) inside root '\(input.rootID.rawValue)'.",
+                access: .init(
+                    roots: [
+                        input.rootID.rawValue,
+                    ],
+                    capabilities: [
+                        .scan,
+                        .read,
+                    ]
                 ),
-                .init(
-                    label: "sources",
-                    value: String(
-                        result.sourceCount
-                    )
+                sideEffects: [],
+                policyChecks: [
+                    "workspace_required",
+                    "workspace_root_scan_authorized",
+                    "resolved_source_read_authorization_required",
+                    "selection_resolution_bounded_to_authorized_root",
+                    "retained_source_cache_only",
+                    "no_source_content_returned",
+                    "no_file_mutation",
+                ]
+            )
+        }
+
+        public func call(
+            _ input: Input,
+            workspace: WorkspaceContext?
+        ) async throws -> Output {
+            let workspace = try FileToolSupport.requireWorkspace(
+                workspace,
+                toolName: Self.identifier.rawValue
+            )
+            let definition = try ConcatenationCorpusDefinition.parsing(
+                includes: input.includes,
+                excludes: input.excludes,
+                selections: input.selections
+            )
+            let probes = try input.resolvedSearchProbes(
+                toolName: Self.identifier.rawValue
+            )
+            let request = SourceSearchRequest(
+                rootID: input.rootID,
+                definition: definition,
+                probes: probes,
+                options: SearchOptions(
+                    mode: input.mode.searchMode,
+                    caseSensitive: input.caseSensitive,
+                    minimumScore: input.minimumScore,
+                    maximumResults: nil
                 ),
-                .init(
-                    label: "searched_slices",
-                    value: String(
-                        result.searchedDocumentCount
-                    )
+                frontierOptions: SearchFrontierOptions(
+                    mergeDistanceLines: input.mergeDistanceLines,
+                    maximumCandidates: input.maximumCandidates,
+                    maximumCandidatesPerDocument: input.maximumCandidatesPerDocument,
+                    offset: input.offset
                 ),
-                .init(
-                    label: "matched_documents",
-                    value: String(
-                        result.matchedDocumentCount
-                    )
-                ),
-                .init(
-                    label: "discovered_candidate_regions",
-                    value: String(
-                        result.discoveredCandidateCount
-                    )
-                ),
-                .init(
-                    label: "total_candidate_regions",
-                    value: String(
-                        result.totalCandidateCount
-                    )
-                ),
-                .init(
-                    label: "offset",
-                    value: String(
-                        result.offset
-                    )
-                ),
-                .init(
-                    label: "returned_candidates",
-                    value: String(
-                        result.returnedCandidateCount
-                    )
-                ),
-                .init(
-                    label: "next_offset",
-                    value: result.nextOffset.map {
-                        String(
-                            $0
-                        )
-                    } ?? "none"
-                ),
-                .init(
-                    label: "truncated",
-                    value: String(
-                        result.truncated
-                    )
-                ),
-                .init(
-                    label: "has_more",
-                    value: String(
-                        result.hasMore
-                    )
-                ),
-                .init(
-                    label: "corpus_fingerprint",
-                    value: result.corpusFingerprint.description
-                ),
-            ]
+                expectedCorpusFingerprint: input.expectedCorpusFingerprint?.fingerprint
+            )
+
+            let result = try await searcher.search(
+                request,
+                workspace: workspace,
+                toolName: Self.identifier.rawValue
+            )
+
+            return result
             
-        )
+        }
+
+        public func process(
+            _ output: Output,
+            input _: Input
+        ) -> ToolCall.ResultProjection? {
+            let result = output
+
+            return .init(
+                status: "passed",
+                summary: "Source search (\(result.mode.rawValue)) returned \(result.returnedCandidateCount) of \(result.totalCandidateCount) candidate region(s) from offset \(result.offset) across \(result.sourceCount) retained source(s).",
+                facts: [
+                    .init(
+                        label: "mode",
+                        value: result.mode.rawValue
+                    ),
+                    .init(
+                        label: "sources",
+                        value: String(
+                            result.sourceCount
+                        )
+                    ),
+                    .init(
+                        label: "searched_slices",
+                        value: String(
+                            result.searchedDocumentCount
+                        )
+                    ),
+                    .init(
+                        label: "matched_documents",
+                        value: String(
+                            result.matchedDocumentCount
+                        )
+                    ),
+                    .init(
+                        label: "discovered_candidate_regions",
+                        value: String(
+                            result.discoveredCandidateCount
+                        )
+                    ),
+                    .init(
+                        label: "total_candidate_regions",
+                        value: String(
+                            result.totalCandidateCount
+                        )
+                    ),
+                    .init(
+                        label: "offset",
+                        value: String(
+                            result.offset
+                        )
+                    ),
+                    .init(
+                        label: "returned_candidates",
+                        value: String(
+                            result.returnedCandidateCount
+                        )
+                    ),
+                    .init(
+                        label: "next_offset",
+                        value: result.nextOffset.map {
+                            String(
+                                $0
+                            )
+                        } ?? "none"
+                    ),
+                    .init(
+                        label: "truncated",
+                        value: String(
+                            result.truncated
+                        )
+                    ),
+                    .init(
+                        label: "has_more",
+                        value: String(
+                            result.hasMore
+                        )
+                    ),
+                    .init(
+                        label: "corpus_fingerprint",
+                        value: result.corpusFingerprint.description
+                    ),
+                ]
+                
+            )
+        }
     }
 }

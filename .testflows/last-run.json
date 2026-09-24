@@ -3,12 +3,55 @@
   "failed_names" : [
 
   ],
-  "generated_at" : "2026-09-06T16:58:33Z",
-  "passed" : 7,
+  "generated_at" : "2026-09-16T01:13:56Z",
+  "passed" : 10,
   "results" : [
     {
+      "display_name" : "prepared-operation-authoring",
+      "duration_seconds" : 0.04171597957611084,
+      "name" : "prepared-operation-authoring",
+      "status" : "passed",
+      "tags" : [
+        "agentic-io",
+        "mutation",
+        "path-grant",
+        "persistence",
+        "prepared-intent",
+        "prepared-operation",
+        "version"
+      ]
+    },
+    {
+      "display_name" : "workspace-access-overlay",
+      "duration_seconds" : 0.004052996635437012,
+      "name" : "workspace-access-overlay",
+      "status" : "passed",
+      "tags" : [
+        "agentic-io",
+        "agentic-workspace",
+        "authorization",
+        "overlay",
+        "path-grant",
+        "persistence"
+      ]
+    },
+    {
+      "display_name" : "prepared-file-mutation-execution",
+      "duration_seconds" : 0.022868990898132324,
+      "name" : "prepared-file-mutation-execution",
+      "status" : "passed",
+      "tags" : [
+        "agentic-io",
+        "execution",
+        "mutation",
+        "persistence",
+        "prepared-operation",
+        "rollback"
+      ]
+    },
+    {
       "display_name" : "mutate-files-workspace-targeting",
-      "duration_seconds" : 0.015511035919189453,
+      "duration_seconds" : 0.013369917869567871,
       "name" : "mutate-files-workspace-targeting",
       "status" : "passed",
       "tags" : [
@@ -20,7 +63,7 @@
     },
     {
       "display_name" : "mutate-files-relative-insertion",
-      "duration_seconds" : 0.009544014930725098,
+      "duration_seconds" : 0.012820005416870117,
       "name" : "mutate-files-relative-insertion",
       "status" : "passed",
       "tags" : [
@@ -33,7 +76,7 @@
     },
     {
       "display_name" : "path-search",
-      "duration_seconds" : 0.012633919715881348,
+      "duration_seconds" : 0.017638087272644043,
       "name" : "path-search",
       "status" : "passed",
       "tags" : [
@@ -45,7 +88,7 @@
     },
     {
       "display_name" : "source-search",
-      "duration_seconds" : 0.02172994613647461,
+      "duration_seconds" : 0.027009010314941406,
       "name" : "source-search",
       "status" : "passed",
       "tags" : [
@@ -57,7 +100,7 @@
     },
     {
       "display_name" : "search-proof",
-      "duration_seconds" : 0.007846951484680176,
+      "duration_seconds" : 0.006271958351135254,
       "name" : "search-proof",
       "status" : "passed",
       "tags" : [
@@ -70,7 +113,7 @@
     },
     {
       "display_name" : "search-context",
-      "duration_seconds" : 0.004691004753112793,
+      "duration_seconds" : 0.004837989807128906,
       "name" : "search-context",
       "status" : "passed",
       "tags" : [
@@ -83,7 +126,7 @@
     },
     {
       "display_name" : "read-file-policy",
-      "duration_seconds" : 0.004230976104736328,
+      "duration_seconds" : 0.0044280290603637695,
       "name" : "read-file-policy",
       "status" : "passed",
       "tags" : [
@@ -97,5 +140,5 @@
   ],
   "skipped" : 0,
   "title" : "AgenticIO flow tests",
-  "total" : 7
+  "total" : 10
 }

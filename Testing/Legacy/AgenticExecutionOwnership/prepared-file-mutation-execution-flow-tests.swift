@@ -1,14 +1,14 @@
 import Agentic
 import AgenticExecution
 import AgenticIO
-import AgenticWorkspace
+import Workspace
 import Foundation
-import TestFlows
+import Testing
 
 extension AgenticIOFlowTesting {
     static func runPreparedFileMutationExecution()
         async throws
-        -> [TestFlowDiagnostic]
+        -> [TestDiagnostic]
     {
         let fixture = try PreparedFileMutationExecutionFixture.make()
 
@@ -302,7 +302,7 @@ private enum PreparedFileMutationExecutionFixtureError: Error {
 
 private struct PreparedFileMutationExecutionFixture {
     let rootURL: URL
-    let workspace: AgentWorkspace
+    let workspace: WorkspaceContext
 
     var fileURL: URL {
         rootURL.appendingPathComponent(
@@ -331,7 +331,7 @@ private struct PreparedFileMutationExecutionFixture {
 
         let fixture = try Self(
             rootURL: rootURL,
-            workspace: AgentWorkspace(
+            workspace: WorkspaceContext(
                 root: rootURL
             )
         )

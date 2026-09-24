@@ -78,7 +78,7 @@ private extension FileMutationIntentBuilder {
 
         if let diffPreview = preflight.diffPreview {
             lines.append(
-                "Diff preview: \(diffPreview.insertedLineCount) insertion(s), \(diffPreview.deletedLineCount) deletion(s)."
+                "Diff preview: \(diffPreview.layout.changes.insertions.count) insertion(s), \(diffPreview.layout.changes.deletions.count) deletion(s)."
             )
         } else {
             lines.append(
@@ -116,7 +116,7 @@ private extension FileMutationIntentBuilder {
     func reviewMetadata(
         for preflight: AgentFileMutationPreflight
     ) -> [String: String] {
-        var metadata = [
+        let metadata = [
             "kind": "file_mutation_prepared_intent",
             "root_id": preflight.rootID.rawValue,
             "path": preflight.path,
@@ -140,7 +140,7 @@ private extension FileMutationIntentBuilder {
     func draftMetadata(
         for preflight: AgentFileMutationPreflight
     ) -> [String: String] {
-        var metadata = [
+        let metadata = [
             "kind": "file_mutation_prepared_intent",
             "root_id": preflight.rootID.rawValue,
             "path": preflight.path,

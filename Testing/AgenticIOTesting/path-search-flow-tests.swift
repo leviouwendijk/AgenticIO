@@ -1,12 +1,12 @@
 import Agentic
 import AgenticExecution
 import AgenticIO
-import AgenticWorkspace
+import Workspace
 import Foundation
-import TestFlows
+import Testing
 
 extension AgenticIOFlowTesting {
-    static func runPathSearch() async throws -> [TestFlowDiagnostic] {
+    static func runPathSearch() async throws -> [TestDiagnostic] {
         let fixture = try PathSearchFixture.make()
 
         defer {
@@ -16,7 +16,7 @@ extension AgenticIOFlowTesting {
         var registry = ToolRegistry()
 
         try registry.register(
-            CoreWorkspaceToolSet()
+            from: CoreWorkspaceToolSet()
         )
 
         _ = try Expect.notNil(
@@ -90,7 +90,7 @@ extension AgenticIOFlowTesting {
             "find_paths decodes flatcase maxdepth"
         )
 
-        let rankedOutput = try await FindPathsTool().call(
+        let rankedOutput = try await SystemIO.Tools.FindPaths().call(
             FindPathsToolInput(
                                 queries: [
                                     .init(
@@ -112,9 +112,7 @@ extension AgenticIOFlowTesting {
                                 caseSensitive: true,
                                 maxEntries: 8
                             ),
-            context: .init(
-                workspace: fixture.workspace
-            )
+            workspace: fixture.workspace
         )
         let ranked = rankedOutput
 
@@ -163,7 +161,7 @@ extension AgenticIOFlowTesting {
             "path evidence retains scalar probe scores without Search ranking internals"
         )
 
-        let legacyOutput = try await FindPathsTool().call(
+        let legacyOutput = try await SystemIO.Tools.FindPaths().call(
             FindPathsToolInput(
                                 query: "a.SWIFT",
                                 includes: [
@@ -172,9 +170,7 @@ extension AgenticIOFlowTesting {
                                 includeFiles: true,
                                 includeDirectories: false
                             ),
-            context: .init(
-                workspace: fixture.workspace
-            )
+            workspace: fixture.workspace
         )
         let legacy = legacyOutput
 
@@ -186,7 +182,7 @@ extension AgenticIOFlowTesting {
             "legacy query remains a case-insensitive contains search by default"
         )
 
-        let excludedOutput = try await FindPathsTool().call(
+        let excludedOutput = try await SystemIO.Tools.FindPaths().call(
             FindPathsToolInput(
                                 queries: [
                                     .init(
@@ -204,9 +200,7 @@ extension AgenticIOFlowTesting {
                                 strategy: .contains,
                                 caseSensitive: true
                             ),
-            context: .init(
-                workspace: fixture.workspace
-            )
+            workspace: fixture.workspace
         )
         let excluded = excludedOutput
 
@@ -223,7 +217,7 @@ extension AgenticIOFlowTesting {
             "find_paths returns only the non-excluded ranked path"
         )
 
-        let shallowFind = try await FindPathsTool().call(
+        let shallowFind = try await SystemIO.Tools.FindPaths().call(
             FindPathsToolInput(
                 query: "A.swift",
                 recursive: true,
@@ -232,9 +226,7 @@ extension AgenticIOFlowTesting {
                 includeDirectories: false,
                 strategy: .contains
             ),
-            context: .init(
-                workspace: fixture.workspace
-            )
+            workspace: fixture.workspace
         )
 
         try Expect.equal(
@@ -245,7 +237,7 @@ extension AgenticIOFlowTesting {
             "find_paths maxdepth 1 overrides recursive true"
         )
 
-        let deepFind = try await FindPathsTool().call(
+        let deepFind = try await SystemIO.Tools.FindPaths().call(
             FindPathsToolInput(
                 query: "A.swift",
                 recursive: false,
@@ -254,9 +246,7 @@ extension AgenticIOFlowTesting {
                 includeDirectories: false,
                 strategy: .contains
             ),
-            context: .init(
-                workspace: fixture.workspace
-            )
+            workspace: fixture.workspace
         )
 
         try Expect.equal(
@@ -267,16 +257,14 @@ extension AgenticIOFlowTesting {
             "find_paths maxdepth 2 overrides recursive false"
         )
 
-        let shallowScan = try await ScanPathsTool().call(
+        let shallowScan = try await SystemIO.Tools.ScanPaths().call(
             ScanPathsToolInput(
                 includeFiles: true,
                 includeDirectories: true,
                 recursive: true,
                 maxdepth: 1
             ),
-            context: .init(
-                workspace: fixture.workspace
-            )
+            workspace: fixture.workspace
         )
 
         try Expect.equal(
@@ -287,16 +275,14 @@ extension AgenticIOFlowTesting {
             "scan_paths maxdepth 1 overrides recursive true"
         )
 
-        let deepScan = try await ScanPathsTool().call(
+        let deepScan = try await SystemIO.Tools.ScanPaths().call(
             ScanPathsToolInput(
                 includeFiles: true,
                 includeDirectories: true,
                 recursive: false,
                 maxdepth: 2
             ),
-            context: .init(
-                workspace: fixture.workspace
-            )
+            workspace: fixture.workspace
         )
 
         try Expect.equal(
@@ -317,7 +303,7 @@ extension AgenticIOFlowTesting {
 
 private struct PathSearchFixture {
     let root: URL
-    let workspace: AgentWorkspace
+    let workspace: WorkspaceContext
 
     static func make() throws -> Self {
         let root = FileManager.default.temporaryDirectory
@@ -351,7 +337,7 @@ private struct PathSearchFixture {
 
         return .init(
             root: root,
-            workspace: try AgentWorkspace(
+            workspace: try makeAgenticIOTestingWorkspace(
                 root: root
             )
         )
