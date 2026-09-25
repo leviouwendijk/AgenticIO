@@ -194,7 +194,7 @@ public extension SystemIO.Tools {
     @Tool
     struct MutateFiles: Tool {
         @JSONSchema
-        public struct Input: Sendable, Codable, Hashable {
+        public struct Input: HashableSource {
             /// Brief reason for this coherent mutation pass.
             public let reason: String?
 
@@ -222,7 +222,7 @@ public extension SystemIO.Tools {
             }
         }
 
-        public struct Output: Result, Hashable {
+        public struct Output: HashableResult {
             public static var jsonschema: JSONSchema {
                 .object()
             }

@@ -12,7 +12,7 @@ public extension SystemIO.Tools {
     struct InspectFileMutation: Tool {
         /// Model-facing input for Inspect fileMutation.
         @JSONSchema
-        public struct Input: Sendable, Codable, Hashable {
+        public struct Input: HashableSource {
             /// Exact recorded mutation identifier.
             public let id: String
             /// Whether to load the referenced diff artifact when available.

@@ -255,10 +255,7 @@ public extension SystemIO.Tools {
     struct ReadSelection: Tool {
         /// Read one or more bounded selections from a workspace file.
         @JSONSchema
-        public struct Input:
-            Sendable,
-            Codable,
-            Hashable
+        public struct Input: HashableSource
         {
             /// Path to the file relative to the workspace root.
             public let path: String
@@ -282,7 +279,7 @@ public extension SystemIO.Tools {
             }
         }
 
-        public struct Output: Result, Hashable {
+        public struct Output: HashableResult {
             public static var jsonschema: JSONSchema {
                 .object()
             }

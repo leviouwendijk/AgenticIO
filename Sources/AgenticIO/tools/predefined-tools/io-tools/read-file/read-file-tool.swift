@@ -73,7 +73,7 @@ public extension SystemIO.Tools {
     @Tool
     struct ReadFile: Tool {
         @JSONSchema
-        public struct Input: Sendable, Codable, Hashable {
+        public struct Input: HashableSource {
             /// Workspace root identifier. Usually use 'project'.
             @Schema(required: false)
             public let rootID: PathAccessRootIdentifier
@@ -111,7 +111,7 @@ public extension SystemIO.Tools {
             }
         }
 
-        public struct Output: Result, Hashable {
+        public struct Output: HashableResult {
             public static var jsonschema: JSONSchema {
                 .object()
             }

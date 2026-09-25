@@ -131,7 +131,7 @@ public extension SystemIO.Tools {
     struct FindPaths: Tool {
         /// Model-facing input for Find paths.
         @JSONSchema
-        public struct Input: Sendable, Codable, Hashable {
+        public struct Input: HashableSource {
             /// Optional workspace root identifier.
             public let rootID: PathAccessRootIdentifier?
             /// Optional legacy single path-name query. Used when queries is omitted or empty.
@@ -198,7 +198,7 @@ public extension SystemIO.Tools {
             }
         }
 
-        public struct Output: Result, Hashable {
+        public struct Output: HashableResult {
             public static var jsonschema: JSONSchema {
                 .object()
             }

@@ -7,7 +7,7 @@
       "location" : "https://github.com/leviouwendijk/Agentic.git",
       "state" : {
         "branch" : "master",
-        "revision" : "6052d7d4e519e7aebd5749fbdc31a0b738e57f30"
+        "revision" : "fa1fd578c38f02dd25d3a7963ceadbf20c7c10d3"
       }
     },
     {
@@ -16,7 +16,7 @@
       "location" : "https://github.com/leviouwendijk/AgenticExecution.git",
       "state" : {
         "branch" : "master",
-        "revision" : "a78f57922c402a7061602f5ec7f1f6423efe8d2f"
+        "revision" : "58bc06088cca7c9755a0b4a8784c74f0294b3922"
       }
     },
     {
@@ -43,7 +43,7 @@
       "location" : "https://github.com/leviouwendijk/Atomos.git",
       "state" : {
         "branch" : "master",
-        "revision" : "06c6b3af18ebc4e8af671a0eca21d23d99664eef"
+        "revision" : "5ffdb160c4913e02214020eb75ac620900cf2914"
       }
     },
     {
@@ -268,7 +268,7 @@
       "location" : "https://github.com/leviouwendijk/Schema.git",
       "state" : {
         "branch" : "master",
-        "revision" : "c532020b10f5f583d28cbc62f7e62ccf06022a76"
+        "revision" : "6b8f45a73ab92ce083c4848bb520db6d99866a06"
       }
     },
     {

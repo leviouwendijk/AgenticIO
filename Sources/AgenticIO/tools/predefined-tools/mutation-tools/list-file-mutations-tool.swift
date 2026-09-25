@@ -12,7 +12,7 @@ public extension SystemIO.Tools {
     struct ListFileMutations: Tool {
         /// Model-facing input for List fileMutations.
         @JSONSchema
-        public struct Input: Sendable, Codable, Hashable {
+        public struct Input: HashableSource {
             /// Optional workspace path used to filter mutation history.
             public let path: String?
             /// Optional prepared intent identifier used to filter mutation history.

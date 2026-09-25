@@ -238,6 +238,13 @@ public extension AgentFileMutationPreflight {
             policyChecks: policyChecks,
             warnings: warnings
         )
+        let call = ToolCall(
+            id: UUID().uuidString.lowercased(),
+            tool: toolPreflight.tool,
+            input: try JSONToolBridge.encode(
+                input
+            )
+        )
 
         return .init(
             action: .rollback,
@@ -257,6 +264,7 @@ public extension AgentFileMutationPreflight {
             sideEffects: sideEffects,
             policyChecks: policyChecks,
             warnings: warnings,
+            call: call,
             operation: operation,
             toolPreflight: toolPreflight
         )

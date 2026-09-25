@@ -11,7 +11,7 @@ public extension SystemIO.Tools {
     struct InspectWorkspace: Tool {
         /// Model-facing input for InspectWorkspace.
         @JSONSchema
-        public struct Input: Sendable, Codable, Hashable {
+        public struct Input: HashableSource {
             /// Whether workspace diagnostics are included.
             public let includeDiagnostics: Bool?
             /// Whether current path grants are included.
@@ -26,7 +26,7 @@ public extension SystemIO.Tools {
             }
         }
 
-        public struct Output: Result, Hashable {
+        public struct Output: HashableResult {
             public static var jsonschema: JSONSchema {
                 .object()
             }

@@ -182,10 +182,7 @@ public extension SystemIO.Tools {
     @Tool
     struct LoadSearchContext: Tool {
         @JSONSchema
-        public struct Input:
-            Sendable,
-            Codable,
-            Hashable
+        public struct Input: HashableSource
         {
             @Schema(required: false)
             public let rootID: PathAccessRootIdentifier

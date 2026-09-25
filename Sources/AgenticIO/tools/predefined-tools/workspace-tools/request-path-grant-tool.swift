@@ -11,7 +11,7 @@ public extension SystemIO.Tools {
     @Tool
     struct RequestPathGrant: Tool {
         @JSONSchema
-        public struct Input: Sendable, Codable, Hashable {
+        public struct Input: HashableSource {
             public let requestedRootPath: String
             public let suggestedRootID: String?
             public let label: String?

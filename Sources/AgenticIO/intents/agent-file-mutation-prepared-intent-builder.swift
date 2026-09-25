@@ -17,25 +17,31 @@ public struct FileMutationIntentBuilder: Sendable {
     public func draft(
         for preflight: AgentFileMutationPreflight
     ) throws -> PreparedIntentDraft {
-        let payload = PreparedIntentReviewPayload(
-            title: "\(preflight.action.title): \(preflight.targetPath)",
+        let reviewPreflight = ToolPreflight(
+            tool: preflight.toolPreflight.tool,
+            risk: preflight.risk,
             summary: summary(
                 for: preflight
             ),
-            risk: preflight.risk,
-            target: preflight.targetPath,
-            expectedSideEffects: preflight.sideEffects,
+            access: preflight.toolPreflight.access,
+            estimates: preflight.toolPreflight.estimates,
+            preview: preflight.toolPreflight.preview,
+            sideEffects: preflight.sideEffects,
             policyChecks: preflight.policyChecks,
-            warnings: preflight.warnings,
-            metadata: reviewMetadata(
-                for: preflight
-            )
+            warnings: preflight.warnings
+        )
+        let invocation = ToolInvocation.Prepared(
+            review: .init(
+                call: preflight.call,
+                preflight: reviewPreflight,
+                requirement: .needs_human_review
+            ),
+            operation: preflight.operation
         )
 
         return PreparedIntentDraft(
             sessionID: sessionID,
-            operation: preflight.operation,
-            reviewPayload: payload,
+            invocation: invocation,
             expiresAt: expiresAt,
             idempotencyKey: nil,
             metadata: draftMetadata(
@@ -111,30 +117,6 @@ private extension FileMutationIntentBuilder {
         return lines.joined(
             separator: "\n"
         )
-    }
-
-    func reviewMetadata(
-        for preflight: AgentFileMutationPreflight
-    ) -> [String: String] {
-        let metadata = [
-            "kind": "file_mutation_prepared_intent",
-            "root_id": preflight.rootID.rawValue,
-            "path": preflight.path,
-            "target_path": preflight.targetPath,
-            "backup_policy": preflight.backupPolicy.rawValue,
-            "payload_policy": preflight.payloadPolicy.rawValue,
-            "will_record_session_mutation": String(
-                preflight.willRecordSessionMutation
-            ),
-            "will_store_backup_payload": String(
-                preflight.willStoreBackupPayload
-            ),
-            "will_emit_diff_artifact": String(
-                preflight.willEmitDiffArtifact
-            )
-        ]
-
-        return metadata
     }
 
     func draftMetadata(

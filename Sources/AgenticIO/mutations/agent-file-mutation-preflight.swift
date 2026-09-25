@@ -55,6 +55,7 @@ public struct AgentFileMutationPreflight: Sendable, Codable, Hashable {
     public let sideEffects: [String]
     public let policyChecks: [String]
     public let warnings: [String]
+    public let call: ToolCall
     public let operation: PreparedOperation.Envelope
     public let toolPreflight: ToolPreflight
 
@@ -76,6 +77,7 @@ public struct AgentFileMutationPreflight: Sendable, Codable, Hashable {
         sideEffects: [String],
         policyChecks: [String],
         warnings: [String],
+        call: ToolCall,
         operation: PreparedOperation.Envelope,
         toolPreflight: ToolPreflight
     ) {
@@ -104,6 +106,7 @@ public struct AgentFileMutationPreflight: Sendable, Codable, Hashable {
         self.sideEffects = sideEffects
         self.policyChecks = policyChecks
         self.warnings = warnings
+        self.call = call
         self.operation = operation
         self.toolPreflight = toolPreflight
     }
@@ -153,6 +156,13 @@ public extension AgentFileMutationPreflight {
             writeOptions: recorder?.writeOptions()
                 ?? .overwriteWithoutBackup
         )
+        let call = ToolCall(
+            id: UUID().uuidString.lowercased(),
+            tool: preparation.preflight.tool,
+            input: try JSONToolBridge.encode(
+                mutationInput
+            )
+        )
         let targetPath = preparation.preflight.access.targets.first
             ?? input.path
         let operation = try PreparedFileMutationOperation.envelope(
@@ -176,6 +186,7 @@ public extension AgentFileMutationPreflight {
             action: .write,
             rootID: input.rootID,
             path: input.path,
+            call: call,
             operation: operation,
             toolPreflight: preparation.preflight,
             recorder: recorder
@@ -204,6 +215,13 @@ public extension AgentFileMutationPreflight {
             writeOptions: recorder?.writeOptions()
                 ?? .overwriteWithoutBackup
         )
+        let call = ToolCall(
+            id: UUID().uuidString.lowercased(),
+            tool: preparation.preflight.tool,
+            input: try JSONToolBridge.encode(
+                mutationInput
+            )
+        )
         let targetPath = preparation.preflight.access.targets.first
             ?? input.path
         let operation = try PreparedFileMutationOperation.envelope(
@@ -227,6 +245,7 @@ public extension AgentFileMutationPreflight {
             action: .edit,
             rootID: input.rootID,
             path: input.path,
+            call: call,
             operation: operation,
             toolPreflight: preparation.preflight,
             recorder: recorder
@@ -239,6 +258,7 @@ private extension AgentFileMutationPreflight {
         action: FileMutationIntentAction,
         rootID: PathAccessRootIdentifier,
         path: String,
+        call: ToolCall,
         operation: PreparedOperation.Envelope,
         toolPreflight: ToolPreflight,
         recorder: AgentFileMutationRecorder?
@@ -284,6 +304,7 @@ private extension AgentFileMutationPreflight {
                 from: toolPreflight,
                 recorder: recorder
             ),
+            call: call,
             operation: operation,
             toolPreflight: toolPreflight
         )

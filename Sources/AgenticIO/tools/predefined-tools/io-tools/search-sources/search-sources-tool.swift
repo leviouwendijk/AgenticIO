@@ -155,10 +155,7 @@ public extension SystemIO.Tools {
     struct SearchSources: Tool {
         /// Search file content inside one authorized workspace source universe and return compact ranked or exhaustive source ranges without returning file contents.
         @JSONSchema
-        public struct Input:
-            Sendable,
-            Codable,
-            Hashable
+        public struct Input: HashableSource
         {
             /// Workspace root identifier. Defaults to project.
             @Schema(required: false)

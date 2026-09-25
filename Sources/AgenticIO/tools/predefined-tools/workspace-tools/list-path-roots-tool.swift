@@ -11,7 +11,7 @@ public extension SystemIO.Tools {
     struct ListPathRoots: Tool {
         /// Model-facing input for List pathRoots.
         @JSONSchema
-        public struct Input: Sendable, Codable, Hashable {
+        public struct Input: HashableSource {
             /// Whether root diagnostics are included.
             public let includeDiagnostics: Bool?
 
@@ -22,7 +22,7 @@ public extension SystemIO.Tools {
             }
         }
 
-        public struct Output: Result, Hashable {
+        public struct Output: HashableResult {
             public static var jsonschema: JSONSchema {
                 .object()
             }

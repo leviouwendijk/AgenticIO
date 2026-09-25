@@ -12,7 +12,7 @@ public extension SystemIO.Tools {
     struct ExplainPathAccess: Tool {
         /// Model-facing input for Explain pathAccess.
         @JSONSchema
-        public struct Input: Sendable, Codable, Hashable {
+        public struct Input: HashableSource {
             /// Optional workspace root identifier.
             public let rootID: PathAccessRootIdentifier?
             /// Root-relative path whose access should be explained.
@@ -39,7 +39,7 @@ public extension SystemIO.Tools {
             }
         }
 
-        public struct Output: Result, Hashable {
+        public struct Output: HashableResult {
             public static var jsonschema: JSONSchema {
                 .object()
             }

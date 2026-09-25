@@ -56,6 +56,19 @@ enum AgenticIOFlowSuite: TestFlowRegistry {
                 .runMutateFilesRelativeInsertion()
         },
         TestFlow(
+            "prepared-file-mutation-intent-invocation",
+            tags: [
+                "agentic-io",
+                "mutation",
+                "prepared-intent",
+                "tool-invocation",
+                "approval",
+            ]
+        ) {
+            try await AgenticIOFlowTesting
+                .runPreparedFileMutationIntentInvocation()
+        },
+        TestFlow(
             "path-search",
             tags: [
                 "agentic-io",

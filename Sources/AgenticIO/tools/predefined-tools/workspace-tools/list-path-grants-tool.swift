@@ -13,7 +13,7 @@ public extension SystemIO.Tools {
     struct ListPathGrants: Tool {
         /// Model-facing input for List pathGrants.
         @JSONSchema
-        public struct Input: Sendable, Codable, Hashable {
+        public struct Input: HashableSource {
             /// Optional root identifier used to filter grants.
             public let rootID: PathAccessRootIdentifier?
             /// Whether expired grants are included.
@@ -28,7 +28,7 @@ public extension SystemIO.Tools {
             }
         }
 
-        public struct Output: Result, Hashable {
+        public struct Output: HashableResult {
             public static var jsonschema: JSONSchema {
                 .object()
             }
