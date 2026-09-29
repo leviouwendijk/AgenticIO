@@ -2,8 +2,8 @@ import Agentic
 
 public enum ContextSource: Sendable, Codable, Hashable {
     case text(String)
-    case message(AgentMessage)
-    case transcriptEvent(AgentTranscriptEvent)
+    case message(Message)
+    case transcriptEvent(TranscriptEvent)
     case files(ContextFileSource)
     case skill(AgentSkill)
 }

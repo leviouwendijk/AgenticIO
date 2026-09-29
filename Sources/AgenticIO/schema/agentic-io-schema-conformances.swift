@@ -49,14 +49,6 @@ extension StandardDeletePolicy:
     }
 }
 
-extension WorkspaceCapability:
-    @retroactive JSONSchemaProviding
-{
-    public static var jsonschema: JSONSchema {
-        .string(cases: allCases.map(\.rawValue))
-    }
-}
-
 
 extension PathSegmentType:
     @retroactive JSONSchemaProviding
