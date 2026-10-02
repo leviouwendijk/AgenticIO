@@ -1,4 +1,4 @@
-import AgenticExecution
+import Agentic
 
 public struct AgenticIOPreparedOperationSet: Sendable {
     public let fileMutationRecorder: AgentFileMutationRecorder?

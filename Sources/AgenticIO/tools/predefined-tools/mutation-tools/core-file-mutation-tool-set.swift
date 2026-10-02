@@ -1,5 +1,4 @@
 import Agentic
-import AgenticExecution
 
 public struct CoreFileMutationHistoryToolSet: AgentToolProvider {
     public let store: any AgentFileMutationStore

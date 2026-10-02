@@ -1,4 +1,4 @@
-import AgenticExecution
+import Agentic
 
 public struct CoreContextToolSet: AgentToolProvider {
     public let composer: ContextComposer
