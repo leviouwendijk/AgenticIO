@@ -192,6 +192,9 @@ public struct MutateFilesToolPreparation: Sendable {
 public extension SystemIO.Tools {
     @Tool
     struct MutateFiles: Tool {
+        public static let execution: AgentToolExecutionContract =
+            .targetable
+
         @JSONSchema
         public struct Input: HashableSource {
             /// Brief reason for this coherent mutation pass.

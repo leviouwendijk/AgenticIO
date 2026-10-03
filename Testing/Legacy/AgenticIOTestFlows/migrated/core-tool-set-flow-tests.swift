@@ -56,6 +56,12 @@ extension AgenticIOFlowTesting {
             "core file tool set does not expose edit_file by default"
         )
 
+        try Expect.equal(
+            SystemIO.Tools.MutateFiles.execution,
+            .targetable,
+            "mutate_files declares targetable execution intrinsically"
+        )
+
         let mutateFilesSchema = String(
             describing: SystemIO.Tools.MutateFiles.inputSchema
         )

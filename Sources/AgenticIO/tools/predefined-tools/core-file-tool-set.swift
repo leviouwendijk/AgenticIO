@@ -10,7 +10,7 @@ public struct CoreFileToolSet: AgentToolProvider {
             SystemIO.Tools.ReadFile()
             AgentToolRegistration.tool(
                 SystemIO.Tools.MutateFiles(),
-                execution: .targetable
+                execution: SystemIO.Tools.MutateFiles.execution
             )
             SystemIO.Tools.RemoveEmptyDirectories()
             SystemIO.Tools.ScanPaths()
