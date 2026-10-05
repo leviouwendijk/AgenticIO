@@ -31,7 +31,7 @@ public struct FileMutationIntentBuilder: Sendable {
         )
         let invocation = ToolInvocation.Prepared(
             review: .init(
-                call: preflight.call,
+                invocation: preflight.invocation,
                 preflight: reviewPreflight,
                 requirement: .needs_human_review
             ),

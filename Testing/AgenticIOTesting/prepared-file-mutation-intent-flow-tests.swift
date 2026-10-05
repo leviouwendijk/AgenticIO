@@ -1,6 +1,7 @@
 import Agentic
 import AgenticIO
 import Foundation
+import Schema
 import Testing
 
 extension AgenticIOFlowTesting {
@@ -51,13 +52,12 @@ extension AgenticIOFlowTesting {
             for: writePreflight
         )
         let writeReview = writeDraft.invocation.review
-        let writeInput = try JSONToolBridge.decode(
-            SystemIO.Tools.MutateFiles.Input.self,
-            from: writeReview.call.input
+        let writeInput = try writeReview.invocation.arguments.decode(
+            SystemIO.Tools.MutateFiles.Input.self
         )
 
         try Expect.equal(
-            writeReview.call.tool.rawValue,
+            writeReview.invocation.tool.rawValue,
             SystemIO.Tools.MutateFiles.identifier.rawValue,
             "prepared write intent records mutate_files as its canonical reviewed call"
         )
@@ -115,13 +115,12 @@ extension AgenticIOFlowTesting {
             for: editPreflight
         )
         let editReview = editDraft.invocation.review
-        let editInput = try JSONToolBridge.decode(
-            SystemIO.Tools.MutateFiles.Input.self,
-            from: editReview.call.input
+        let editInput = try editReview.invocation.arguments.decode(
+            SystemIO.Tools.MutateFiles.Input.self
         )
 
         try Expect.equal(
-            editReview.call.tool.rawValue,
+            editReview.invocation.tool.rawValue,
             SystemIO.Tools.MutateFiles.identifier.rawValue,
             "prepared edit intent records mutate_files instead of an obsolete edit tool"
         )
@@ -152,11 +151,11 @@ extension AgenticIOFlowTesting {
         return [
             .field(
                 "write_tool",
-                writeReview.call.tool.rawValue
+                writeReview.invocation.tool.rawValue
             ),
             .field(
                 "edit_tool",
-                editReview.call.tool.rawValue
+                editReview.invocation.tool.rawValue
             ),
             .field(
                 "operation",

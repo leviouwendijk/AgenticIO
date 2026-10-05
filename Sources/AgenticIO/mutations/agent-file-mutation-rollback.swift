@@ -237,10 +237,10 @@ public extension AgentFileMutationPreflight {
             policyChecks: policyChecks,
             warnings: warnings
         )
-        let call = ToolCall(
+        let invocation = ToolInvocation(
             id: UUID().uuidString.lowercased(),
             tool: toolPreflight.tool,
-            input: try JSONToolBridge.encode(
+            arguments: try JSONValue.encoding(
                 input
             )
         )
@@ -263,7 +263,7 @@ public extension AgentFileMutationPreflight {
             sideEffects: sideEffects,
             policyChecks: policyChecks,
             warnings: warnings,
-            call: call,
+            invocation: invocation,
             operation: operation,
             toolPreflight: toolPreflight
         )

@@ -8,10 +8,7 @@ public struct CoreFileToolSet: AgentToolProvider {
     ) throws {
         try registry.register {
             SystemIO.Tools.ReadFile()
-            AgentToolRegistration.tool(
-                SystemIO.Tools.MutateFiles(),
-                execution: SystemIO.Tools.MutateFiles.execution
-            )
+            SystemIO.Tools.MutateFiles()
             SystemIO.Tools.RemoveEmptyDirectories()
             SystemIO.Tools.ScanPaths()
             SystemIO.Tools.SearchSources()
