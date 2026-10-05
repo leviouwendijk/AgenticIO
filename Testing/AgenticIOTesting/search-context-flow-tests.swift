@@ -63,7 +63,7 @@ extension AgenticIOFlowTesting {
                                 mergeDistanceLines: 1,
                                 maximumCandidates: 8
                             ),
-            workspace: fixture.workspace
+            in: ToolContext(workspace: fixture.workspace)
         )
         let search = searchOutput
         let candidate = try Expect.notNil(
@@ -102,7 +102,7 @@ extension AgenticIOFlowTesting {
         )
         let output = try await tool.call(
             input,
-            workspace: fixture.workspace
+            in: ToolContext(workspace: fixture.workspace)
         )
         let context = output
 
@@ -185,7 +185,7 @@ extension AgenticIOFlowTesting {
         do {
             _ = try await tool.call(
                 input,
-                workspace: fixture.workspace
+                in: ToolContext(workspace: fixture.workspace)
             )
         } catch let error as SourceContextLoadError {
             switch error {

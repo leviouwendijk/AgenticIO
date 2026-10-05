@@ -65,7 +65,7 @@ public extension SystemIO.Tools {
 
         public func preflight(
             _ input: Input,
-            workspace: WorkspaceContext?
+            in context: ToolContext
         ) async throws -> ToolPreflight {
             .init(
                 tool: Self.definition.identifier,
@@ -85,10 +85,10 @@ public extension SystemIO.Tools {
 
         public func call(
             _ input: Input,
-            workspace: WorkspaceContext?
+            in context: ToolContext
         ) async throws -> Output {
 
-            guard let workspace = workspace else {
+            guard let workspace = context.workspace else {
                 return Output(
                     hasWorkspace: false,
                     defaultRootID: nil,

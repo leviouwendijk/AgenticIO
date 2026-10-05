@@ -61,12 +61,12 @@ public extension SystemIO.Tools {
 
         public func preflight(
             _ input: Input,
-            workspace: WorkspaceContext?
+            in context: ToolContext
         ) async throws -> ToolPreflight {
             if input.shouldCompose {
                 try composer.validate(
                     input.plan,
-                    workspace: workspace
+                    workspace: context.workspace
                 )
             }
 
@@ -112,7 +112,7 @@ public extension SystemIO.Tools {
 
         public func call(
             _ input: Input,
-            workspace: WorkspaceContext?
+            in context: ToolContext
         ) async throws -> Output {
             let inspection = ContextToolSupport.inspect(
                 input.plan
@@ -122,7 +122,7 @@ public extension SystemIO.Tools {
             if input.shouldCompose {
                 let composed = try composer.compose(
                     input.plan,
-                    workspace: workspace
+                    workspace: context.workspace
                 )
 
                 size = ContextToolSupport.estimate(

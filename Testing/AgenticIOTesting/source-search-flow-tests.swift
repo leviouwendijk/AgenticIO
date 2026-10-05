@@ -161,7 +161,7 @@ private extension AgenticIOFlowTesting {
 
         let output = try await tool.call(
             input,
-            workspace: fixture.workspace
+            in: ToolContext(workspace: fixture.workspace)
         )
         let result = output
 
@@ -286,7 +286,7 @@ private extension AgenticIOFlowTesting {
                                 mergeDistanceLines: 0,
                                 maximumCandidates: 3
                             ),
-            workspace: fixture.workspace
+            in: ToolContext(workspace: fixture.workspace)
         )
         let result = output
 
@@ -548,7 +548,7 @@ private extension AgenticIOFlowTesting {
                                 maximumCandidates: 16,
                                 maximumCandidatesPerDocument: 16
                             ),
-            workspace: fixture.workspace
+            in: ToolContext(workspace: fixture.workspace)
         )
         let result = output
 

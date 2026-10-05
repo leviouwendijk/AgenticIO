@@ -231,9 +231,9 @@ public extension SystemIO.Tools {
 
         public func preflight(
             _ input: Input,
-            workspace: WorkspaceContext?
+            in context: ToolContext
         ) async throws -> ToolPreflight {
-            let rootID = workspace?.rootIdentifier
+            let rootID = context.workspace?.rootIdentifier
                 ?? input.rootID
                 ?? .project
             let probeCount = normalizedQueries(
@@ -275,10 +275,10 @@ public extension SystemIO.Tools {
 
         public func call(
             _ input: Input,
-            workspace: WorkspaceContext?
+            in context: ToolContext
         ) async throws -> Output {
             let workspace = try WorkspaceToolSupport.requireWorkspace(
-                workspace,
+                context.workspace,
                 toolName: Self.identifier.rawValue
             )
             try requireTargetedRoot(

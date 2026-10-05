@@ -27,13 +27,13 @@ public extension SystemIO.Tools {
 
         public func preflight(
             _ input: Input,
-            workspace: WorkspaceContext?
+            in context: ToolContext
         ) async throws -> ToolPreflight {
 
             return try await AgentFileMutationPreflight.rollback(
                 input,
                 store: store,
-                workspace: workspace,
+                workspace: context.workspace,
                 recorder: recorder
             ).toolPreflight
         }
@@ -42,7 +42,7 @@ public extension SystemIO.Tools {
 
         public func call(
             _ input: Input,
-            workspace: WorkspaceContext?
+            in context: ToolContext
         ) async throws -> Output {
 
             let sourceID = try input.normalizedMutationUUID()

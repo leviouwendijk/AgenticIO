@@ -90,9 +90,9 @@ public extension SystemIO.Tools {
 
         public func preflight(
             _ input: Input,
-            workspace: WorkspaceContext?
+            in context: ToolContext
         ) async throws -> ToolPreflight {
-            let rootID = workspace?.rootIdentifier
+            let rootID = context.workspace?.rootIdentifier
                 ?? input.rootID
                 ?? .project
 
@@ -120,13 +120,13 @@ public extension SystemIO.Tools {
 
         public func call(
             _ input: Input,
-            workspace: WorkspaceContext?
+            in context: ToolContext
         ) async throws -> Output {
             let requestedToolName = normalizedToolName(
                 input.toolName
             )
 
-            guard let workspace else {
+            guard let workspace = context.workspace else {
                 let rootID = input.rootID ?? .project
                 return Output(
                     allowed: false,

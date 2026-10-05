@@ -318,12 +318,12 @@ public extension SystemIO.Tools {
 
         public func preflight(
             _ input: Input,
-            workspace: WorkspaceContext?
+            in context: ToolContext
         ) async throws -> ToolPreflight {
             _ = try input.contentSelections()
 
             let targetPath: String
-            if let workspace {
+            if let workspace = context.workspace {
                 targetPath = try workspace.authorize(
                     input.path,
                     capability: .read
@@ -349,10 +349,10 @@ public extension SystemIO.Tools {
 
         public func call(
             _ input: Input,
-            workspace: WorkspaceContext?
+            in context: ToolContext
         ) async throws -> Output {
             let workspace = try FileToolSupport.requireWorkspace(
-                workspace,
+                context.workspace,
                 toolName: Self.identifier.rawValue
             )
             let authorized = try workspace.authorize(

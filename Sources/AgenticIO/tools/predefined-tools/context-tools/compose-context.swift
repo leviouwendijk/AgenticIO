@@ -60,11 +60,11 @@ public extension SystemIO.Tools {
 
         public func preflight(
             _ input: Input,
-            workspace: WorkspaceContext?
+            in context: ToolContext
         ) async throws -> ToolPreflight {
             try composer.validate(
                 input.plan,
-                workspace: workspace
+                workspace: context.workspace
             )
 
             let inspection = ContextToolSupport.inspect(
@@ -108,11 +108,11 @@ public extension SystemIO.Tools {
 
         public func call(
             _ input: Input,
-            workspace: WorkspaceContext?
+            in context: ToolContext
         ) async throws -> Output {
             let composed = try composer.compose(
                 input.plan,
-                workspace: workspace
+                workspace: context.workspace
             )
             let trimmed = ContextToolSupport.truncated(
                 composed.text,

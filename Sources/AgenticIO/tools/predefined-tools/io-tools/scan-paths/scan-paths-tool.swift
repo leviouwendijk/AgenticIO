@@ -196,11 +196,11 @@ public extension SystemIO.Tools {
 
         public func preflight(
             _ input: Input,
-            workspace: WorkspaceContext?
+            in context: ToolContext
         ) async throws -> ToolPreflight {
             let targetPath: String
 
-            if let workspace {
+            if let workspace = context.workspace {
                 try requireTargetedRoot(
                     input.rootID,
                     workspace: workspace
@@ -228,7 +228,7 @@ public extension SystemIO.Tools {
                     targets: [
                         targetPath
                     ],
-                    roots: workspace.map {
+                    roots: context.workspace.map {
                         [
                             $0.rootIdentifier.rawValue
                         ]
@@ -260,10 +260,10 @@ public extension SystemIO.Tools {
 
         public func call(
             _ input: Input,
-            workspace: WorkspaceContext?
+            in context: ToolContext
         ) async throws -> Output {
             let workspace = try FileToolSupport.requireWorkspace(
-                workspace,
+                context.workspace,
                 toolName: Self.identifier.rawValue
             )
             try requireTargetedRoot(

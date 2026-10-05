@@ -42,7 +42,7 @@ public extension SystemIO.Tools {
 
         public func preflight(
             _ input: Input,
-            workspace _: WorkspaceContext?
+            in _: ToolContext
         ) async throws -> ToolPreflight {
             let inspection = ContextToolSupport.inspect(
                 input.plan
@@ -63,7 +63,7 @@ public extension SystemIO.Tools {
 
         public func call(
             _ input: Input,
-            workspace _: WorkspaceContext?
+            in _: ToolContext
         ) async throws -> Output {
             .init(
                 metadata: input.plan.metadata,

@@ -22,7 +22,7 @@ extension AgenticIOFlowTesting {
             SystemIO.Tools.ReadFile.Input(
                                 path: "Sources/example.swift"
                             ),
-            workspace: fixture.workspace
+            in: ToolContext(workspace: fixture.workspace)
         )
 
         try Expect.equal(
@@ -39,7 +39,7 @@ extension AgenticIOFlowTesting {
             SystemIO.Tools.ReadFile.Input(
                                 path: "notes/private-notes.txt"
                             ),
-            workspace: fixture.workspace
+            in: ToolContext(workspace: fixture.workspace)
         )
 
         try Expect.equal(
@@ -63,7 +63,7 @@ extension AgenticIOFlowTesting {
             SystemIO.Tools.ReadFile.Input(
                                 path: "notes/do-not-read.txt"
                             ),
-            workspace: fixture.workspace
+            in: ToolContext(workspace: fixture.workspace)
         )
 
         try Expect.equal(

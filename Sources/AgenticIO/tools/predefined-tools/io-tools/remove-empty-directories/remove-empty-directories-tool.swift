@@ -88,10 +88,10 @@ public extension SystemIO.Tools {
 
         public func preflight(
             _ input: Input,
-            workspace: WorkspaceContext?
+            in context: ToolContext
         ) async throws -> ToolPreflight {
             let workspace = try FileToolSupport.requireWorkspace(
-                workspace,
+                context.workspace,
                 toolName: Self.identifier.rawValue
             )
             let authorized = try authorizedPaths(
@@ -144,10 +144,10 @@ public extension SystemIO.Tools {
 
         public func call(
             _ input: Input,
-            workspace: WorkspaceContext?
+            in context: ToolContext
         ) async throws -> Output {
             let workspace = try FileToolSupport.requireWorkspace(
-                workspace,
+                context.workspace,
                 toolName: Self.identifier.rawValue
             )
             let authorized = try authorizedPaths(

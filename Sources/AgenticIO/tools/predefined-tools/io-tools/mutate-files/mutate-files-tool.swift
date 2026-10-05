@@ -420,11 +420,11 @@ public extension SystemIO.Tools {
 
         public func preflight(
             _ input: Input,
-            workspace: WorkspaceContext?
+            in context: ToolContext
         ) async throws -> ToolPreflight {
             try await prepare(
                 input,
-                workspace: workspace
+                workspace: context.workspace
             ).preflight
         }
 
@@ -473,18 +473,18 @@ public extension SystemIO.Tools {
 
         public func call(
             _ input: Input,
-            workspace: WorkspaceContext?
+            in context: ToolContext
         ) async throws -> Output {
             let targetedInput = try workspaceTargetedInput(
                 input,
-                workspace: workspace
+                workspace: context.workspace
             )
 
             return try await Self(
                 context: mergedMutationContext()
             ).callInternal(
                 targetedInput,
-                workspace: workspace
+                workspace: context.workspace
             )
         }
 

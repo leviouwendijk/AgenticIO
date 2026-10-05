@@ -111,7 +111,7 @@ extension AgenticIOFlowTesting {
                                 caseSensitive: true,
                                 maxEntries: 8
                             ),
-            workspace: fixture.workspace
+            in: ToolContext(workspace: fixture.workspace)
         )
         let ranked = rankedOutput
 
@@ -169,7 +169,7 @@ extension AgenticIOFlowTesting {
                                 includeFiles: true,
                                 includeDirectories: false
                             ),
-            workspace: fixture.workspace
+            in: ToolContext(workspace: fixture.workspace)
         )
         let legacy = legacyOutput
 
@@ -199,7 +199,7 @@ extension AgenticIOFlowTesting {
                                 strategy: .contains,
                                 caseSensitive: true
                             ),
-            workspace: fixture.workspace
+            in: ToolContext(workspace: fixture.workspace)
         )
         let excluded = excludedOutput
 
@@ -225,7 +225,7 @@ extension AgenticIOFlowTesting {
                 includeDirectories: false,
                 strategy: .contains
             ),
-            workspace: fixture.workspace
+            in: ToolContext(workspace: fixture.workspace)
         )
 
         try Expect.equal(
@@ -245,7 +245,7 @@ extension AgenticIOFlowTesting {
                 includeDirectories: false,
                 strategy: .contains
             ),
-            workspace: fixture.workspace
+            in: ToolContext(workspace: fixture.workspace)
         )
 
         try Expect.equal(
@@ -263,7 +263,7 @@ extension AgenticIOFlowTesting {
                 recursive: true,
                 maxdepth: 1
             ),
-            workspace: fixture.workspace
+            in: ToolContext(workspace: fixture.workspace)
         )
 
         try Expect.equal(
@@ -281,7 +281,7 @@ extension AgenticIOFlowTesting {
                 recursive: false,
                 maxdepth: 2
             ),
-            workspace: fixture.workspace
+            in: ToolContext(workspace: fixture.workspace)
         )
 
         try Expect.equal(
