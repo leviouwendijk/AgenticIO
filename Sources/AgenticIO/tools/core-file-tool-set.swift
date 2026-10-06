@@ -11,7 +11,7 @@ public struct CoreFileToolSet: AgentToolProvider {
             SystemIO.Tools.ReadFile()
             SystemIO.Tools.MutateFiles()
             SystemIO.Tools.RemoveEmptyDirectories()
-            SystemIO.Tools.ScanPaths()
+            SystemIO.Tools.ScanFilepaths()
             SystemIO.Tools.SearchSources()
             SystemIO.Tools.LoadSearchContext()
             SystemIO.Tools.ProveSearchResults()

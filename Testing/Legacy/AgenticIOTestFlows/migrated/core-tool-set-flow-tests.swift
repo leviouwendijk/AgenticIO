@@ -37,9 +37,9 @@ extension AgenticIOFlowTesting {
 
         _ = try Expect.notNil(
             fileRegistry.tool(
-                named: "scan_paths"
+                named: "scan_filepaths"
             ),
-            "core file tool set scan_paths"
+            "core file tool set scan_filepaths"
         )
 
         try Expect.isNil(

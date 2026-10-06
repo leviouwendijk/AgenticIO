@@ -34,12 +34,28 @@ struct FileEditResolver: Sendable {
         let lines = WriteTextLines(
             content
         ).lines
+        let lineTable = LineTable(
+            text: content
+        )
+
+        let hasPositionRangeOperation = input.operations.contains {
+            $0.kind == .replace_range
+        }
+
+        if hasPositionRangeOperation,
+           input.operations.contains(where: {
+               $0.kind != .replace_range
+           }) {
+            throw FileEditError.mixedPositionRangeOperations
+        }
 
         let operations = try input.operations.enumerated().map { offset, operation in
             try resolve(
                 operation,
                 operationIndex: offset + 1,
-                currentLines: lines
+                currentContent: content,
+                currentLines: lines,
+                lineTable: lineTable
             )
         }
 
@@ -57,7 +73,9 @@ private extension FileEditResolver {
     func resolve(
         _ operation: FileEditOperation,
         operationIndex: Int,
-        currentLines: [String]
+        currentContent: String,
+        currentLines: [String],
+        lineTable: LineTable
     ) throws -> StandardEditOperation {
         switch operation {
         case .replace_entire_file(let operation):
@@ -110,6 +128,22 @@ private extension FileEditResolver {
                     currentLines: currentLines
                 ),
                 with: operation.content
+            )
+
+        case .replace_range(let operation):
+            let range = try positionRange(
+                operation.range,
+                operationIndex: operationIndex,
+                lineTable: lineTable
+            )
+
+            return StandardEditOperation.text.replace(
+                range,
+                expected: existingText(
+                    range,
+                    in: currentContent
+                ),
+                with: operation.replacement
             )
 
         case .insert_lines(let operation):
@@ -194,6 +228,75 @@ private extension FileEditResolver {
                 )
             )
         }
+    }
+
+    func positionRange(
+        _ range: FileEditPositionRange,
+        operationIndex: Int,
+        lineTable: LineTable
+    ) throws -> PositionRange {
+        let start = try positionIndex(
+            range.start,
+            endpoint: "start",
+            operationIndex: operationIndex,
+            lineTable: lineTable
+        )
+        let end = try positionIndex(
+            range.end,
+            endpoint: "end",
+            operationIndex: operationIndex,
+            lineTable: lineTable
+        )
+
+        guard start.offset < end.offset else {
+            throw FileEditError.invalidPositionRange(
+                operation: operationIndex,
+                range: range
+            )
+        }
+
+        return PositionRange(
+            uncheckedStart: start,
+            uncheckedEnd: end
+        )
+    }
+
+    func positionIndex(
+        _ position: FileEditPosition,
+        endpoint: String,
+        operationIndex: Int,
+        lineTable: LineTable
+    ) throws -> PositionIndex {
+        guard let index = lineTable.indices.at(
+            line: position.line,
+            column: position.column
+        ) else {
+            throw FileEditError.coordinateOutOfBounds(
+                operation: operationIndex,
+                endpoint: endpoint,
+                position: position
+            )
+        }
+
+        return index
+    }
+
+    func existingText(
+        _ range: PositionRange,
+        in content: String
+    ) -> String {
+        let lower = content.index(
+            content.startIndex,
+            offsetBy: range.start.offset
+        )
+        let upper = content.index(
+            content.startIndex,
+            offsetBy: range.end.offset
+        )
+
+        return String(
+            content[lower..<upper]
+        )
     }
 
     func existingLine(

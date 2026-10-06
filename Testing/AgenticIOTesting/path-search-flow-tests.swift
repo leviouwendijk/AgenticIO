@@ -20,13 +20,13 @@ extension AgenticIOFlowTesting {
 
         _ = try Expect.notNil(
             registry.registeredTool(
-                named: "find_paths"
+                named: "search_filepaths"
             ),
-            "AgenticIO registers find_paths in the workspace tool set"
+            "AgenticIO registers search_filepaths in the workspace tool set"
         )
 
         let schema = String(
-            describing: SystemIO.Tools.FindPaths.Input.jsonschema
+            describing: SystemIO.Tools.SearchFilepaths.Input.jsonschema
         )
 
         for field in [
@@ -41,32 +41,32 @@ extension AgenticIOFlowTesting {
             try Expect.contains(
                 schema,
                 field,
-                "find_paths schema exposes \(field)"
+                "search_filepaths schema exposes \(field)"
             )
         }
 
         let scanSchema = String(
-            describing: SystemIO.Tools.ScanPaths.Input.jsonschema
+            describing: SystemIO.Tools.ScanFilepaths.Input.jsonschema
         )
 
         try Expect.contains(
             scanSchema,
             "maxdepth",
-            "scan_paths schema exposes flatcase maxdepth"
+            "scan_filepaths schema exposes flatcase maxdepth"
         )
         try Expect.equal(
             scanSchema.contains("maxDepth"),
             false,
-            "scan_paths schema does not expose camelcase maxDepth"
+            "scan_filepaths schema does not expose camelcase maxDepth"
         )
         try Expect.equal(
             schema.contains("maxDepth"),
             false,
-            "find_paths schema does not expose camelcase maxDepth"
+            "search_filepaths schema does not expose camelcase maxDepth"
         )
 
         let decodedScanInput = try JSONDecoder().decode(
-            SystemIO.Tools.ScanPaths.Input.self,
+            SystemIO.Tools.ScanFilepaths.Input.self,
             from: Data(
                 #"{"maxdepth":2}"#.utf8
             )
@@ -74,11 +74,11 @@ extension AgenticIOFlowTesting {
         try Expect.equal(
             decodedScanInput.maxdepth ?? -1,
             2,
-            "scan_paths decodes flatcase maxdepth"
+            "scan_filepaths decodes flatcase maxdepth"
         )
 
         let decodedFindInput = try JSONDecoder().decode(
-            SystemIO.Tools.FindPaths.Input.self,
+            SystemIO.Tools.SearchFilepaths.Input.self,
             from: Data(
                 #"{"maxdepth":2}"#.utf8
             )
@@ -86,11 +86,11 @@ extension AgenticIOFlowTesting {
         try Expect.equal(
             decodedFindInput.maxdepth ?? -1,
             2,
-            "find_paths decodes flatcase maxdepth"
+            "search_filepaths decodes flatcase maxdepth"
         )
 
-        let rankedOutput = try await SystemIO.Tools.FindPaths().call(
-            SystemIO.Tools.FindPaths.Input(
+        let rankedOutput = try await SystemIO.Tools.SearchFilepaths().call(
+            SystemIO.Tools.SearchFilepaths.Input(
                                 queries: [
                                     .init(
                                         text: "A.swift",
@@ -118,12 +118,12 @@ extension AgenticIOFlowTesting {
         try Expect.equal(
             ranked.searchedPathCount ?? -1,
             2,
-            "find_paths searches the authorized admitted path universe"
+            "search_filepaths searches the authorized admitted path universe"
         )
 
         let first = try Expect.notNil(
             ranked.entries.first,
-            "find_paths returns a ranked path"
+            "search_filepaths returns a ranked path"
         )
 
         try Expect.equal(
@@ -160,8 +160,8 @@ extension AgenticIOFlowTesting {
             "path evidence retains scalar probe scores without Search ranking internals"
         )
 
-        let legacyOutput = try await SystemIO.Tools.FindPaths().call(
-            SystemIO.Tools.FindPaths.Input(
+        let legacyOutput = try await SystemIO.Tools.SearchFilepaths().call(
+            SystemIO.Tools.SearchFilepaths.Input(
                                 query: "a.SWIFT",
                                 includes: [
                                     "Sources/**",
@@ -181,8 +181,8 @@ extension AgenticIOFlowTesting {
             "legacy query remains a case-insensitive contains search by default"
         )
 
-        let excludedOutput = try await SystemIO.Tools.FindPaths().call(
-            SystemIO.Tools.FindPaths.Input(
+        let excludedOutput = try await SystemIO.Tools.SearchFilepaths().call(
+            SystemIO.Tools.SearchFilepaths.Input(
                                 queries: [
                                     .init(
                                         text: "Sources"
@@ -213,11 +213,11 @@ extension AgenticIOFlowTesting {
             [
                 "Sources/A.swift",
             ],
-            "find_paths returns only the non-excluded ranked path"
+            "search_filepaths returns only the non-excluded ranked path"
         )
 
-        let shallowFind = try await SystemIO.Tools.FindPaths().call(
-            SystemIO.Tools.FindPaths.Input(
+        let shallowFind = try await SystemIO.Tools.SearchFilepaths().call(
+            SystemIO.Tools.SearchFilepaths.Input(
                 query: "A.swift",
                 recursive: true,
                 maxdepth: 1,
@@ -233,11 +233,11 @@ extension AgenticIOFlowTesting {
                 $0.path == "Sources/A.swift"
             },
             false,
-            "find_paths maxdepth 1 overrides recursive true"
+            "search_filepaths maxdepth 1 overrides recursive true"
         )
 
-        let deepFind = try await SystemIO.Tools.FindPaths().call(
-            SystemIO.Tools.FindPaths.Input(
+        let deepFind = try await SystemIO.Tools.SearchFilepaths().call(
+            SystemIO.Tools.SearchFilepaths.Input(
                 query: "A.swift",
                 recursive: false,
                 maxdepth: 2,
@@ -253,11 +253,11 @@ extension AgenticIOFlowTesting {
                 $0.path == "Sources/A.swift"
             },
             true,
-            "find_paths maxdepth 2 overrides recursive false"
+            "search_filepaths maxdepth 2 overrides recursive false"
         )
 
-        let shallowScan = try await SystemIO.Tools.ScanPaths().call(
-            SystemIO.Tools.ScanPaths.Input(
+        let shallowScan = try await SystemIO.Tools.ScanFilepaths().call(
+            SystemIO.Tools.ScanFilepaths.Input(
                 includeFiles: true,
                 includeDirectories: true,
                 recursive: true,
@@ -271,11 +271,11 @@ extension AgenticIOFlowTesting {
                 $0.path == "Sources/A.swift"
             },
             false,
-            "scan_paths maxdepth 1 overrides recursive true"
+            "scan_filepaths maxdepth 1 overrides recursive true"
         )
 
-        let deepScan = try await SystemIO.Tools.ScanPaths().call(
-            SystemIO.Tools.ScanPaths.Input(
+        let deepScan = try await SystemIO.Tools.ScanFilepaths().call(
+            SystemIO.Tools.ScanFilepaths.Input(
                 includeFiles: true,
                 includeDirectories: true,
                 recursive: false,
@@ -289,12 +289,12 @@ extension AgenticIOFlowTesting {
                 $0.path == "Sources/A.swift"
             },
             true,
-            "scan_paths maxdepth 2 overrides recursive false"
+            "scan_filepaths maxdepth 2 overrides recursive false"
         )
 
         return [
             .message(
-                "find_paths and scan_paths preserve existing traversal defaults while explicit flatcase maxdepth provides bounded depth control"
+                "search_filepaths and scan_filepaths preserve existing traversal defaults while explicit flatcase maxdepth provides bounded depth control"
             ),
         ]
     }

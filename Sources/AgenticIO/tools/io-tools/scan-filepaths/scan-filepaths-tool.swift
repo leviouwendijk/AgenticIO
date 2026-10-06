@@ -7,7 +7,7 @@ import Path
 import PathParsing
 import Macros
 
-private extension SystemIO.Tools.ScanPaths.Input {
+private extension SystemIO.Tools.ScanFilepaths.Input {
     enum CodingKeys: String, CodingKey {
         case rootID
         case path
@@ -23,7 +23,7 @@ private extension SystemIO.Tools.ScanPaths.Input {
     }
 }
 
-public extension SystemIO.Tools.ScanPaths.Input {
+public extension SystemIO.Tools.ScanFilepaths.Input {
     init(
         from decoder: any Decoder
     ) throws {
@@ -80,7 +80,7 @@ public extension SystemIO.Tools.ScanPaths.Input {
     }
 }
 
-public struct ScanPathsToolOutputEntry: Sendable, Codable, Hashable {
+public struct ScanFilepathsToolOutputEntry: Sendable, Codable, Hashable {
     public let path: String
     public let isDirectory: Bool
 
@@ -95,7 +95,7 @@ public struct ScanPathsToolOutputEntry: Sendable, Codable, Hashable {
 
 public extension SystemIO.Tools {
     @Tool
-    struct ScanPaths: Tool {
+    struct ScanFilepaths: Tool {
         @JSONSchema
         public struct Input: HashableSource {
             /// Workspace root identifier. Defaults to project.
@@ -172,13 +172,13 @@ public extension SystemIO.Tools {
 
             public let rootID: String
             public let directory: String?
-            public let entries: [ScanPathsToolOutputEntry]
+            public let entries: [ScanFilepathsToolOutputEntry]
             public let truncated: Bool
 
             public init(
                 rootID: String,
                 directory: String?,
-                entries: [ScanPathsToolOutputEntry],
+                entries: [ScanFilepathsToolOutputEntry],
                 truncated: Bool
             ) {
                 self.rootID = rootID
@@ -308,7 +308,7 @@ public extension SystemIO.Tools {
                 )
             )
 
-            var entries = try result.matches.compactMap { match -> ScanPathsAuthorizedEntry? in
+            var entries = try result.matches.compactMap { match -> ScanFilepathsAuthorizedEntry? in
                 guard match.url.standardizedFileURL != directory.absoluteURL.standardizedFileURL else {
                     return nil
                 }
@@ -355,12 +355,12 @@ public extension SystemIO.Tools {
     }
 }
 
-private struct ScanPathsAuthorizedEntry {
+private struct ScanFilepathsAuthorizedEntry {
     let path: String
     let isDirectory: Bool
 }
 
-private extension SystemIO.Tools.ScanPaths {
+private extension SystemIO.Tools.ScanFilepaths {
     func requireTargetedRoot(
         _ requested: PathAccessRootIdentifier,
         workspace: WorkspaceContext
@@ -411,7 +411,7 @@ private extension SystemIO.Tools.ScanPaths {
     }
 
     func resolvedMaxDepth(
-        for input: SystemIO.Tools.ScanPaths.Input
+        for input: SystemIO.Tools.ScanFilepaths.Input
     ) -> Int? {
         if let maxdepth = input.maxdepth {
             return max(
@@ -426,7 +426,7 @@ private extension SystemIO.Tools.ScanPaths {
     }
 
     func usesRecursivePattern(
-        for input: SystemIO.Tools.ScanPaths.Input
+        for input: SystemIO.Tools.ScanFilepaths.Input
     ) -> Bool {
         guard let maxDepth = resolvedMaxDepth(
             for: input

@@ -15,6 +15,7 @@ public struct SourceSearchRequest: Sendable {
     public let probes: [SearchProbe]
     public let options: SearchOptions
     public let frontierOptions: SearchFrontierOptions
+    public let within: [SourceContextReference]
     public let expectedCorpusFingerprint: ContentFingerprint?
 
     public var queries: [SearchQuery] {
@@ -27,6 +28,7 @@ public struct SourceSearchRequest: Sendable {
         probes: [SearchProbe],
         options: SearchOptions = .defaults,
         frontierOptions: SearchFrontierOptions = .defaults,
+        within: [SourceContextReference] = [],
         expectedCorpusFingerprint: ContentFingerprint? = nil
     ) {
         self.rootID = rootID
@@ -38,6 +40,7 @@ public struct SourceSearchRequest: Sendable {
 
         self.options = completeOptions
         self.frontierOptions = frontierOptions
+        self.within = within
         self.expectedCorpusFingerprint = expectedCorpusFingerprint
     }
 
@@ -47,6 +50,7 @@ public struct SourceSearchRequest: Sendable {
         queries: [SearchQuery],
         options: SearchOptions = .defaults,
         frontierOptions: SearchFrontierOptions = .defaults,
+        within: [SourceContextReference] = [],
         expectedCorpusFingerprint: ContentFingerprint? = nil
     ) {
         self.init(
@@ -61,6 +65,7 @@ public struct SourceSearchRequest: Sendable {
             },
             options: options,
             frontierOptions: frontierOptions,
+            within: within,
             expectedCorpusFingerprint: expectedCorpusFingerprint
         )
     }
@@ -255,6 +260,16 @@ public actor SourceSearcher {
             throw SourceSearchError.emptyQueries
         }
 
+        if !request.within.isEmpty {
+            return try search(
+                request,
+                probes: probes,
+                within: request.within,
+                workspace: workspace,
+                toolName: toolName
+            )
+        }
+
         let root = try FileToolAccess.authorize(
             workspace: workspace,
             rootID: request.rootID,
@@ -352,6 +367,169 @@ public actor SourceSearcher {
 }
 
 private extension SourceSearcher {
+    func search(
+        _ request: SourceSearchRequest,
+        probes: [SearchProbe],
+        within candidates: [SourceContextReference],
+        workspace: WorkspaceContext,
+        toolName: String
+    ) throws -> SourceSearchResult {
+        let corpusFingerprint = refinementFingerprint(
+            for: candidates
+        )
+
+        if let expectedCorpusFingerprint = request.expectedCorpusFingerprint,
+           expectedCorpusFingerprint != corpusFingerprint
+        {
+            throw SourceSearchError.staleCorpus(
+                expected: expectedCorpusFingerprint,
+                actual: corpusFingerprint
+            )
+        }
+
+        let searchCorpus = try makeSearchCorpus(
+            candidates,
+            rootID: request.rootID,
+            workspace: workspace,
+            toolName: toolName
+        )
+        let result = TextSearch.search(
+            probes: probes,
+            in: searchCorpus,
+            options: request.options
+        )
+        let frontier = result.frontier(
+            options: request.frontierOptions
+        )
+
+        return SourceSearchResult(
+            mode: frontier.mode,
+            corpusFingerprint: corpusFingerprint,
+            sourceCount: Set(candidates.map(\.path)).count,
+            searchedDocumentCount: searchCorpus.count,
+            matchedDocumentCount: frontier.matchedDocumentCount,
+            discoveredCandidateCount: frontier.discoveredCandidateCount,
+            totalCandidateCount: frontier.totalCandidateCount,
+            offset: frontier.offset,
+            returnedCandidateCount: frontier.returnedCandidateCount,
+            nextOffset: frontier.nextOffset,
+            truncated: frontier.truncated,
+            hasMore: frontier.hasMore,
+            candidates: frontier.candidates.map(
+                sourceCandidate
+            )
+        )
+    }
+
+    func makeSearchCorpus(
+        _ candidates: [SourceContextReference],
+        rootID: PathAccessRootIdentifier,
+        workspace: WorkspaceContext,
+        toolName: String
+    ) throws -> SearchCorpus<SourceSearchDocumentID> {
+        let maximumCandidates = 8
+        let maximumLinesPerCandidate = 120
+        let maximumTotalLines = 320
+
+        guard candidates.count <= maximumCandidates else {
+            throw SourceContextLoadError.tooManyCandidates(
+                maximum: maximumCandidates,
+                actual: candidates.count
+            )
+        }
+
+        var documents: [SearchDocument<SourceSearchDocumentID>] = []
+        var admittedLineCount = 0
+        let loader = SourceContextLoader(
+            toolName: toolName
+        )
+
+        for candidate in candidates {
+            let requestedLines = max(
+                1,
+                candidate.lineRange.end - candidate.lineRange.start + 1
+            )
+
+            guard requestedLines <= maximumLinesPerCandidate else {
+                throw SourceContextLoadError.candidateRangeTooLarge(
+                    path: candidate.path,
+                    requestedLines: requestedLines,
+                    maximumLines: maximumLinesPerCandidate
+                )
+            }
+
+            admittedLineCount += requestedLines
+
+            guard admittedLineCount <= maximumTotalLines else {
+                throw SourceContextLoadError.totalLineBudgetExceeded(
+                    actualLines: admittedLineCount,
+                    maximumLines: maximumTotalLines
+                )
+            }
+
+            let context = try loader.load(
+                SourceContextRequest(
+                    rootID: rootID,
+                    candidates: [
+                        candidate,
+                    ],
+                    beforeLines: 0,
+                    afterLines: 0,
+                    maximumCandidates: 1,
+                    maximumLinesPerCandidate: maximumLinesPerCandidate,
+                    maximumTotalLines: maximumLinesPerCandidate
+                ),
+                workspace: workspace
+            )
+
+            for source in context.sources {
+                for slice in source.slices where !slice.lines.isEmpty {
+                    documents.append(
+                        SearchDocument(
+                            id: SourceSearchDocumentID(
+                                path: source.path,
+                                sectionKey: candidate.sectionKey
+                                    ?? source.sectionKeys.first
+                                    ?? "",
+                                sliceIndex: documents.count,
+                                sourceStartLine: slice.lineRange.start,
+                                sourceFingerprint: source.sourceFingerprint
+                            ),
+                            text: slice.lines
+                                .map(\.text)
+                                .joined(
+                                    separator: "\n"
+                                )
+                        )
+                    )
+                }
+            }
+        }
+
+        return SearchCorpus(
+            documents: documents
+        )
+    }
+
+    func refinementFingerprint(
+        for candidates: [SourceContextReference]
+    ) -> ContentFingerprint {
+        ContentFingerprint.fingerprint(
+            for: candidates.map { candidate in
+                [
+                    candidate.path,
+                    candidate.sectionKey ?? "",
+                    candidate.sourceFingerprint.description,
+                    "\(candidate.lineRange.start):\(candidate.lineRange.end)",
+                ].joined(
+                    separator: "\u{0}"
+                )
+            }.joined(
+                separator: "\n"
+            )
+        )
+    }
+
     func relativePath(
         _ source: URL,
         under root: URL

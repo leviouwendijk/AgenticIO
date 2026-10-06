@@ -37,6 +37,12 @@ enum AgenticIOFlowTesting {
         try await proveStatelessContinuation(
             fixture
         )
+        try await proveCandidateRefinement(
+            fixture
+        )
+        try await proveCandidateRefinementBudgets(
+            fixture
+        )
 
         return [
             .message(
@@ -138,6 +144,11 @@ private extension AgenticIOFlowTesting {
             schema,
             "expectedCorpusFingerprint",
             "search_sources schema exposes continuation freshness guard"
+        )
+        try Expect.contains(
+            schema,
+            "within",
+            "search_sources schema exposes explicit candidate-local refinement"
         )
 
         let tool = SystemIO.Tools.SearchSources()
@@ -720,6 +731,368 @@ private struct SourceSearchFixture {
     func remove() {
         try? FileManager.default.removeItem(
             at: root
+        )
+    }
+}
+
+private extension AgenticIOFlowTesting {
+    static func proveCandidateRefinement(
+        _ fixture: SourceSearchFixture
+    ) async throws {
+        let tool = SystemIO.Tools.SearchSources()
+        let broad = try await tool.call(
+            SystemIO.Tools.SearchSources.Input(
+                includes: [
+                    "Sources/**",
+                ],
+                probes: [
+                    .init(
+                        text: "needle",
+                        id: "needle",
+                        role: .preferred,
+                        strategy: .contains
+                    ),
+                ],
+                mode: .exhaustive,
+                caseSensitive: true,
+                mergeDistanceLines: 0,
+                maximumCandidates: 8
+            ),
+            in: ToolContext(workspace: fixture.workspace)
+        )
+        let candidate = try Expect.notNil(
+            broad.candidates.first {
+                $0.path == "Sources/A.swift"
+                    && $0.lineRange.start == 2
+                    && $0.lineRange.end == 2
+            },
+            "broad source search returns the first exact candidate region"
+        )
+
+        let refined = try await tool.call(
+            SystemIO.Tools.SearchSources.Input(
+                includes: [
+                    "Sources/**",
+                ],
+                within: [
+                    .init(candidate),
+                ],
+                probes: [
+                    .init(
+                        text: "alpha",
+                        id: "alpha",
+                        role: .required,
+                        strategy: .contains
+                    ),
+                ],
+                mode: .exhaustive,
+                caseSensitive: true,
+                mergeDistanceLines: 0,
+                maximumCandidates: 8
+            ),
+            in: ToolContext(workspace: fixture.workspace)
+        )
+
+        try Expect.equal(
+            refined.searchedDocumentCount,
+            1,
+            "candidate refinement searches only the supplied candidate region"
+        )
+        try Expect.equal(
+            refined.candidates.count,
+            1,
+            "candidate refinement retains the matching region"
+        )
+
+        let refinedCandidate = try Expect.notNil(
+            refined.candidates.first,
+            "candidate refinement returns one candidate"
+        )
+
+        try Expect.equal(
+            refinedCandidate.lineRange.start,
+            2,
+            "candidate refinement preserves original source coordinates"
+        )
+        try Expect.equal(
+            refinedCandidate.lineRange.end,
+            2,
+            "candidate refinement preserves the exact original source range"
+        )
+
+        let outside = try await tool.call(
+            SystemIO.Tools.SearchSources.Input(
+                includes: [
+                    "Sources/**",
+                ],
+                within: [
+                    .init(candidate),
+                ],
+                probes: [
+                    .init(
+                        text: "footer",
+                        id: "footer",
+                        role: .required,
+                        strategy: .contains
+                    ),
+                ],
+                mode: .exhaustive,
+                caseSensitive: true,
+                mergeDistanceLines: 0,
+                maximumCandidates: 8
+            ),
+            in: ToolContext(workspace: fixture.workspace)
+        )
+
+        try Expect.equal(
+            outside.candidates.count,
+            0,
+            "candidate refinement cannot escape the supplied source range"
+        )
+
+        try """
+        header
+        needle changed
+        middle
+        needle beta
+        footer
+        """.write(
+            to: fixture.root
+                .appendingPathComponent(
+                    "Sources/A.swift"
+                ),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        var staleRejected = false
+
+        do {
+            _ = try await tool.call(
+                SystemIO.Tools.SearchSources.Input(
+                    includes: [
+                        "Sources/**",
+                    ],
+                    within: [
+                        .init(candidate),
+                    ],
+                    probes: [
+                        .init(
+                            text: "alpha",
+                            id: "alpha",
+                            role: .required,
+                            strategy: .contains
+                        ),
+                    ],
+                    mode: .exhaustive,
+                    caseSensitive: true,
+                    mergeDistanceLines: 0,
+                    maximumCandidates: 8
+                ),
+                in: ToolContext(workspace: fixture.workspace)
+            )
+        } catch let error as SourceContextLoadError {
+            switch error {
+            case .staleSource:
+                staleRejected = true
+
+            default:
+                throw error
+            }
+        }
+
+        try Expect.true(
+            staleRejected,
+            "candidate refinement rejects stale source fingerprints"
+        )
+    }
+}
+
+private extension AgenticIOFlowTesting {
+    static func proveCandidateRefinementBudgets(
+        _ fixture: SourceSearchFixture
+    ) async throws {
+        let tool = SystemIO.Tools.SearchSources()
+        let broad = try await tool.call(
+            SystemIO.Tools.SearchSources.Input(
+                includes: [
+                    "Sources/**",
+                ],
+                probes: [
+                    .init(
+                        text: "needle",
+                        id: "needle",
+                        role: .preferred,
+                        strategy: .contains
+                    ),
+                ],
+                mode: .exhaustive,
+                caseSensitive: true,
+                mergeDistanceLines: 0,
+                maximumCandidates: 8
+            ),
+            in: ToolContext(
+                workspace: fixture.workspace
+            )
+        )
+        let candidate = try Expect.notNil(
+            broad.candidates.first {
+                $0.path == "Sources/A.swift"
+            },
+            "refinement budget fixture yields a candidate"
+        )
+
+        var tooManyRejected = false
+
+        do {
+            _ = try await tool.call(
+                SystemIO.Tools.SearchSources.Input(
+                    includes: [
+                        "Sources/**",
+                    ],
+                    within: Array(
+                        repeating: .init(candidate),
+                        count: 9
+                    ),
+                    probes: [
+                        .init(
+                            text: "needle",
+                            id: "needle",
+                            role: .required,
+                            strategy: .contains
+                        ),
+                    ],
+                    mode: .exhaustive,
+                    caseSensitive: true,
+                    mergeDistanceLines: 0,
+                    maximumCandidates: 8
+                ),
+                in: ToolContext(
+                    workspace: fixture.workspace
+                )
+            )
+        } catch let error as SourceContextLoadError {
+            switch error {
+            case .tooManyCandidates:
+                tooManyRejected = true
+
+            default:
+                throw error
+            }
+        }
+
+        try Expect.true(
+            tooManyRejected,
+            "candidate refinement retains the SourceContextLoader candidate-count bound"
+        )
+
+        let oversized = SourceContextCandidateInput(
+            path: candidate.path,
+            sectionKey: candidate.sectionKey,
+            sourceFingerprint: .init(
+                candidate.sourceFingerprint
+            ),
+            lineRange: .init(
+                start: 1,
+                end: 121
+            )
+        )
+        var oversizedRejected = false
+
+        do {
+            _ = try await tool.call(
+                SystemIO.Tools.SearchSources.Input(
+                    includes: [
+                        "Sources/**",
+                    ],
+                    within: [
+                        oversized,
+                    ],
+                    probes: [
+                        .init(
+                            text: "needle",
+                            id: "needle",
+                            role: .required,
+                            strategy: .contains
+                        ),
+                    ],
+                    mode: .exhaustive,
+                    caseSensitive: true,
+                    mergeDistanceLines: 0,
+                    maximumCandidates: 8
+                ),
+                in: ToolContext(
+                    workspace: fixture.workspace
+                )
+            )
+        } catch let error as SourceContextLoadError {
+            switch error {
+            case .candidateRangeTooLarge:
+                oversizedRejected = true
+
+            default:
+                throw error
+            }
+        }
+
+        try Expect.true(
+            oversizedRejected,
+            "candidate refinement retains the 120-line per-candidate bound"
+        )
+
+        let hundredLines = SourceContextCandidateInput(
+            path: candidate.path,
+            sectionKey: candidate.sectionKey,
+            sourceFingerprint: .init(
+                candidate.sourceFingerprint
+            ),
+            lineRange: .init(
+                start: 1,
+                end: 100
+            )
+        )
+        var totalBudgetRejected = false
+
+        do {
+            _ = try await tool.call(
+                SystemIO.Tools.SearchSources.Input(
+                    includes: [
+                        "Sources/**",
+                    ],
+                    within: Array(
+                        repeating: hundredLines,
+                        count: 4
+                    ),
+                    probes: [
+                        .init(
+                            text: "needle",
+                            id: "needle",
+                            role: .required,
+                            strategy: .contains
+                        ),
+                    ],
+                    mode: .exhaustive,
+                    caseSensitive: true,
+                    mergeDistanceLines: 0,
+                    maximumCandidates: 8
+                ),
+                in: ToolContext(
+                    workspace: fixture.workspace
+                )
+            )
+        } catch let error as SourceContextLoadError {
+            switch error {
+            case .totalLineBudgetExceeded:
+                totalBudgetRejected = true
+
+            default:
+                throw error
+            }
+        }
+
+        try Expect.true(
+            totalBudgetRejected,
+            "candidate refinement retains the 320-line aggregate bound"
         )
     }
 }

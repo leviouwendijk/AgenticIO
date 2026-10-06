@@ -30,6 +30,40 @@ public struct FileEditLineRange: Sendable, Codable, Hashable {
 }
 
 @JSONSchema
+public struct FileEditPosition: Sendable, Codable, Hashable {
+    /// 1-based logical line.
+    public let line: Int
+
+    /// 1-based Swift Character column. The exclusive textual end-of-line point is valid.
+    public let column: Int
+
+    public init(
+        line: Int,
+        column: Int
+    ) {
+        self.line = line
+        self.column = column
+    }
+}
+
+@JSONSchema
+public struct FileEditPositionRange: Sendable, Codable, Hashable {
+    /// Inclusive start position.
+    public let start: FileEditPosition
+
+    /// Exclusive end position.
+    public let end: FileEditPosition
+
+    public init(
+        start: FileEditPosition,
+        end: FileEditPosition
+    ) {
+        self.start = start
+        self.end = end
+    }
+}
+
+@JSONSchema
 public enum FileEditOperationKind: String, Sendable, Codable, Hashable, CaseIterable {
     case replace_entire_file
     case append
@@ -38,6 +72,7 @@ public enum FileEditOperationKind: String, Sendable, Codable, Hashable, CaseIter
     case replace_all
     case replace_unique
     case replace_line
+    case replace_range
     case insert_lines
     case insert_before
     case insert_after
@@ -53,6 +88,7 @@ public enum FileEditOperation: Sendable, Hashable {
     case replace_all(ReplaceAll)
     case replace_unique(ReplaceUnique)
     case replace_line(ReplaceLine)
+    case replace_range(ReplaceRange)
     case insert_lines(InsertLines)
     case insert_before(InsertRelative)
     case insert_after(InsertRelative)
@@ -82,6 +118,9 @@ public enum FileEditOperation: Sendable, Hashable {
         case .replace_line:
             return .replace_line
 
+        case .replace_range:
+            return .replace_range
+
         case .insert_lines:
             return .insert_lines
 
@@ -104,6 +143,7 @@ extension FileEditOperation {
     var isSnapshotCompatible: Bool {
         switch kind {
         case .replace_line,
+             .replace_range,
              .insert_lines,
              .insert_before,
              .insert_after,
@@ -268,6 +308,19 @@ public extension FileEditOperation {
         }
     }
 
+    struct ReplaceRange: Sendable, Codable, Hashable {
+        public let range: FileEditPositionRange
+        public let replacement: String
+
+        public init(
+            range: FileEditPositionRange,
+            replacement: String
+        ) {
+            self.range = range
+            self.replacement = replacement
+        }
+    }
+
     struct InsertLines: Sendable, Codable, Hashable {
         public let position: Int
         public let lines: [String]
@@ -328,6 +381,7 @@ private extension FileEditOperation {
         case lines
         case position
         case range
+        case position_range
         case separator
     }
 }
@@ -391,6 +445,20 @@ extension FileEditOperation: Codable {
             self = .replace_line(
                 try ReplaceLine(
                     from: decoder
+                )
+            )
+
+        case .replace_range:
+            self = .replace_range(
+                .init(
+                    range: try container.decode(
+                        FileEditPositionRange.self,
+                        forKey: .position_range
+                    ),
+                    replacement: try container.decode(
+                        String.self,
+                        forKey: .replacement
+                    )
                 )
             )
 
@@ -510,6 +578,16 @@ extension FileEditOperation: Codable {
                 forKey: .content
             )
 
+        case .replace_range(let operation):
+            try container.encode(
+                operation.range,
+                forKey: .position_range
+            )
+            try container.encode(
+                operation.replacement,
+                forKey: .replacement
+            )
+
         case .insert_lines(let operation):
             try container.encode(
                 operation.position,
@@ -558,6 +636,7 @@ extension FileEditOperation: Codable {
 /// replace_all requires target and replacement.
 /// replace_unique requires target and replacement.
 /// replace_line requires line and content.
+/// replace_range requires position_range and replacement.
 /// insert_lines requires position and lines.
 /// insert_before requires line and lines.
 /// insert_after requires line and lines.
@@ -575,7 +654,7 @@ struct FileEditOperationSchemaRepresentation: Codable {
     /// Existing text to replace for replace_first, replace_all, or replace_unique.
     let target: String?
 
-    /// Replacement text for replace_first, replace_all, or replace_unique. replace_line also accepts this as a compatibility alias, but content is preferred.
+    /// Replacement text for replace_first, replace_all, replace_unique, or replace_range. replace_line also accepts this as a compatibility alias, but content is preferred.
     let replacement: String?
 
     /// 1-based existing line number for replace_line, insert_before, or insert_after.
@@ -587,7 +666,11 @@ struct FileEditOperationSchemaRepresentation: Codable {
     /// 1-based insertion position for insert_lines.
     let position: Int?
 
+    /// Inclusive 1-based whole-line range for replace_lines or delete_lines.
     let range: FileEditLineRange?
+
+    /// Half-open 1-based line/column range for replace_range.
+    let position_range: FileEditPositionRange?
 
     /// Optional separator for append/prepend.
     let separator: String?

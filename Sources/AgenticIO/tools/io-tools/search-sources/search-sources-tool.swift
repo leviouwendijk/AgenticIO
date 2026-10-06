@@ -72,6 +72,7 @@ private extension SystemIO.Tools.SearchSources.Input {
         case includes
         case excludes
         case selections
+        case within
         case probes
         case mode
         case caseSensitive
@@ -108,6 +109,10 @@ public extension SystemIO.Tools.SearchSources.Input {
             selections: try container.decodeIfPresent(
                 [String].self,
                 forKey: .selections
+            ) ?? [],
+            within: try container.decodeIfPresent(
+                [SourceContextCandidateInput].self,
+                forKey: .within
             ) ?? [],
             probes: try container.decode(
                 [SourceSearchProbeInput].self,
@@ -172,6 +177,10 @@ public extension SystemIO.Tools {
             @Schema(required: false)
             public let selections: [String]
 
+            /// Optional prior search candidates that restrict this search to freshness-validated source regions.
+            @Schema(required: false)
+            public let within: [SourceContextCandidateInput]
+
             /// Deterministic source-search probes. Each probe owns its admission role and matching strategy.
             public let probes: [SourceSearchProbeInput]
 
@@ -212,6 +221,7 @@ public extension SystemIO.Tools {
                 includes: [String] = ["**"],
                 excludes: [String] = [],
                 selections: [String] = [],
+                within: [SourceContextCandidateInput] = [],
                 probes: [SourceSearchProbeInput],
                 mode: SourceSearchMode = .ranked,
                 caseSensitive: Bool = false,
@@ -228,6 +238,7 @@ public extension SystemIO.Tools {
                     : includes
                 self.excludes = excludes
                 self.selections = selections
+                self.within = within
                 self.probes = probes
                 self.mode = mode
                 self.caseSensitive = caseSensitive
@@ -293,6 +304,18 @@ public extension SystemIO.Tools {
                 selections: input.selections
             )
 
+            for candidate in input.within {
+                _ = try candidate.reference()
+                _ = try FileToolAccess.authorize(
+                    workspace: workspace,
+                    rootID: input.rootID,
+                    path: candidate.path,
+                    capability: .read,
+                    toolName: Self.identifier.rawValue,
+                    type: .file
+                )
+            }
+
             return .init(
                 tool: Self.definition.identifier,
                 risk: risk,
@@ -311,6 +334,8 @@ public extension SystemIO.Tools {
                     "workspace_required",
                     "workspace_root_scan_authorized",
                     "resolved_source_read_authorization_required",
+                    "search_candidate_source_fingerprint_required",
+                    "stale_search_candidate_rejected",
                     "selection_resolution_bounded_to_authorized_root",
                     "retained_source_cache_only",
                     "no_source_content_returned",
@@ -351,6 +376,9 @@ public extension SystemIO.Tools {
                     maximumCandidatesPerDocument: input.maximumCandidatesPerDocument,
                     offset: input.offset
                 ),
+                within: try input.within.map {
+                    try $0.reference()
+                },
                 expectedCorpusFingerprint: input.expectedCorpusFingerprint?.fingerprint
             )
 

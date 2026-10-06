@@ -8,7 +8,7 @@ import Macros
 import Search
 
 @JSONSchema
-public enum FindPathsStrategy:
+public enum SearchFilepathsStrategy:
     String,
     Sendable,
     Codable,
@@ -60,7 +60,7 @@ public enum FindPathsStrategy:
 }
 
 @JSONSchema
-public struct FindPathsQueryInput: Sendable, Codable, Hashable {
+public struct SearchFilepathsQueryInput: Sendable, Codable, Hashable {
     /// Text to search for in workspace-relative paths.
     public let text: String
     /// Optional stable identifier retained in returned Search evidence.
@@ -80,16 +80,16 @@ public struct FindPathsQueryInput: Sendable, Codable, Hashable {
 }
 
 
-public struct FindPathsToolEvidence: Sendable, Codable, Hashable {
+public struct SearchFilepathsToolEvidence: Sendable, Codable, Hashable {
     public let queryID: String?
     public let query: String
-    public let strategy: FindPathsStrategy
+    public let strategy: SearchFilepathsStrategy
     public let score: Int
 
     public init(
         queryID: String? = nil,
         query: String,
-        strategy: FindPathsStrategy,
+        strategy: SearchFilepathsStrategy,
         score: Int
     ) {
         self.queryID = queryID
@@ -99,13 +99,13 @@ public struct FindPathsToolEvidence: Sendable, Codable, Hashable {
     }
 }
 
-public struct FindPathsToolEntry: Sendable, Codable, Hashable {
+public struct SearchFilepathsToolEntry: Sendable, Codable, Hashable {
     public let rootID: String
     public let path: String
     public let isDirectory: Bool
     public let score: Int?
     public let probeCount: Int?
-    public let evidence: [FindPathsToolEvidence]?
+    public let evidence: [SearchFilepathsToolEvidence]?
 
     public init(
         rootID: String,
@@ -113,7 +113,7 @@ public struct FindPathsToolEntry: Sendable, Codable, Hashable {
         isDirectory: Bool,
         score: Int? = nil,
         probeCount: Int? = nil,
-        evidence: [FindPathsToolEvidence]? = nil
+        evidence: [SearchFilepathsToolEvidence]? = nil
     ) {
         self.rootID = rootID
         self.path = path
@@ -127,7 +127,7 @@ public struct FindPathsToolEntry: Sendable, Codable, Hashable {
 
 public extension SystemIO.Tools {
     @Tool
-    struct FindPaths: Tool {
+    struct SearchFilepaths: Tool {
         /// Model-facing input for Find paths.
         @JSONSchema
         public struct Input: HashableSource {
@@ -136,7 +136,7 @@ public extension SystemIO.Tools {
             /// Optional legacy single path-name query. Used when queries is omitted or empty.
             public let query: String?
             /// Optional weighted path-name probes. When non-empty, these take precedence over query.
-            public let queries: [FindPathsQueryInput]?
+            public let queries: [SearchFilepathsQueryInput]?
             /// Optional include patterns.
             public let includes: [String]?
             /// Optional exclude patterns.
@@ -154,7 +154,7 @@ public extension SystemIO.Tools {
             /// Whether directories are returned.
             public let includeDirectories: Bool?
             /// Optional Search strategy. Defaults to contains to preserve existing behavior.
-            public let strategy: FindPathsStrategy?
+            public let strategy: SearchFilepathsStrategy?
             /// Whether Search matching is case-sensitive. Defaults to false.
             public let caseSensitive: Bool?
             /// Optional minimum Search score. Defaults to 1.
@@ -165,7 +165,7 @@ public extension SystemIO.Tools {
             public init(
                 rootID: PathAccessRootIdentifier? = nil,
                 query: String? = nil,
-                queries: [FindPathsQueryInput]? = nil,
+                queries: [SearchFilepathsQueryInput]? = nil,
                 includes: [String]? = nil,
                 excludes: [String]? = nil,
                 recursive: Bool? = nil,
@@ -174,7 +174,7 @@ public extension SystemIO.Tools {
                 followSymlinks: Bool? = nil,
                 includeFiles: Bool? = nil,
                 includeDirectories: Bool? = nil,
-                strategy: FindPathsStrategy? = nil,
+                strategy: SearchFilepathsStrategy? = nil,
                 caseSensitive: Bool? = nil,
                 minimumScore: Int? = nil,
                 maxEntries: Int? = nil
@@ -205,12 +205,12 @@ public extension SystemIO.Tools {
             public let rootID: String
             public let searchedPathCount: Int?
             public let candidateCount: Int?
-            public let entries: [FindPathsToolEntry]
+            public let entries: [SearchFilepathsToolEntry]
             public let truncated: Bool
 
             public init(
                 rootID: String,
-                entries: [FindPathsToolEntry],
+                entries: [SearchFilepathsToolEntry],
                 truncated: Bool,
                 searchedPathCount: Int? = nil,
                 candidateCount: Int? = nil
@@ -327,7 +327,7 @@ public extension SystemIO.Tools {
                     capability: .scan
                 ).authorizedPath
 
-                return FindPathsScannedEntry(
+                return SearchFilepathsScannedEntry(
                     path: authorized.presentationPath,
                     isDirectory: match.type == .directory
                 )
@@ -361,10 +361,10 @@ public extension SystemIO.Tools {
                 )
             }
 
-            let corpus: SearchCorpus<FindPathsDocumentID> = SearchCorpus(
+            let corpus: SearchCorpus<SearchFilepathsDocumentID> = SearchCorpus(
                 documents: entries.map { entry in
                     SearchDocument(
-                        id: FindPathsDocumentID(
+                        id: SearchFilepathsDocumentID(
                             path: entry.path,
                             isDirectory: entry.isDirectory
                         ),
@@ -393,10 +393,10 @@ public extension SystemIO.Tools {
                         score: hit.score.value,
                         probeCount: hit.evidence.count,
                         evidence: hit.evidence.map { evidence in
-                            FindPathsToolEvidence(
+                            SearchFilepathsToolEvidence(
                                 queryID: evidence.queryID,
                                 query: evidence.query,
-                                strategy: FindPathsStrategy(
+                                strategy: SearchFilepathsStrategy(
                                     searchStrategy: evidence.strategy
                                 ),
                                 score: evidence.score.value
@@ -439,12 +439,12 @@ public extension SystemIO.Tools {
     }
 }
 
-private struct FindPathsScannedEntry {
+private struct SearchFilepathsScannedEntry {
     let path: String
     let isDirectory: Bool
 }
 
-private struct FindPathsDocumentID:
+private struct SearchFilepathsDocumentID:
     Sendable,
     Codable,
     Hashable
@@ -453,7 +453,7 @@ private struct FindPathsDocumentID:
     let isDirectory: Bool
 }
 
-internal extension SystemIO.Tools.FindPaths {
+internal extension SystemIO.Tools.SearchFilepaths {
     func requireTargetedRoot(
         _ requested: PathAccessRootIdentifier?,
         workspace: WorkspaceContext
@@ -472,7 +472,7 @@ internal extension SystemIO.Tools.FindPaths {
     }
 
     func resolvedMaxDepth(
-        _ input: SystemIO.Tools.FindPaths.Input
+        _ input: SystemIO.Tools.SearchFilepaths.Input
     ) -> Int? {
         if let maxdepth = input.maxdepth {
             return max(
@@ -508,7 +508,7 @@ internal extension SystemIO.Tools.FindPaths {
     }
 
     func normalizedQueries(
-        _ input: SystemIO.Tools.FindPaths.Input
+        _ input: SystemIO.Tools.SearchFilepaths.Input
     ) -> [SearchQuery] {
         let explicit = (input.queries ?? []).map {
             SearchQuery(

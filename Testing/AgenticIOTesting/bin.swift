@@ -43,6 +43,20 @@ enum AgenticIOFlowSuite: TestFlowRegistry {
                 .runMutateFilesWorkspaceTargeting()
         },
         TestFlow(
+            "mutate-files-position-range",
+            tags: [
+                "agentic-io",
+                "mutation",
+                "edit",
+                "position",
+                "range",
+                "snapshot",
+            ]
+        ) {
+            try await AgenticIOFlowTesting
+                .runMutateFilesPositionRange()
+        },
+        TestFlow(
             "mutate-files-relative-insertion",
             tags: [
                 "agentic-io",

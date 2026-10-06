@@ -16,7 +16,7 @@ public struct CoreWorkspaceToolSet: AgentToolProvider {
             SystemIO.Tools.ListPathRoots()
             SystemIO.Tools.ListPathGrants()
             SystemIO.Tools.ExplainPathAccess()
-            SystemIO.Tools.FindPaths()
+            SystemIO.Tools.SearchFilepaths()
             SystemIO.Tools.RequestPathGrant()
         }
     }
