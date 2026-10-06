@@ -74,6 +74,7 @@ private extension SystemIO.Tools.SearchSources.Input {
         case selections
         case within
         case probes
+        case lexicalPattern
         case mode
         case caseSensitive
         case minimumScore
@@ -114,9 +115,13 @@ public extension SystemIO.Tools.SearchSources.Input {
                 [SourceContextCandidateInput].self,
                 forKey: .within
             ) ?? [],
-            probes: try container.decode(
+            probes: try container.decodeIfPresent(
                 [SourceSearchProbeInput].self,
                 forKey: .probes
+            ) ?? [],
+            lexicalPattern: try container.decodeIfPresent(
+                SourceLexicalPatternInput.self,
+                forKey: .lexicalPattern
             ),
             mode: try container.decodeIfPresent(
                 SourceSearchMode.self,
@@ -181,8 +186,13 @@ public extension SystemIO.Tools {
             @Schema(required: false)
             public let within: [SourceContextCandidateInput]
 
-            /// Deterministic source-search probes. Each probe owns its admission role and matching strategy.
+            /// Deterministic text-search probes. Each probe owns its admission role and matching strategy. Mutually exclusive with lexicalPattern.
+            @Schema(required: false)
             public let probes: [SourceSearchProbeInput]
+
+            /// Optional bounded lexical token pattern. Mutually exclusive with probes.
+            @Schema(required: false)
+            public let lexicalPattern: SourceLexicalPatternInput?
 
             /// Search mode. Ranked applies ranking and source diversity before delivery; exhaustive preserves every matching region. Defaults to ranked.
             @Schema(required: false)
@@ -222,7 +232,8 @@ public extension SystemIO.Tools {
                 excludes: [String] = [],
                 selections: [String] = [],
                 within: [SourceContextCandidateInput] = [],
-                probes: [SourceSearchProbeInput],
+                probes: [SourceSearchProbeInput] = [],
+                lexicalPattern: SourceLexicalPatternInput? = nil,
                 mode: SourceSearchMode = .ranked,
                 caseSensitive: Bool = false,
                 minimumScore: Int = 1,
@@ -240,6 +251,7 @@ public extension SystemIO.Tools {
                 self.selections = selections
                 self.within = within
                 self.probes = probes
+                self.lexicalPattern = lexicalPattern
                 self.mode = mode
                 self.caseSensitive = caseSensitive
                 self.minimumScore = minimumScore
@@ -265,7 +277,7 @@ public extension SystemIO.Tools {
 
         public typealias Output = SourceSearchResult
 
-        public static let purpose = "Search content inside an authorized workspace source universe and return compact ranked or exhaustive source ranges without returning source contents."
+        public static let purpose = "Search text or bounded lexical token patterns inside an authorized workspace source universe and return compact source ranges without returning source contents."
         public static let risk: ActionRisk = .observe
 
         public let searcher: SourceSearcher
@@ -285,7 +297,7 @@ public extension SystemIO.Tools {
                 toolName: Self.identifier.rawValue
             )
 
-            let probes = try input.resolvedSearchProbes(
+            let query = try input.resolvedSourceSearchQuery(
                 toolName: Self.identifier.rawValue
             )
 
@@ -319,7 +331,7 @@ public extension SystemIO.Tools {
             return .init(
                 tool: Self.definition.identifier,
                 risk: risk,
-                summary: "Search \(probes.count) source probe(s) inside root '\(input.rootID.rawValue)'.",
+                summary: "Search \(query.summary) inside root '\(input.rootID.rawValue)'.",
                 access: .init(
                     roots: [
                         input.rootID.rawValue,
@@ -357,30 +369,51 @@ public extension SystemIO.Tools {
                 excludes: input.excludes,
                 selections: input.selections
             )
-            let probes = try input.resolvedSearchProbes(
+            let query = try input.resolvedSourceSearchQuery(
                 toolName: Self.identifier.rawValue
             )
-            let request = SourceSearchRequest(
-                rootID: input.rootID,
-                definition: definition,
-                probes: probes,
-                options: SearchOptions(
-                    mode: input.mode.searchMode,
-                    caseSensitive: input.caseSensitive,
-                    minimumScore: input.minimumScore,
-                    maximumResults: nil
-                ),
-                frontierOptions: SearchFrontierOptions(
-                    mergeDistanceLines: input.mergeDistanceLines,
-                    maximumCandidates: input.maximumCandidates,
-                    maximumCandidatesPerDocument: input.maximumCandidatesPerDocument,
-                    offset: input.offset
-                ),
-                within: try input.within.map {
-                    try $0.reference()
-                },
-                expectedCorpusFingerprint: input.expectedCorpusFingerprint?.fingerprint
+            let options = SearchOptions(
+                mode: input.mode.searchMode,
+                caseSensitive: input.caseSensitive,
+                minimumScore: input.minimumScore,
+                maximumResults: nil
             )
+            let frontierOptions = SearchFrontierOptions(
+                mergeDistanceLines: input.mergeDistanceLines,
+                maximumCandidates: input.maximumCandidates,
+                maximumCandidatesPerDocument: input.maximumCandidatesPerDocument,
+                offset: input.offset
+            )
+            let within = try input.within.map {
+                try $0.reference()
+            }
+            let request: SourceSearchRequest
+
+            switch query {
+            case .text(let probes):
+                request = SourceSearchRequest(
+                    rootID: input.rootID,
+                    definition: definition,
+                    probes: probes,
+                    options: options,
+                    frontierOptions: frontierOptions,
+                    within: within,
+                    expectedCorpusFingerprint:
+                        input.expectedCorpusFingerprint?.fingerprint
+                )
+
+            case .lexical(let pattern):
+                request = SourceSearchRequest(
+                    rootID: input.rootID,
+                    definition: definition,
+                    lexicalPattern: pattern,
+                    options: options,
+                    frontierOptions: frontierOptions,
+                    within: within,
+                    expectedCorpusFingerprint:
+                        input.expectedCorpusFingerprint?.fingerprint
+                )
+            }
 
             let result = try await searcher.search(
                 request,
@@ -400,8 +433,12 @@ public extension SystemIO.Tools {
 
             return .init(
                 status: "passed",
-                summary: "Source search (\(result.mode.rawValue)) returned \(result.returnedCandidateCount) of \(result.totalCandidateCount) candidate region(s) from offset \(result.offset) across \(result.sourceCount) retained source(s).",
+                summary: "Source \(result.kind.rawValue) search (\(result.mode.rawValue)) returned \(result.returnedCandidateCount) of \(result.totalCandidateCount) candidate region(s) from offset \(result.offset) across \(result.sourceCount) retained source(s).",
                 facts: [
+                    .init(
+                        label: "kind",
+                        value: result.kind.rawValue
+                    ),
                     .init(
                         label: "mode",
                         value: result.mode.rawValue

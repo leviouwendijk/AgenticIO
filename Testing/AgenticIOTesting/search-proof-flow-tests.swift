@@ -112,7 +112,12 @@ extension AgenticIOFlowTesting {
         try Expect.equal(
             proof.candidateCount,
             2,
-            "proof evaluates both source candidates"
+            "proof preserves the count of freshness-validated source candidates supplied by the caller"
+        )
+        try Expect.equal(
+            proof.evaluatedCandidateCount,
+            1,
+            "required-anchor admission skips the candidate that cannot contain the structural match"
         )
         try Expect.equal(
             proof.provenCandidateCount,
@@ -169,6 +174,40 @@ extension AgenticIOFlowTesting {
             "capture rebases to source line"
         )
 
+        let zeroMatchProof = try await tool.call(
+            SystemIO.Tools.ProveSearchResults.Input(
+                candidates: candidates,
+                specification: input.specification,
+                cardinality: .atMost(
+                    count: 0
+                )
+            ),
+            in: ToolContext(
+                workspace: fixture.workspace
+            )
+        )
+
+        try Expect.equal(
+            zeroMatchProof.candidateCount,
+            2,
+            "zero-match proof preserves the caller-supplied candidate count"
+        )
+        try Expect.equal(
+            zeroMatchProof.evaluatedCandidateCount,
+            2,
+            "zero-accepting cardinality bypasses required-anchor rejection"
+        )
+        try Expect.equal(
+            zeroMatchProof.provenCandidateCount,
+            1,
+            "the anchor-missing candidate satisfies at-most-zero structural cardinality"
+        )
+        try Expect.equal(
+            zeroMatchProof.matchCount,
+            0,
+            "zero-match proof returns no structural matches"
+        )
+
         try fixture.write(
             """
             header
@@ -205,6 +244,10 @@ extension AgenticIOFlowTesting {
             .field(
                 "candidates",
                 "\(proof.candidateCount)"
+            ),
+            .field(
+                "evaluated",
+                "\(proof.evaluatedCandidateCount)"
             ),
             .field(
                 "proven",

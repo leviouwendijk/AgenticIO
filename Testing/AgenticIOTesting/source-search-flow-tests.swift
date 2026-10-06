@@ -33,6 +33,9 @@ enum AgenticIOFlowTesting {
         try await proveIdentifierStrategy(
             fixture
         )
+        try await proveLexicalSearch(
+            fixture
+        )
         try await proveRichProbeSemantics()
         try await proveStatelessContinuation(
             fixture
@@ -150,6 +153,26 @@ private extension AgenticIOFlowTesting {
             "within",
             "search_sources schema exposes explicit candidate-local refinement"
         )
+        try Expect.contains(
+            schema,
+            "lexicalPattern",
+            "search_sources schema exposes bounded lexical search"
+        )
+        try Expect.contains(
+            schema,
+            "capture",
+            "search_sources schema exposes lexical capture nodes"
+        )
+        try Expect.contains(
+            schema,
+            "gap",
+            "search_sources schema exposes bounded lexical gaps"
+        )
+        try Expect.contains(
+            schema,
+            "token",
+            "search_sources schema exposes exact token nodes"
+        )
 
         let tool = SystemIO.Tools.SearchSources()
         let input = SystemIO.Tools.SearchSources.Input(
@@ -236,6 +259,207 @@ private extension AgenticIOFlowTesting {
             candidate.lineRange.end,
             4,
             "source search merged candidate end line"
+        )
+    }
+
+    static func proveLexicalSearch(
+        _ fixture: SourceSearchFixture
+    ) async throws {
+        let source = fixture.root.appendingPathComponent(
+            "Sources/Lexical.swift"
+        )
+
+        try """
+        target client.fetch(value)
+        target client.fetch(other)
+        noise client.fetch(value)
+        lhs -> rhs
+        """.write(
+            to: source,
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let tool = SystemIO.Tools.SearchSources()
+        let pattern = SourceLexicalPatternInput(
+            nodes: [
+                .identifier(
+                    value: "client"
+                ),
+                .symbol(
+                    value: "."
+                ),
+                .identifier(
+                    value: "fetch"
+                ),
+                .capture(
+                    name: "member",
+                    child: 2
+                ),
+                .symbol(
+                    value: "("
+                ),
+                .gap(
+                    minimum: 1,
+                    maximum: 1
+                ),
+                .symbol(
+                    value: ")"
+                ),
+                .sequence(
+                    children: [
+                        0,
+                        1,
+                        3,
+                        4,
+                        5,
+                        6,
+                    ]
+                ),
+            ],
+            root: 7
+        )
+        let lexical = try await tool.call(
+            SystemIO.Tools.SearchSources.Input(
+                includes: [
+                    "Sources/Lexical.swift",
+                ],
+                lexicalPattern: pattern,
+                mode: .exhaustive,
+                caseSensitive: true,
+                maximumCandidates: 8
+            ),
+            in: ToolContext(
+                workspace: fixture.workspace
+            )
+        )
+
+        try Expect.equal(
+            lexical.kind,
+            .lexical,
+            "source search reports lexical query semantics explicitly"
+        )
+        try Expect.equal(
+            lexical.candidates.count,
+            3,
+            "lexical source search finds every matching token sequence"
+        )
+        try Expect.equal(
+            lexical.candidates.map(\.lineRange.start),
+            [
+                1,
+                2,
+                3,
+            ],
+            "lexical source search preserves source line coordinates"
+        )
+        try Expect.equal(
+            lexical.candidates.flatMap(\.captures).map(\.name),
+            [
+                "member",
+                "member",
+                "member",
+            ],
+            "lexical captures survive the AgenticIO result boundary"
+        )
+        try Expect.equal(
+            lexical.candidates.flatMap(\.captures).flatMap(\.tokens),
+            [
+                "fetch",
+                "fetch",
+                "fetch",
+            ],
+            "lexical capture token spellings remain compact and inspectable"
+        )
+
+        let tokenPattern = SourceLexicalPatternInput(
+            nodes: [
+                .token(
+                    value: "->"
+                ),
+            ],
+            root: 0
+        )
+        let exactToken = try await tool.call(
+            SystemIO.Tools.SearchSources.Input(
+                includes: [
+                    "Sources/Lexical.swift",
+                ],
+                lexicalPattern: tokenPattern,
+                mode: .exhaustive,
+                caseSensitive: true,
+                maximumCandidates: 8
+            ),
+            in: ToolContext(
+                workspace: fixture.workspace
+            )
+        )
+
+        try Expect.equal(
+            exactToken.candidates.map(\.lineRange.start),
+            [
+                4,
+            ],
+            "model-facing exact-token patterns lower through Parsing tokenization"
+        )
+
+        let broad = try await tool.call(
+            SystemIO.Tools.SearchSources.Input(
+                includes: [
+                    "Sources/Lexical.swift",
+                ],
+                probes: [
+                    .init(
+                        text: "target",
+                        role: .required,
+                        strategy: .contains
+                    ),
+                ],
+                mode: .exhaustive,
+                caseSensitive: true,
+                mergeDistanceLines: 0,
+                maximumCandidates: 8
+            ),
+            in: ToolContext(
+                workspace: fixture.workspace
+            )
+        )
+        let targetRegion = try Expect.notNil(
+            broad.candidates.first,
+            "text search produces the lexical refinement region"
+        )
+        let refined = try await tool.call(
+            SystemIO.Tools.SearchSources.Input(
+                includes: [
+                    "Sources/Lexical.swift",
+                ],
+                within: [
+                    .init(
+                        targetRegion
+                    ),
+                ],
+                lexicalPattern: pattern,
+                mode: .exhaustive,
+                caseSensitive: true,
+                maximumCandidates: 8
+            ),
+            in: ToolContext(
+                workspace: fixture.workspace
+            )
+        )
+
+        try Expect.equal(
+            refined.candidates.map(\.lineRange.start),
+            [
+                1,
+                2,
+            ],
+            "lexical refinement searches only the supplied freshness-validated region"
+        )
+        try Expect.equal(
+            refined.searchedDocumentCount,
+            1,
+            "candidate-local lexical refinement searches only the supplied region document"
         )
     }
 

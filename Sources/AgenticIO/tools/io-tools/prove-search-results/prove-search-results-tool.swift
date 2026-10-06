@@ -423,7 +423,14 @@ public extension SystemIO.Tools {
             }
 
             public let rootID: String
+
+            /// Freshness-validated candidates supplied by the caller.
             public let candidateCount: Int
+
+            /// Candidates that reached structural parser evaluation after any
+            /// conservative Search-owned acceleration.
+            public let evaluatedCandidateCount: Int
+
             public let provenCandidateCount: Int
             public let matchCount: Int
             public let proofs: [SourceCandidateProofResult]
@@ -432,7 +439,7 @@ public extension SystemIO.Tools {
 
         public static let purpose =
             """
-            Structurally prove freshness-validated source-search candidates through Search and Parsing. Reauthorize candidate files, reject stale fingerprints, evaluate only bounded candidate material, return exact match and capture coordinates, and never execute arbitrary code or mutate files.
+            Structurally prove freshness-validated source-search candidates through Search and Parsing. Reauthorize candidate files, reject stale fingerprints, use conservative Parsing-derived required anchors to avoid unnecessary structural evaluation when sound, evaluate only bounded candidate material, return exact match and capture coordinates, and never execute arbitrary code or mutate files.
             """
 
         public static let risk: ActionRisk = .observe
@@ -544,33 +551,12 @@ public extension SystemIO.Tools {
                     )
                 }
             )
-            let frontier = SearchFrontier(
-                mode: .exhaustive,
-                matchedDocumentCount: materials.count,
-                searchedHitCount: materials.count,
-                discoveredCandidateCount: materials.count,
-                totalCandidateCount: materials.count,
-                offset: 0,
-                candidates: materials.enumerated().map {
-                    index,
-                    material in
-
-                    SearchCandidate(
-                        documentID: index,
-                        lineRange: LineRange(
-                            uncheckedStart: 1,
-                            uncheckedEnd: material.lines.count
-                        ),
-                        score: .zero,
-                        evidence: []
-                    )
-                }
-            )
             let specification = try input.specification
                 .parserSpecification()
-            let result = try frontier.prove(
+            let parser = try specification.compile()
+            let result = try StructuralSearch.prove(
                 in: corpus,
-                with: specification,
+                with: parser,
                 requiring: input.cardinality.parserCardinality
             )
             let proofs = result.proofs.map {
@@ -610,7 +596,8 @@ public extension SystemIO.Tools {
 
             return Output(
                 rootID: input.rootID.rawValue,
-                candidateCount: result.candidateCount,
+                candidateCount: materials.count,
+                evaluatedCandidateCount: result.candidateCount,
                 provenCandidateCount: result.provenCandidateCount,
                 matchCount: result.matchCount,
                 proofs: proofs

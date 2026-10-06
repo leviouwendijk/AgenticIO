@@ -8,11 +8,13 @@ import Path
 import Position
 import Readers
 import Search
+import Parsing
 
 public struct SourceSearchRequest: Sendable {
     public let rootID: PathAccessRootIdentifier
     public let definition: ConcatenationCorpusDefinition
     public let probes: [SearchProbe]
+    public let lexicalPattern: LexicalPattern?
     public let options: SearchOptions
     public let frontierOptions: SearchFrontierOptions
     public let within: [SourceContextReference]
@@ -26,6 +28,7 @@ public struct SourceSearchRequest: Sendable {
         rootID: PathAccessRootIdentifier = .project,
         definition: ConcatenationCorpusDefinition,
         probes: [SearchProbe],
+        lexicalPattern: LexicalPattern? = nil,
         options: SearchOptions = .defaults,
         frontierOptions: SearchFrontierOptions = .defaults,
         within: [SourceContextReference] = [],
@@ -34,6 +37,7 @@ public struct SourceSearchRequest: Sendable {
         self.rootID = rootID
         self.definition = definition
         self.probes = probes
+        self.lexicalPattern = lexicalPattern
 
         var completeOptions = options
         completeOptions.maximumResults = nil
@@ -63,6 +67,28 @@ public struct SourceSearchRequest: Sendable {
                     strategy: options.strategy
                 )
             },
+            lexicalPattern: nil,
+            options: options,
+            frontierOptions: frontierOptions,
+            within: within,
+            expectedCorpusFingerprint: expectedCorpusFingerprint
+        )
+    }
+
+    public init(
+        rootID: PathAccessRootIdentifier = .project,
+        definition: ConcatenationCorpusDefinition,
+        lexicalPattern: LexicalPattern,
+        options: SearchOptions = .defaults,
+        frontierOptions: SearchFrontierOptions = .defaults,
+        within: [SourceContextReference] = [],
+        expectedCorpusFingerprint: ContentFingerprint? = nil
+    ) {
+        self.init(
+            rootID: rootID,
+            definition: definition,
+            probes: [],
+            lexicalPattern: lexicalPattern,
             options: options,
             frontierOptions: frontierOptions,
             within: within,
@@ -94,6 +120,36 @@ public struct SourceSearchDocumentID:
         self.sliceIndex = sliceIndex
         self.sourceStartLine = sourceStartLine
         self.sourceFingerprint = sourceFingerprint
+    }
+}
+
+public enum SourceSearchKind:
+    String,
+    Sendable,
+    Codable,
+    Hashable
+{
+    case text
+    case lexical
+}
+
+public struct SourceSearchCapture:
+    Sendable,
+    Codable,
+    Hashable
+{
+    public let name: String
+    public let lineRange: LineRange
+    public let tokens: [String]
+
+    public init(
+        name: String,
+        lineRange: LineRange,
+        tokens: [String]
+    ) {
+        self.name = name
+        self.lineRange = lineRange
+        self.tokens = tokens
     }
 }
 
@@ -138,6 +194,7 @@ public struct SourceSearchCandidate:
     public let score: Int
     public let probeCount: Int
     public let evidence: [SourceSearchEvidence]
+    public let captures: [SourceSearchCapture]
 
     public init(
         path: String,
@@ -146,7 +203,8 @@ public struct SourceSearchCandidate:
         lineRange: LineRange,
         score: Int,
         probeCount: Int,
-        evidence: [SourceSearchEvidence]
+        evidence: [SourceSearchEvidence],
+        captures: [SourceSearchCapture] = []
     ) {
         self.path = path
         self.sectionKey = sectionKey
@@ -155,6 +213,7 @@ public struct SourceSearchCandidate:
         self.score = score
         self.probeCount = probeCount
         self.evidence = evidence
+        self.captures = captures
     }
 }
 
@@ -163,6 +222,7 @@ public struct SourceSearchResult: Result {
         .object()
     }
 
+    public let kind: SourceSearchKind
     public let mode: SearchMode
     public let corpusFingerprint: ContentFingerprint
     public let sourceCount: Int
@@ -178,6 +238,7 @@ public struct SourceSearchResult: Result {
     public let candidates: [SourceSearchCandidate]
 
     public init(
+        kind: SourceSearchKind = .text,
         mode: SearchMode,
         corpusFingerprint: ContentFingerprint,
         sourceCount: Int,
@@ -192,6 +253,7 @@ public struct SourceSearchResult: Result {
         hasMore: Bool,
         candidates: [SourceSearchCandidate]
     ) {
+        self.kind = kind
         self.mode = mode
         self.corpusFingerprint = corpusFingerprint
         self.sourceCount = sourceCount
@@ -213,7 +275,8 @@ public enum SourceSearchError:
     Sendable,
     LocalizedError
 {
-    case emptyQueries
+    case emptySearch
+    case conflictingSearchModes
     case sourceOutsideAuthorizedRoot(URL)
     case missingMaterialization(URL)
     case staleCorpus(
@@ -223,8 +286,11 @@ public enum SourceSearchError:
 
     public var errorDescription: String? {
         switch self {
-        case .emptyQueries:
-            return "Source search requires at least one non-empty probe."
+        case .emptySearch:
+            return "Source search requires either at least one non-empty probe or one lexical pattern."
+
+        case .conflictingSearchModes:
+            return "Source search accepts text probes or one lexical pattern per request, not both."
 
         case .sourceOutsideAuthorizedRoot(let source):
             return "Resolved source is outside the authorized workspace root: \(source.path)"
@@ -255,15 +321,21 @@ public actor SourceSearcher {
         let probes = request.probes.filter {
             !$0.isEmpty
         }
+        let lexicalPattern = request.lexicalPattern
 
-        guard !probes.isEmpty else {
-            throw SourceSearchError.emptyQueries
+        guard !probes.isEmpty || lexicalPattern != nil else {
+            throw SourceSearchError.emptySearch
+        }
+
+        guard probes.isEmpty || lexicalPattern == nil else {
+            throw SourceSearchError.conflictingSearchModes
         }
 
         if !request.within.isEmpty {
             return try search(
                 request,
                 probes: probes,
+                lexicalPattern: lexicalPattern,
                 within: request.within,
                 workspace: workspace,
                 toolName: toolName
@@ -337,31 +409,14 @@ public actor SourceSearcher {
         let searchCorpus = makeSearchCorpus(
             materialization
         )
-        let result = TextSearch.search(
-            probes: probes,
-            in: searchCorpus,
-            options: request.options
-        )
-        let frontier = result.frontier(
-            options: request.frontierOptions
-        )
 
-        return SourceSearchResult(
-            mode: frontier.mode,
+        return sourceSearchResult(
+            request,
+            probes: probes,
+            lexicalPattern: lexicalPattern,
+            in: searchCorpus,
             corpusFingerprint: corpusFingerprint,
-            sourceCount: materialization.sources.count,
-            searchedDocumentCount: searchCorpus.count,
-            matchedDocumentCount: frontier.matchedDocumentCount,
-            discoveredCandidateCount: frontier.discoveredCandidateCount,
-            totalCandidateCount: frontier.totalCandidateCount,
-            offset: frontier.offset,
-            returnedCandidateCount: frontier.returnedCandidateCount,
-            nextOffset: frontier.nextOffset,
-            truncated: frontier.truncated,
-            hasMore: frontier.hasMore,
-            candidates: frontier.candidates.map(
-                sourceCandidate
-            )
+            sourceCount: materialization.sources.count
         )
     }
 }
@@ -370,6 +425,7 @@ private extension SourceSearcher {
     func search(
         _ request: SourceSearchRequest,
         probes: [SearchProbe],
+        lexicalPattern: LexicalPattern?,
         within candidates: [SourceContextReference],
         workspace: WorkspaceContext,
         toolName: String
@@ -393,6 +449,34 @@ private extension SourceSearcher {
             workspace: workspace,
             toolName: toolName
         )
+        return sourceSearchResult(
+            request,
+            probes: probes,
+            lexicalPattern: lexicalPattern,
+            in: searchCorpus,
+            corpusFingerprint: corpusFingerprint,
+            sourceCount: Set(candidates.map(\.path)).count
+        )
+    }
+
+    func sourceSearchResult(
+        _ request: SourceSearchRequest,
+        probes: [SearchProbe],
+        lexicalPattern: LexicalPattern?,
+        in searchCorpus: SearchCorpus<SourceSearchDocumentID>,
+        corpusFingerprint: ContentFingerprint,
+        sourceCount: Int
+    ) -> SourceSearchResult {
+        if let lexicalPattern {
+            return lexicalSourceSearchResult(
+                request,
+                pattern: lexicalPattern,
+                in: searchCorpus,
+                corpusFingerprint: corpusFingerprint,
+                sourceCount: sourceCount
+            )
+        }
+
         let result = TextSearch.search(
             probes: probes,
             in: searchCorpus,
@@ -403,9 +487,10 @@ private extension SourceSearcher {
         )
 
         return SourceSearchResult(
+            kind: .text,
             mode: frontier.mode,
             corpusFingerprint: corpusFingerprint,
-            sourceCount: Set(candidates.map(\.path)).count,
+            sourceCount: sourceCount,
             searchedDocumentCount: searchCorpus.count,
             matchedDocumentCount: frontier.matchedDocumentCount,
             discoveredCandidateCount: frontier.discoveredCandidateCount,
@@ -419,6 +504,115 @@ private extension SourceSearcher {
                 sourceCandidate
             )
         )
+    }
+
+    func lexicalSourceSearchResult(
+        _ request: SourceSearchRequest,
+        pattern: LexicalPattern,
+        in searchCorpus: SearchCorpus<SourceSearchDocumentID>,
+        corpusFingerprint: ContentFingerprint,
+        sourceCount: Int
+    ) -> SourceSearchResult {
+        let result = LexicalSearch.search(
+            pattern,
+            in: searchCorpus,
+            caseSensitive: request.options.caseSensitive
+        )
+        let semanticMatches: [
+            LexicalMatch<SourceSearchDocumentID>
+        ]
+
+        switch request.options.mode {
+        case .ranked:
+            semanticMatches = diversifiedLexicalMatches(
+                result.matches,
+                maximumCandidatesPerDocument:
+                    request.frontierOptions.maximumCandidatesPerDocument
+            )
+
+        case .exhaustive:
+            semanticMatches = result.matches
+        }
+
+        let offset = request.frontierOptions.offset
+        let pageStart = min(
+            offset,
+            semanticMatches.count
+        )
+        let remaining = semanticMatches.dropFirst(
+            pageStart
+        )
+        let selected: [LexicalMatch<SourceSearchDocumentID>]
+
+        if let maximumCandidates = request.frontierOptions.maximumCandidates {
+            selected = Array(
+                remaining.prefix(
+                    maximumCandidates
+                )
+            )
+        } else {
+            selected = Array(
+                remaining
+            )
+        }
+
+        let hasMore = pageStart + selected.count < semanticMatches.count
+        let nextOffset = hasMore && !selected.isEmpty
+            ? offset + selected.count
+            : nil
+        let truncated = (
+            semanticMatches.count > 0
+                && offset > 0
+        ) || hasMore
+
+        return SourceSearchResult(
+            kind: .lexical,
+            mode: request.options.mode,
+            corpusFingerprint: corpusFingerprint,
+            sourceCount: sourceCount,
+            searchedDocumentCount: result.searchedDocumentCount,
+            matchedDocumentCount: result.matchedDocumentCount,
+            discoveredCandidateCount: result.matchCount,
+            totalCandidateCount: semanticMatches.count,
+            offset: offset,
+            returnedCandidateCount: selected.count,
+            nextOffset: nextOffset,
+            truncated: truncated,
+            hasMore: hasMore,
+            candidates: selected.map(
+                sourceCandidate
+            )
+        )
+    }
+
+    func diversifiedLexicalMatches(
+        _ matches: [LexicalMatch<SourceSearchDocumentID>],
+        maximumCandidatesPerDocument: Int?
+    ) -> [LexicalMatch<SourceSearchDocumentID>] {
+        guard let maximumCandidatesPerDocument else {
+            return matches
+        }
+
+        var selected: [LexicalMatch<SourceSearchDocumentID>] = []
+        var documentCounts: [SourceSearchDocumentID: Int] = [:]
+
+        for match in matches {
+            let count = documentCounts[
+                match.documentID,
+                default: 0
+            ]
+
+            guard count < maximumCandidatesPerDocument else {
+                continue
+            }
+
+            documentCounts[match.documentID] = count + 1
+            selected.append(
+                match
+            )
+        }
+
+        return selected
     }
 
     func makeSearchCorpus(
@@ -613,6 +807,37 @@ private extension SourceSearcher {
                             span.lineRange,
                             startingAt: document.sourceStartLine
                         )
+                    }
+                )
+            }
+        )
+    }
+
+    func sourceCandidate(
+        _ match: LexicalMatch<SourceSearchDocumentID>
+    ) -> SourceSearchCandidate {
+        let document = match.documentID
+
+        return SourceSearchCandidate(
+            path: document.path,
+            sectionKey: document.sectionKey,
+            sourceFingerprint: document.sourceFingerprint,
+            lineRange: sourceLineRange(
+                match.lineRange,
+                startingAt: document.sourceStartLine
+            ),
+            score: 1,
+            probeCount: 0,
+            evidence: [],
+            captures: match.captures.map { capture in
+                SourceSearchCapture(
+                    name: capture.name,
+                    lineRange: sourceLineRange(
+                        capture.lineRange,
+                        startingAt: document.sourceStartLine
+                    ),
+                    tokens: capture.tokens.map {
+                        $0.string()
                     }
                 )
             }
