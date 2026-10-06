@@ -275,7 +275,10 @@ public extension SystemIO.Tools {
         }
 
 
-        public static let purpose = "Apply one coherent pass of file mutations in the workspace."
+        public static let purpose = """
+        Apply one coherent pass of file mutations in the workspace.
+        """
+
         public static let risk: ActionRisk = .boundedmutate
 
         public let context: AgentFileMutationContext

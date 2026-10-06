@@ -3,6 +3,8 @@ import Workspace
 import Schema
 import Writers
 
+// move into native libraries
+// remove from here, remove retroactive conformances
 extension PathAccessRootIdentifier:
     @retroactive JSONSchemaProviding
 {

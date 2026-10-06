@@ -1,5 +1,6 @@
 import Agentic
 
+// should probably be deprecated in favor of new domain-based derivation?
 public struct CoreFileToolSet: AgentToolProvider {
     public init() {}
 

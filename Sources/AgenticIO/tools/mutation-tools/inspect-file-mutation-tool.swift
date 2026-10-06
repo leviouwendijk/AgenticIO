@@ -5,7 +5,6 @@ import Primitives
 import Schema
 import Macros
 
-
 public extension SystemIO.Tools {
     @Tool
     struct InspectFileMutation: Tool {
