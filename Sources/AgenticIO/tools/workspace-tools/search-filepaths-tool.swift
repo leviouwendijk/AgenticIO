@@ -418,7 +418,7 @@ public extension SystemIO.Tools {
 
             return .init(
                 status: "passed",
-                summary: "find_paths returned \(result.entries.count) path(s) from \(result.searchedPathCount ?? result.entries.count) authorized path(s).",
+                summary: "\(Self.identifier.rawValue) returned \(result.entries.count) path(s) from \(result.searchedPathCount ?? result.entries.count) authorized path(s).",
                 facts: [
                     .init(
                         label: "candidates",
