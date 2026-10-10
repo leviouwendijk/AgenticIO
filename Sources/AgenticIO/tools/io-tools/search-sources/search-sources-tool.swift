@@ -283,7 +283,7 @@ public extension SystemIO.Tools {
         public let searcher: SourceSearcher
 
         public init(
-            searcher: SourceSearcher = .init()
+            searcher: SourceSearcher = .shared
         ) {
             self.searcher = searcher
         }

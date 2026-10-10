@@ -240,14 +240,12 @@ private extension ContextToolSupport {
                 approximateTokenCount: nil
             )
 
-        case .skill(let skill):
-            let text = skill.contextText
-
+        case .instruction(let instruction):
             return inspection(
                 index: index,
-                kind: "skill",
-                summary: skill.name,
-                text: text
+                kind: "instruction",
+                summary: instruction.identifier.rawValue,
+                text: instruction.content
             )
         }
     }

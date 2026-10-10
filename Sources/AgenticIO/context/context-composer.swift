@@ -100,8 +100,8 @@ public struct ContextComposer: Sendable {
                     appendedFileContext = true
                 }
 
-            case .skill(let skill):
-                let text = skill.contextText.trimmingCharacters(
+            case .instruction(let instruction):
+                let text = instruction.content.trimmingCharacters(
                     in: .whitespacesAndNewlines
                 )
 

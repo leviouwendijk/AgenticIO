@@ -305,7 +305,19 @@ public enum SourceSearchError:
 }
 
 public actor SourceSearcher {
+    public static let shared = SourceSearcher()
+
+    private struct IndexedEntry {
+        let rootPath: String
+        let rootID: PathAccessRootIdentifier
+        let definition: ConcatenationCorpusDefinition
+        let snapshotFingerprint: ContentFingerprint
+        let index: SourceSearchIndexedCorpus
+    }
+
     private let session: ConcatenationSession
+    private var indexedEntries: [IndexedEntry] = []
+    public private(set) var lastCacheStatistics: SourceSearchCacheStatistics?
 
     public init(
         session: ConcatenationSession = .init()
@@ -387,15 +399,8 @@ public actor SourceSearcher {
             options: .defaults
         )
 
-        _ = try corpus.refresh()
-
-        guard let materialization = try corpus.materialize() else {
-            throw SourceSearchError.missingMaterialization(
-                root.absoluteURL
-            )
-        }
-
-        let corpusFingerprint = materialization.snapshot.fingerprint
+        let reconciliation = try corpus.reconcile()
+        let corpusFingerprint = reconciliation.snapshot.fingerprint
 
         if let expectedCorpusFingerprint = request.expectedCorpusFingerprint,
            expectedCorpusFingerprint != corpusFingerprint
@@ -406,17 +411,64 @@ public actor SourceSearcher {
             )
         }
 
-        let searchCorpus = makeSearchCorpus(
-            materialization
+        let rootPath = root.absoluteURL.standardizedFileURL.path
+        let entryIndex = indexedEntries.firstIndex { entry in
+            entry.rootPath == rootPath
+                && entry.rootID == request.rootID
+                && entry.definition == request.definition
+        }
+        let previous = entryIndex.map { indexedEntries[$0] }
+        let canUseDelta = previous != nil
+            && reconciliation.previousSnapshot?.fingerprint
+                == previous?.snapshotFingerprint
+        let materialization: ConcatenationCorpusMaterialization
+
+        if canUseDelta, let delta = reconciliation.delta {
+            materialization = try corpus.materialize(delta)
+        } else {
+            guard let complete = try corpus.materialize() else {
+                throw SourceSearchError.missingMaterialization(
+                    root.absoluteURL
+                )
+            }
+            materialization = complete
+        }
+
+        var indexed = previous?.index ?? SourceSearchIndexedCorpus()
+        let statistics = try indexed.update(
+            snapshot: reconciliation.snapshot,
+            materialization: materialization
+        )
+        let entry = IndexedEntry(
+            rootPath: rootPath,
+            rootID: request.rootID,
+            definition: request.definition,
+            snapshotFingerprint: corpusFingerprint,
+            index: indexed
+        )
+        if let entryIndex {
+            indexedEntries[entryIndex] = entry
+        } else {
+            // A bounded number of independent authorized source universes.
+            if indexedEntries.count == 4 {
+                indexedEntries.removeFirst()
+            }
+            indexedEntries.append(entry)
+        }
+        lastCacheStatistics = .init(
+            reconciliation: reconciliation.statistics,
+            materialization: materialization,
+            index: statistics
         )
 
         return sourceSearchResult(
             request,
             probes: probes,
             lexicalPattern: lexicalPattern,
-            in: searchCorpus,
+            in: indexed.corpus,
             corpusFingerprint: corpusFingerprint,
-            sourceCount: materialization.sources.count
+            sourceCount: reconciliation.snapshot.count,
+            indexed: indexed
         )
     }
 }
@@ -465,7 +517,8 @@ private extension SourceSearcher {
         lexicalPattern: LexicalPattern?,
         in searchCorpus: SearchCorpus<SourceSearchDocumentID>,
         corpusFingerprint: ContentFingerprint,
-        sourceCount: Int
+        sourceCount: Int,
+        indexed: SourceSearchIndexedCorpus? = nil
     ) -> SourceSearchResult {
         if let lexicalPattern {
             return lexicalSourceSearchResult(
@@ -473,7 +526,8 @@ private extension SourceSearcher {
                 pattern: lexicalPattern,
                 in: searchCorpus,
                 corpusFingerprint: corpusFingerprint,
-                sourceCount: sourceCount
+                sourceCount: sourceCount,
+                indexed: indexed
             )
         }
 
@@ -511,9 +565,13 @@ private extension SourceSearcher {
         pattern: LexicalPattern,
         in searchCorpus: SearchCorpus<SourceSearchDocumentID>,
         corpusFingerprint: ContentFingerprint,
-        sourceCount: Int
+        sourceCount: Int,
+        indexed: SourceSearchIndexedCorpus?
     ) -> SourceSearchResult {
-        let result = LexicalSearch.search(
+        let result = indexed?.lexicalSearch(
+            pattern,
+            caseSensitive: request.options.caseSensitive
+        ) ?? LexicalSearch.search(
             pattern,
             in: searchCorpus,
             caseSensitive: request.options.caseSensitive
@@ -747,38 +805,6 @@ private extension SourceSearcher {
         )
     }
 
-    func makeSearchCorpus(
-        _ materialization: ConcatenationCorpusMaterialization
-    ) -> SearchCorpus<SourceSearchDocumentID> {
-        var documents: [SearchDocument<SourceSearchDocumentID>] = []
-
-        for source in materialization.sources {
-            for (sliceIndex, slice) in source.section.slices.enumerated()
-                where !slice.isEmpty
-            {
-                let identifier = SourceSearchDocumentID(
-                    path: source.section.presentedPath,
-                    sectionKey: source.record.sectionKey,
-                    sliceIndex: sliceIndex,
-                    sourceStartLine: slice.startLine,
-                    sourceFingerprint: source.record.contentFingerprint
-                )
-
-                documents.append(
-                    SearchDocument(
-                        id: identifier,
-                        text: slice.lines.joined(
-                            separator: "\n"
-                        )
-                    )
-                )
-            }
-        }
-
-        return SearchCorpus(
-            documents: documents
-        )
-    }
 
     func sourceCandidate(
         _ candidate: SearchCandidate<SourceSearchDocumentID>

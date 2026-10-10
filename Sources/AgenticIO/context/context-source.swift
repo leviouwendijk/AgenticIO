@@ -5,5 +5,5 @@ public enum ContextSource: Sendable, Codable, Hashable {
     case message(Message)
     case transcriptEvent(TranscriptEvent)
     case files(ContextFileSource)
-    case skill(AgentSkill)
+    case instruction(InstructionDefinition)
 }
