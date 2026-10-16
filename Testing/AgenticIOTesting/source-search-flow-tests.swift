@@ -88,9 +88,7 @@ private extension AgenticIOFlowTesting {
     ) async throws {
         var registry = ToolRegistry()
 
-        try registry.register(
-            from: CoreFileToolSet()
-        )
+        try registry.register(SystemIO.Tools.SearchSources())
 
         _ = try Expect.notNil(
             registry.registeredTool(

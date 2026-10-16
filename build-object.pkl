@@ -1,0 +1,20 @@
+uuid = "BBC525F1-6173-4087-A0BE-8B3D9B9F2757"
+name = "AgenticIO"
+types { "library" }
+versions {
+    release {
+        major = 0
+        minor = 1
+        patch = 0
+    }
+}
+compile {
+    use = false
+    arguments { }
+}
+tests {
+    primary = "t_aio_all"
+}
+details = ""
+author = "levi"
+update = "https://raw.githubusercontent.com/leviouwendijk/AgenticIO/master/build-object.pkl"
