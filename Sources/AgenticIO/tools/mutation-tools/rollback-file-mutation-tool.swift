@@ -29,7 +29,7 @@ public extension SystemIO.Tools {
             _ input: Input,
             in context: ToolContext
         ) async throws -> ToolPreflight {
-
+            try context.workspace?.execution.requireImmediateMutation()
             return try await AgentFileMutationPreflight.rollback(
                 input,
                 store: store,
@@ -44,7 +44,7 @@ public extension SystemIO.Tools {
             _ input: Input,
             in context: ToolContext
         ) async throws -> Output {
-
+            try context.workspace?.execution.requireImmediateMutation()
             let sourceID = try input.normalizedMutationUUID()
             let sourceIDString = sourceID.uuidString.lowercased()
 

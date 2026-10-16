@@ -36,6 +36,7 @@ func makeAgenticIOTestingWorkspace(
 
     return try workspace.context(
         at: path,
-        rootIdentifier: rootIdentifier
+        rootIdentifier: rootIdentifier,
+        execution: .init(io: .blocking, mutations: .immediate)
     )
 }

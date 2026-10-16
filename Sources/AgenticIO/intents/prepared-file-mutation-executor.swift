@@ -52,6 +52,7 @@ public struct PreparedFileMutationExecutor:
             context.workspace,
             toolName: plan.action.authorizationToolName
         )
+        try workspace.execution.requireImmediateMutation()
         let authorized = try authorize(
             plan.authorizations,
             workspace: workspace,

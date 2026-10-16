@@ -24,6 +24,7 @@ public struct FileEditor: Sendable {
             path,
             capability: .write
         )
+        try workspace.execution.requireImmediateMutation()
         let editResult = try StandardWriter(
             authorized.absoluteURL
         ).editor.edit(
@@ -582,6 +583,7 @@ private extension FileEditor {
         recorder: AgentFileMutationRecorder,
         options: AgentFileEditOptions
     ) async throws -> AgentFileMutationResult {
+        try workspace.execution.requireImmediateMutation()
         let editResult = try StandardWriter(
             authorized.absoluteURL
         ).editor.edit(
@@ -608,6 +610,7 @@ private extension FileEditor {
         recorder: AgentFileMutationRecorder,
         options: AgentFileEditOptions
     ) async throws -> AgentFileMutationResult {
+        try workspace.execution.requireImmediateMutation()
         let editResult = try StandardWriter(
             authorized.absoluteURL
         ).editor.edit(
@@ -633,7 +636,8 @@ private extension FileEditor {
         encoding: String.Encoding,
         options: SafeWriteOptions
     ) throws -> StandardEditResult {
-        try StandardWriter(
+        try workspace.execution.requireImmediateMutation()
+        return try StandardWriter(
             authorized.absoluteURL
         ).editor.edit(
             .replaceEntireFile(
@@ -666,7 +670,8 @@ private extension FileEditor {
         encoding: String.Encoding,
         options: SafeWriteOptions
     ) throws -> StandardEditResult {
-        try StandardWriter(
+        try workspace.execution.requireImmediateMutation()
+        return try StandardWriter(
             authorized.absoluteURL
         ).editor.edit(
             operations,

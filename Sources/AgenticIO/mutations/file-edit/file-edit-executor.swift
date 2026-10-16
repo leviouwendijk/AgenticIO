@@ -73,6 +73,7 @@ public struct FileEditExecutor: Sendable {
         workspace: WorkspaceContext,
         authorizationToolName: String = SystemIO.Tools.MutateFiles.identifier.rawValue
     ) async throws -> Result {
+        try workspace.execution.requireImmediateMutation()
         let resolution = try FileEditResolver(
             toolName: authorizationToolName
         ).resolve(

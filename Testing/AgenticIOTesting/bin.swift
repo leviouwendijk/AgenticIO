@@ -31,6 +31,12 @@ enum AgenticIOFlowSuite: TestFlowRegistry {
 
     static let flows: [TestFlow] = [
         TestFlow(
+            "coordinated-workspace-guard",
+            tags: ["agentic-io", "workspace", "coordination", "mutation"]
+        ) {
+            try await AgenticIOFlowTesting.runCoordinatedWorkspaceGuard()
+        },
+        TestFlow(
             "mutate-files-workspace-targeting",
             tags: [
                 "agentic-io",

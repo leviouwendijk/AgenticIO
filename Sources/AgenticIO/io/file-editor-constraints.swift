@@ -179,6 +179,7 @@ extension FileEditor {
             path,
             capability: .edit
         )
+        try workspace.execution.requireImmediateMutation()
         let editResult = try StandardWriter(
             authorized.absoluteURL
         ).editor.edit(
@@ -225,7 +226,8 @@ private extension FileEditor {
         options: SafeWriteOptions,
         constraint: StandardEditConstraint
     ) throws -> StandardEditResult {
-        try StandardWriter(
+        try workspace.execution.requireImmediateMutation()
+        return try StandardWriter(
             authorized.absoluteURL
         ).editor.edit(
             operations,

@@ -302,6 +302,7 @@ public extension SystemIO.Tools {
                 workspace,
                 toolName: Self.identifier.rawValue
             )
+            try workspace.execution.requireImmediateMutation()
             let authorized = try authorizeEntries(
                 input,
                 workspace: workspace
@@ -437,6 +438,7 @@ public extension SystemIO.Tools {
                 toolName: Self.identifier.rawValue
             )
 
+            try workspace.execution.requireImmediateMutation()
             _ = try authorizeEntries(
                 input,
                 workspace: workspace
