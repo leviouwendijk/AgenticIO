@@ -82,10 +82,11 @@ extension AgenticIOFlowTesting {
             ]
         )
 
-        let preflight = try await tool.preflight(
+        let prepared = try await tool.prepare(
             input,
             in: ToolContext(workspace: workspace)
         )
+        let preflight = prepared.review
 
         try Expect.equal(
             preflight.access.targets,
@@ -97,6 +98,7 @@ extension AgenticIOFlowTesting {
 
         _ = try await tool.call(
             input,
+            prepared: prepared.operation,
             in: ToolContext(workspace: workspace)
         )
 

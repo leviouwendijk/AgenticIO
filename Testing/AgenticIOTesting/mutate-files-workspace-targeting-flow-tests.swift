@@ -23,10 +23,11 @@ extension AgenticIOFlowTesting {
                         ]
                     )
 
-        let preflight = try await tool.preflight(
+        let prepared = try await tool.prepare(
             input,
             in: ToolContext(workspace: fixture.workspace)
         )
+        let preflight = prepared.review
 
         try Expect.equal(
             preflight.access.targets,
@@ -38,6 +39,7 @@ extension AgenticIOFlowTesting {
 
         _ = try await tool.call(
             input,
+            prepared: prepared.operation,
             in: ToolContext(workspace: fixture.workspace)
         )
 
@@ -97,10 +99,11 @@ extension AgenticIOFlowTesting {
                 ),
             ]
         )
-        let copyPreflight = try await tool.preflight(
+        let copyPrepared = try await tool.prepare(
             copyInput,
             in: ToolContext(workspace: fixture.workspace)
         )
+        let copyPreflight = copyPrepared.review
 
         try Expect.equal(
             copyPreflight.access.targets,
@@ -113,6 +116,7 @@ extension AgenticIOFlowTesting {
 
         let copyOutput = try await tool.call(
             copyInput,
+            prepared: copyPrepared.operation,
             in: ToolContext(workspace: fixture.workspace)
         )
 

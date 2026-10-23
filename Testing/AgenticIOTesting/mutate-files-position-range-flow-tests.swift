@@ -131,11 +131,11 @@ extension AgenticIOFlowTesting {
             ]
         )
 
+        let prepared_input = try await tool.prepare(input, in: ToolContext(workspace: workspace))
         _ = try await tool.call(
             input,
-            in: ToolContext(
-                workspace: workspace
-            )
+            prepared: prepared_input.operation,
+            in: ToolContext(workspace: workspace)
         )
 
         try Expect.equal(
@@ -173,11 +173,11 @@ extension AgenticIOFlowTesting {
             ]
         )
 
+        let prepared_multiline = try await tool.prepare(multiline, in: ToolContext(workspace: workspace))
         _ = try await tool.call(
             multiline,
-            in: ToolContext(
-                workspace: workspace
-            )
+            prepared: prepared_multiline.operation,
+            in: ToolContext(workspace: workspace)
         )
 
         try Expect.equal(

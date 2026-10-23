@@ -31,6 +31,12 @@ enum AgenticIOFlowSuite: TestFlowRegistry {
 
     static let flows: [TestFlow] = [
         TestFlow(
+            "mutation-approval-identity",
+            tags: ["agentic-io", "mutation", "approval", "plan-binding"]
+        ) {
+            try await AgenticIOFlowTesting.runMutationApprovalIdentity()
+        },
+        TestFlow(
             "coordinated-workspace-guard",
             tags: ["agentic-io", "workspace", "coordination", "mutation"]
         ) {

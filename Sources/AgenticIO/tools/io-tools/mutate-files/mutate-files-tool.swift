@@ -7,6 +7,7 @@ import Primitives
 import Schema
 import Macros
 import Writers
+import Version
 
 @JSONSchema
 public enum MutateFilesToolEntryKind: String, Sendable, Codable, Hashable, CaseIterable {
@@ -189,6 +190,28 @@ public struct MutateFilesToolPreparation: Sendable {
     }
 }
 
+/// Serialized with the review record; no tool-local state or token is authoritative.
+/// The plan remains an exact Writers plan even after process restart.
+public struct MutateFilesPreparedWork: Sendable, Codable, Hashable {
+    public let input: SystemIO.Tools.MutateFiles.Input
+    public let rootURL: URL
+    public let absoluteURL: URL
+    public let rootIdentifier: PathAccessRootIdentifier
+    public let revision: WorkspaceRevision
+    public let plan: StandardMutationPlan
+}
+
+public enum MutateFilesPreparedWorkError: Error, Sendable {
+    case context_mismatch
+}
+
+public enum MutateFilesPreparedWorkSchema {
+    public static let value = PreparedOperation.Schema(
+        identifier: "tool.mutate_files",
+        version: .init(major: 1, minor: 0, patch: 0)
+    )
+}
+
 public extension SystemIO.Tools {
     @Tool
     struct MutateFiles: Tool {
@@ -227,7 +250,8 @@ public extension SystemIO.Tools {
             }
 
             public let planID: UUID
-            public let resultID: UUID
+            public let resultID: UUID?
+            public let submissionID: UUID?
             public let status: String
             public let entryCount: Int
             public let targetCount: Int
@@ -243,7 +267,8 @@ public extension SystemIO.Tools {
 
             public init(
                 planID: UUID,
-                resultID: UUID,
+                resultID: UUID?,
+                submissionID: UUID? = nil,
                 status: String,
                 entryCount: Int,
                 targetCount: Int,
@@ -259,6 +284,7 @@ public extension SystemIO.Tools {
             ) {
                 self.planID = planID
                 self.resultID = resultID
+                self.submissionID = submissionID
                 self.status = status
                 self.entryCount = entryCount
                 self.targetCount = targetCount
@@ -302,7 +328,6 @@ public extension SystemIO.Tools {
                 workspace,
                 toolName: Self.identifier.rawValue
             )
-            try workspace.execution.requireImmediateMutation()
             let authorized = try authorizeEntries(
                 input,
                 workspace: workspace
@@ -323,10 +348,12 @@ public extension SystemIO.Tools {
             let preflight = ToolPreflight(
                 tool: Self.definition.identifier,
                 risk: risk,
-                summary: preflightSummary(
-                    input: input,
-                    plan: plan
-                ),
+                summary: {
+                    switch workspace.execution.mutations {
+                    case .immediate: return preflightSummary(input: input, plan: plan)
+                    case .coordinated: return "Stage \(plan.entries.count) mutation(s) across \(plan.report.targetCount) target(s) for coordinated publication."
+                    }
+                }(),
                 access: .init(
                     targets: authorized
                         .flatMap { $0 }
@@ -390,16 +417,6 @@ public extension SystemIO.Tools {
             )
         }
 
-        private func preflightInternal(
-            _ input: Input,
-            workspace: WorkspaceContext?
-        ) async throws -> ToolPreflight {
-            try await prepareInternal(
-                input,
-                workspace: workspace
-            ).preflight
-        }
-
         public func prepare(
             _ input: Input,
             workspace: WorkspaceContext?,
@@ -419,18 +436,49 @@ public extension SystemIO.Tools {
             )
         }
 
+        public func prepare(
+            _ input: Input,
+            in context: ToolContext
+        ) async throws -> CapabilityPreparation<ToolPreflight> {
+            let workspace = try FileToolSupport.requireWorkspace(
+                context.workspace,
+                toolName: Self.identifier.rawValue
+            )
+            let targeted = try workspaceTargetedInput(input, workspace: workspace)
+            let preparation = try await Self(
+                context: mergedMutationContext(),
+                fileEditPolicy: fileEditPolicy
+            ).prepareInternal(
+                targeted,
+                workspace: workspace
+            )
+            let work = MutateFilesPreparedWork(
+                input: input,
+                rootURL: workspace.rootURL,
+                absoluteURL: workspace.absoluteURL,
+                rootIdentifier: workspace.rootIdentifier,
+                revision: workspace.revision,
+                plan: preparation.plan
+            )
+            return .init(
+                review: preparation.preflight,
+                operation: .init(
+                    schema: MutateFilesPreparedWorkSchema.value,
+                    plan: try JSONValue.encoding(work)
+                )
+            )
+        }
+
         public func preflight(
             _ input: Input,
             in context: ToolContext
         ) async throws -> ToolPreflight {
-            try await prepare(
-                input,
-                workspace: context.workspace
-            ).preflight
+            try await prepare(input, in: context).review
         }
 
         private func callInternal(
             _ input: Input,
+            plan: StandardMutationPlan,
             workspace: WorkspaceContext?
         ) async throws -> Output {
             let workspace = try FileToolSupport.requireWorkspace(
@@ -438,55 +486,66 @@ public extension SystemIO.Tools {
                 toolName: Self.identifier.rawValue
             )
 
-            try workspace.execution.requireImmediateMutation()
             _ = try authorizeEntries(
                 input,
                 workspace: workspace
             )
 
-            let plan = try workspaceWriter(
-                workspace
-            ).mutations.plan(
-                workspaceEntries(
-                    input,
-                    workspace: workspace
-                ),
-                metadata: mutationMetadata(
-                    input: input,
-                    context: context
+            let writer = try workspaceWriter(workspace)
+            // Use the already-approved plan; do not generate another.
+            switch workspace.execution.mutations {
+            case .immediate:
+                let result = writer.mutations.apply(
+                    plan, options: .init(failure: input.failurePolicy)
                 )
-            )
-
-            let result = try workspaceWriter(
-                workspace
-            ).mutations.apply(
-                plan,
-                options: .init(
-                    failure: input.failurePolicy
-                )
-            )
-
-            return output(
-                plan: plan,
-                result: result
-            )
+                return output(plan: plan, result: result)
+            case .coordinated(let submission):
+                let staged = try await submission.submit(plan, in: workspace)
+                return stagedOutput(plan: plan, submissionID: staged.id)
+            }
             
         }
 
+        /// Tool authors cannot bypass the reviewed-plan execution seam.
         public func call(
             _ input: Input,
             in context: ToolContext
         ) async throws -> Output {
-            let targetedInput = try workspaceTargetedInput(
-                input,
-                workspace: context.workspace
-            )
+            throw ToolPreparationError.prepared_operation_required
+        }
 
-            return try await Self(
-                context: mergedMutationContext()
-            ).callInternal(
-                targetedInput,
-                workspace: context.workspace
+        public func call(
+            _ input: Input,
+            prepared operation: PreparedOperation.Envelope?,
+            in context: ToolContext
+        ) async throws -> Output {
+            guard let operation else {
+                throw ToolPreparationError.prepared_operation_required
+            }
+            guard operation.schema == MutateFilesPreparedWorkSchema.value else {
+                throw PreparedOperation.EnvelopeError.schema_mismatch(
+                    expected: MutateFilesPreparedWorkSchema.value,
+                    actual: operation.schema
+                )
+            }
+            let work = try operation.plan.decode(MutateFilesPreparedWork.self)
+            let workspace = try FileToolSupport.requireWorkspace(
+                context.workspace,
+                toolName: Self.identifier.rawValue
+            )
+            guard work.input == input,
+                  work.rootURL == workspace.rootURL,
+                  work.absoluteURL == workspace.absoluteURL,
+                  work.rootIdentifier == workspace.rootIdentifier,
+                  work.revision == workspace.revision
+            else {
+                throw MutateFilesPreparedWorkError.context_mismatch
+            }
+            let targeted = try workspaceTargetedInput(input, workspace: workspace)
+            return try await callInternal(
+                targeted,
+                plan: work.plan,
+                workspace: workspace
             )
         }
 
@@ -797,6 +856,31 @@ private extension SystemIO.Tools.MutateFiles {
         return .init(
             title: preview.title,
             layout: layout
+        )
+    }
+
+    func stagedOutput(
+        plan: StandardMutationPlan,
+        submissionID: UUID
+    ) -> SystemIO.Tools.MutateFiles.Output {
+        SystemIO.Tools.MutateFiles.Output(
+            planID: plan.id,
+            resultID: nil,
+            submissionID: submissionID,
+            status: "staged",
+            entryCount: plan.report.entryCount,
+            targetCount: plan.report.targetCount,
+            creates: plan.report.creates,
+            updates: plan.report.updates,
+            deletes: plan.report.deletes,
+            unchanged: plan.report.unchanged,
+            appliedEntryIDs: [],
+            rollbackAvailable: false,
+            failureMessage: nil,
+            entries: plan.entries.enumerated().map { offset, entry in
+                entryOutput(entry, authorizedIndex: offset)
+            },
+            records: []
         )
     }
 
