@@ -1,3 +1,5 @@
+// FROZEN: independent durable prepared-intent queue is not required by the conversation or ToolPlan bridge.
+#if AGENTIC_ENABLE_DEFERRED_INTENTS
 import Agentic
 
 public struct AgenticIOPreparedOperationSet: Sendable {
@@ -19,3 +21,4 @@ public struct AgenticIOPreparedOperationSet: Sendable {
         )
     }
 }
+#endif // AGENTIC_ENABLE_DEFERRED_INTENTS
