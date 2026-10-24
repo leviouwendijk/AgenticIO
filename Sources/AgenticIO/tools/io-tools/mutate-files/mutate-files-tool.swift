@@ -393,9 +393,11 @@ public extension SystemIO.Tools {
                     )
                 ),
                 preview: .init(
-                    difference: makeDiffPreview(
+                    difference: try makeStructuredDiffPreview(
+                        input: input,
                         plan: plan,
-                        authorized: authorized
+                        authorized: authorized,
+                        workspace: workspace
                     )
                 ),
                 sideEffects: risk.defaultSideEffects,
@@ -679,6 +681,9 @@ public extension SystemIO.Tools {
     }
 }
 
+private enum FileMutationDifferenceProjectionError: Error {
+    case inconsistent_entries
+}
 private extension SystemIO.Tools.MutateFiles {
     func workspaceTargetedInput(
         _ input: SystemIO.Tools.MutateFiles.Input,
@@ -821,41 +826,69 @@ private extension SystemIO.Tools.MutateFiles {
         }
     }
 
-    func makeDiffPreview(
+    /// Project the authoritative prepared Writers difference for transport.
+    /// No second tree algorithm or legacy file-mutation entry model is built.
+    func makeStructuredDiffPreview(
+        input: SystemIO.Tools.MutateFiles.Input,
         plan: StandardMutationPlan,
-        authorized: [[AuthorizedPath]]
-    ) -> ToolPreflight.Preview.Difference? {
-        let presentationPathsByEntryID: [UUID: String] = Dictionary(
-            uniqueKeysWithValues: plan.entries.enumerated().compactMap { pair in
-                guard authorized.indices.contains(
-                    pair.offset
-                ) else {
-                    return nil
-                }
+        authorized: [[AuthorizedPath]],
+        workspace: WorkspaceContext
+    ) throws -> ToolPreflight.Preview.Difference? {
+        guard plan.entries.count == input.entries.count,
+              plan.entries.count == authorized.count else {
+            throw FileMutationDifferenceProjectionError.inconsistent_entries
+        }
 
-                return (
-                    pair.element.id,
-                    authorized[pair.offset].first?.presentationPath
-                        ?? pair.element.target.lastPathComponent
-                )
-            }
+        let difference = try plan.difference(root: workspace.rootURL)
+        let tree = difference.layout.tree
+        let options = DifferenceRenderOptions(
+            showHeader: true,
+            showUnchangedLines: false,
+            contextLineCount: 3
         )
 
-        let preview = plan.diffPreview(
-            contextLineCount: 3
-        ) { entry in
-            presentationPathsByEntryID[
-                entry.id
-            ] ?? entry.target.lastPathComponent
+        // Only display authorized workspace-relative names. Canonical node and
+        // content identities remain in the persisted StandardMutationPlan.
+        var names_by_id: [String: String] = [:]
+        for (index, planned) in plan.entries.enumerated() {
+            let id = planned.id.uuidString
+            guard names_by_id[id] == nil else {
+                throw FileMutationDifferenceProjectionError.inconsistent_entries
+            }
+            guard let destination = authorized[index].last else {
+                throw FileMutationDifferenceProjectionError.inconsistent_entries
+            }
+            names_by_id[id] = destination.presentationPath
         }
 
-        guard let layout = preview.layout else {
-            return nil
+        var lines: [DifferenceLayout.Line] = []
+        for section in difference.text_sections(options: options) {
+            guard let name = names_by_id[section.id] else {
+                throw FileMutationDifferenceProjectionError.inconsistent_entries
+            }
+            if !lines.isEmpty {
+                lines.append(.init(role: .separator, text: ""))
+            }
+            for line in section.layout.lines {
+                let text: String
+                switch line.role {
+                case .headerOld: text = "a/\(name)"
+                case .headerNew: text = "b/\(name)"
+                default: text = line.text
+                }
+                lines.append(.init(
+                    role: line.role,
+                    text: text,
+                    coordinate: line.coordinate
+                ))
+            }
         }
-
+        let text = DifferenceLayout(lines: lines)
+        guard !text.isEmpty || !tree.lines.isEmpty else { return nil }
         return .init(
-            title: preview.title,
-            layout: layout
+            title: "File mutation preview",
+            layout: text,
+            tree: tree
         )
     }
 

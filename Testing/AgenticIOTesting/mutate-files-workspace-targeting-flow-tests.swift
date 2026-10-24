@@ -37,6 +37,38 @@ extension AgenticIOFlowTesting {
             "workspace-targeted mutate_files preflight resolves relative to the working location"
         )
 
+        // The preflight's two views derive from Writers, not the deprecated
+        // Agentic-specific FileMutationDifference tree reconstruction.
+        guard let preview = preflight.preview.difference else {
+            throw MutateFilesNativeDifferenceTestError.missing_preview
+        }
+        try Expect.equal(
+            preview.file_mutations,
+            nil,
+            "new native preflight previews do not construct legacy file mutation entries"
+        )
+        try Expect.true(
+            preview.tree_layout?.lines.contains(where: {
+                $0.change == .modified && $0.label == "target.txt"
+            }) == true,
+            "content-only replace marks the native path tree as modified"
+        )
+        try Expect.true(
+            preview.text_layout.lines.contains(where: {
+                $0.role == .headerNew && $0.text == "b/Package/target.txt"
+            }),
+            "text section headers retain authorized workspace-relative paths"
+        )
+        let restored = try JSONDecoder().decode(
+            ToolPreflight.self,
+            from: JSONEncoder().encode(preflight)
+        )
+        try Expect.equal(
+            restored.preview.difference?.tree_layout,
+            preview.tree_layout,
+            "native tree layout survives preflight Codable round trip"
+        )
+
         _ = try await tool.call(
             input,
             prepared: prepared.operation,
@@ -112,6 +144,13 @@ extension AgenticIOFlowTesting {
                 "Package/CopyDestination",
             ],
             "workspace-targeted mutate_files copy authorizes source and destination"
+        )
+
+        try Expect.true(
+            copyPreflight.preview.difference?.tree_layout?.lines.contains(where: {
+                $0.change == .added && $0.label == "CopyDestination/"
+            }) == true,
+            "native tree represents a copy destination as added"
         )
 
         let copyOutput = try await tool.call(
@@ -269,4 +308,8 @@ private struct MutateFilesWorkspaceTargetFixture {
             at: containerURL
         )
     }
+}
+
+private enum MutateFilesNativeDifferenceTestError: Error {
+    case missing_preview
 }
