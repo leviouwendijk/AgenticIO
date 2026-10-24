@@ -37,16 +37,10 @@ extension AgenticIOFlowTesting {
             "workspace-targeted mutate_files preflight resolves relative to the working location"
         )
 
-        // The preflight's two views derive from Writers, not the deprecated
-        // Agentic-specific FileMutationDifference tree reconstruction.
+        // Both preflight layouts derive from the prepared Writers difference.
         guard let preview = preflight.preview.difference else {
             throw MutateFilesNativeDifferenceTestError.missing_preview
         }
-        try Expect.equal(
-            preview.file_mutations,
-            nil,
-            "new native preflight previews do not construct legacy file mutation entries"
-        )
         try Expect.true(
             preview.tree_layout?.lines.contains(where: {
                 $0.change == .modified && $0.label == "target.txt"
@@ -54,7 +48,7 @@ extension AgenticIOFlowTesting {
             "content-only replace marks the native path tree as modified"
         )
         try Expect.true(
-            preview.text_layout.lines.contains(where: {
+            preview.layout.lines.contains(where: {
                 $0.role == .headerNew && $0.text == "b/Package/target.txt"
             }),
             "text section headers retain authorized workspace-relative paths"
