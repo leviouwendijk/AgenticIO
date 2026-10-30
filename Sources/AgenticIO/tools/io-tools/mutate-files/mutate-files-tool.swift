@@ -827,7 +827,7 @@ private extension SystemIO.Tools.MutateFiles {
     }
 
     /// Project the authoritative prepared Writers difference for transport.
-    /// No second tree algorithm or legacy file-mutation entry model is built.
+    /// The same projector is shared with semantic refactoring approval.
     func makeStructuredDiffPreview(
         input: SystemIO.Tools.MutateFiles.Input,
         plan: StandardMutationPlan,
@@ -838,57 +838,16 @@ private extension SystemIO.Tools.MutateFiles {
               plan.entries.count == authorized.count else {
             throw FileMutationDifferenceProjectionError.inconsistent_entries
         }
-
-        let difference = try plan.difference(root: workspace.rootURL)
-        let tree = difference.layout.tree
-        let options = DifferenceRenderOptions(
-            showHeader: true,
-            showUnchangedLines: false,
-            contextLineCount: 3
-        )
-
-        // Only display authorized workspace-relative names. Canonical node and
-        // content identities remain in the persisted StandardMutationPlan.
-        var names_by_id: [String: String] = [:]
-        for (index, planned) in plan.entries.enumerated() {
-            let id = planned.id.uuidString
-            guard names_by_id[id] == nil else {
+        let paths = try authorized.map { candidates in
+            guard let target = candidates.last else {
                 throw FileMutationDifferenceProjectionError.inconsistent_entries
             }
-            guard let destination = authorized[index].last else {
-                throw FileMutationDifferenceProjectionError.inconsistent_entries
-            }
-            names_by_id[id] = destination.presentationPath
+            return target.presentationPath
         }
-
-        var lines: [DifferenceLayout.Line] = []
-        for section in difference.text_sections(options: options) {
-            guard let name = names_by_id[section.id] else {
-                throw FileMutationDifferenceProjectionError.inconsistent_entries
-            }
-            if !lines.isEmpty {
-                lines.append(.init(role: .separator, text: ""))
-            }
-            for line in section.layout.lines {
-                let text: String
-                switch line.role {
-                case .headerOld: text = "a/\(name)"
-                case .headerNew: text = "b/\(name)"
-                default: text = line.text
-                }
-                lines.append(.init(
-                    role: line.role,
-                    text: text,
-                    coordinate: line.coordinate
-                ))
-            }
-        }
-        let text = DifferenceLayout(lines: lines)
-        guard !text.isEmpty || !tree.lines.isEmpty else { return nil }
-        return .init(
-            title: "File mutation preview",
-            layout: text,
-            tree: tree
+        return try PreparedMutationDifferenceProjection.project(
+            plan,
+            root: workspace.rootURL,
+            presentationPaths: paths
         )
     }
 

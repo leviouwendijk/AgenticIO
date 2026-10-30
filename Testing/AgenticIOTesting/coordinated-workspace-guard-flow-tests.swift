@@ -129,6 +129,26 @@ extension AgenticIOFlowTesting {
         let prepared = try await tool.prepare(input, in: context)
         let envelope = try Expect.notNil(prepared.operation, "review retains a serializable plan")
         let work = try envelope.plan.decode(MutateFilesPreparedWork.self)
+        let presentedPath = try FileToolAccess.authorize(
+            workspace: workspace,
+            path: "approved.txt",
+            capability: .write,
+            toolName: SystemIO.Tools.MutateFiles.identifier.rawValue
+        ).presentationPath
+        let projected = try PreparedMutationDifferenceProjection.project(
+            work.plan,
+            root: workspace.rootURL,
+            presentationPaths: [presentedPath]
+        )
+        try Expect.equal(
+            prepared.review.preview.difference,
+            projected,
+            "mutate_files and semantic refactoring share an identical review diff"
+        )
+        try Expect.true(
+            projected?.layout.lines.contains(where: { $0.role == .headerNew }) == true,
+            "native projection retains line-level diff headers"
+        )
 
         do {
             _ = try await tool.call(input, in: context)
