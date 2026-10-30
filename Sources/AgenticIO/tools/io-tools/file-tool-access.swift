@@ -4,6 +4,7 @@ import Path
 import FileTypes
 
 public enum FileToolAccess {
+    @discardableResult
     public static func authorize(
         workspace: WorkspaceContext?,
         rootID: PathAccessRootIdentifier = .project,
@@ -29,6 +30,7 @@ public enum FileToolAccess {
         )
     }
 
+    @discardableResult
     public static func authorize(
         workspace: WorkspaceContext,
         rootID: PathAccessRootIdentifier = .project,
@@ -50,6 +52,7 @@ public enum FileToolAccess {
         ).authorizedPath
     }
 
+    @discardableResult
     public static func authorize(
         workspace: WorkspaceContext,
         rootID: PathAccessRootIdentifier = .project,
