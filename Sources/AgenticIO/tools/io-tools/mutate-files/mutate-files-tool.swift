@@ -495,15 +495,17 @@ public extension SystemIO.Tools {
 
             let writer = try workspaceWriter(workspace)
             // Use the already-approved plan; do not generate another.
-            switch workspace.execution.mutations {
-            case .immediate:
-                let result = writer.mutations.apply(
-                    plan, options: .init(failure: input.failurePolicy)
-                )
+            let publication = try await PreparedWritersPublisher().publish(
+                plan,
+                in: workspace,
+                using: writer,
+                failure: input.failurePolicy
+            )
+            switch publication {
+            case .applied(let result):
                 return output(plan: plan, result: result)
-            case .coordinated(let submission):
-                let staged = try await submission.submit(plan, in: workspace)
-                return stagedOutput(plan: plan, submissionID: staged.id)
+            case .staged(let submissionID):
+                return stagedOutput(plan: plan, submissionID: submissionID)
             }
             
         }
