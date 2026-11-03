@@ -185,9 +185,7 @@ public extension SystemIO.Tools {
                 toolName: Self.identifier.rawValue,
                 type: .file
             )
-            let sensitivity = sensitivityAssessment(
-                for: authorized
-            )
+            let sensitivity = FileReadSensitivity.assess(authorized)
             let estimatedReadLines = estimatedLineCount(
                 for: input
             )
@@ -310,13 +308,6 @@ public extension SystemIO.Tools {
 }
 
 private extension SystemIO.Tools.ReadFile {
-    struct SensitivityAssessment {
-        let risk: ActionRisk
-        let policyChecks: [String]
-        let warnings: [String]
-        let summaryReason: String?
-    }
-
     func summary(
         for input: SystemIO.Tools.ReadFile.Input,
         renderedPath: String,
@@ -364,49 +355,6 @@ private extension SystemIO.Tools.ReadFile {
         }
 
         return "\(base). Sensitive path: \(sensitivityReason)"
-    }
-
-    func sensitivityAssessment(
-        for authorized: AuthorizedPath
-    ) -> SensitivityAssessment {
-        let rules = PathSensitivityProfile.agenticConservative
-            .matchedRules(
-                for: authorized.path,
-                type: .file
-            )
-        let strongest = PathSensitivityAction.strongest(
-            rules.map(\.action)
-        )
-
-        let risk: ActionRisk
-
-        switch strongest {
-        case .warn_only:
-            risk = .observe
-
-        case .suggest_deny:
-            risk = .privileged
-
-        case .require_deny:
-            risk = .forbidden
-        }
-
-        let primaryRule = rules.max {
-            $0.action.priority < $1.action.priority
-        }
-
-        return .init(
-            risk: risk,
-            policyChecks: rules.map {
-                "path_sensitivity_rule:\($0.id)"
-            },
-            warnings: rules.map {
-                "Path sensitivity: \($0.reason)"
-            },
-            summaryReason: strongest == .warn_only
-                ? nil
-                : primaryRule?.reason
-        )
     }
 
     func estimatedLineCount(
