@@ -309,13 +309,16 @@ public extension SystemIO.Tools {
 
         public let context: AgentFileMutationContext
         public let fileEditPolicy: FileEditPolicy
+        public let operationPolicy: FileMutationOperationPolicy
 
         public init(
             context: AgentFileMutationContext = .empty,
-            fileEditPolicy: FileEditPolicy = .unrestricted
+            fileEditPolicy: FileEditPolicy = .unrestricted,
+            operationPolicy: FileMutationOperationPolicy = .unrestricted
         ) {
             self.context = context
             self.fileEditPolicy = fileEditPolicy
+            self.operationPolicy = operationPolicy
         }
 
 
@@ -324,6 +327,7 @@ public extension SystemIO.Tools {
             workspace: WorkspaceContext?,
             writeOptions: SafeWriteOptions = .overwriteWithoutBackup
         ) async throws -> MutateFilesToolPreparation {
+            try operationPolicy.authorize(input.entries)
             let workspace = try FileToolSupport.requireWorkspace(
                 workspace,
                 toolName: Self.identifier.rawValue
@@ -345,6 +349,7 @@ public extension SystemIO.Tools {
                     context: context
                 )
             )
+            try operationPolicy.authorize(plan, matching: input.entries)
             let preflight = ToolPreflight(
                 tool: Self.definition.identifier,
                 risk: risk,
@@ -406,7 +411,8 @@ public extension SystemIO.Tools {
                     "agentic_path_grants_authorized",
                     "workspace_paths_authorized",
                     "workspace_mutation_entries_resolved",
-                    "standard_mutation_plan_created"
+                    "standard_mutation_plan_created",
+                    "mutation_operation_policy_authorized"
                 ],
                 warnings: plan.entries.flatMap {
                     $0.warnings.map(\.rawValue)
@@ -430,7 +436,9 @@ public extension SystemIO.Tools {
             )
 
             return try await Self(
-                context: mergedMutationContext()
+                context: mergedMutationContext(),
+                fileEditPolicy: fileEditPolicy,
+                operationPolicy: operationPolicy
             ).prepareInternal(
                 targetedInput,
                 workspace: workspace,
@@ -449,7 +457,8 @@ public extension SystemIO.Tools {
             let targeted = try workspaceTargetedInput(input, workspace: workspace)
             let preparation = try await Self(
                 context: mergedMutationContext(),
-                fileEditPolicy: fileEditPolicy
+                fileEditPolicy: fileEditPolicy,
+                operationPolicy: operationPolicy
             ).prepareInternal(
                 targeted,
                 workspace: workspace
@@ -483,6 +492,8 @@ public extension SystemIO.Tools {
             plan: StandardMutationPlan,
             workspace: WorkspaceContext?
         ) async throws -> Output {
+            try operationPolicy.authorize(input.entries)
+            try operationPolicy.authorize(plan, matching: input.entries)
             let workspace = try FileToolSupport.requireWorkspace(
                 workspace,
                 toolName: Self.identifier.rawValue
@@ -841,10 +852,10 @@ private extension SystemIO.Tools.MutateFiles {
             throw FileMutationDifferenceProjectionError.inconsistent_entries
         }
         let paths = try authorized.map { candidates in
-            guard let target = candidates.last else {
+            guard !candidates.isEmpty else {
                 throw FileMutationDifferenceProjectionError.inconsistent_entries
             }
-            return target.presentationPath
+            return candidates.map(\.presentationPath)
         }
         return try PreparedMutationDifferenceProjection.project(
             plan,

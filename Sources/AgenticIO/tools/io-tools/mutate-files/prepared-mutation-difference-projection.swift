@@ -1,6 +1,7 @@
 import Agentic
 import Difference
 import Foundation
+import Path
 import Writers
 
 public enum PreparedMutationDifferenceProjectionError: Error, Sendable {
@@ -13,7 +14,7 @@ public enum PreparedMutationDifferenceProjection {
     public static func project(
         _ plan: StandardMutationPlan,
         root: URL,
-        presentationPaths: [String],
+        presentationPaths: [[String]],
         title: String = "File mutation preview"
     ) throws -> ToolPreflight.Preview.Difference? {
         guard plan.entries.count == presentationPaths.count else {
@@ -21,7 +22,6 @@ public enum PreparedMutationDifferenceProjection {
         }
 
         let difference = try plan.difference(root: root)
-        let tree = difference.layout.tree
         let options = DifferenceRenderOptions(
             showHeader: true,
             showUnchangedLines: false,
@@ -31,12 +31,37 @@ public enum PreparedMutationDifferenceProjection {
         // Only approved presentation paths enter header text. Canonical
         // identities and original contents remain in the Writers plan.
         var namesByID: [String: String] = [:]
-        for (index, entry) in plan.entries.enumerated() {
-            let id = entry.id.uuidString
+        var movesByID: [String: TreeDifferenceLayout.Line.Relocation] = [:]
+        for (index, planned) in plan.entries.enumerated() {
+            let paths = presentationPaths[index]
+            guard paths.count == planned.entry.targets.count,
+                  let name = paths.last else {
+                throw PreparedMutationDifferenceProjectionError.inconsistentEntries
+            }
+            let id = planned.id.uuidString
             guard namesByID[id] == nil else {
                 throw PreparedMutationDifferenceProjectionError.inconsistentEntries
             }
-            namesByID[id] = presentationPaths[index]
+            namesByID[id] = name
+
+            if case .move(let move) = planned.entry {
+                let sourceID = StandardPath(rawPath: move.source.standardizedFileURL.path)
+                    .render(as: .relative, filetype: true)
+                guard movesByID[sourceID] == nil else {
+                    throw PreparedMutationDifferenceProjectionError.inconsistentEntries
+                }
+                movesByID[sourceID] = .init(from: paths[0], to: paths[1])
+            }
+        }
+
+        let tree = difference.make_tree_layout(presenting: { entry in
+            .init(label: entry.label, relocation: movesByID[entry.id])
+        })
+        let represented = Set(tree.lines.compactMap { line in
+            line.relocation == nil ? nil : line.id
+        })
+        guard represented == Set(movesByID.keys) else {
+            throw PreparedMutationDifferenceProjectionError.inconsistentEntries
         }
 
         var lines: [DifferenceLayout.Line] = []

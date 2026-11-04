@@ -138,7 +138,7 @@ extension AgenticIOFlowTesting {
         let projected = try PreparedMutationDifferenceProjection.project(
             work.plan,
             root: workspace.rootURL,
-            presentationPaths: [presentedPath]
+            presentationPaths: [[presentedPath]]
         )
         try Expect.equal(
             prepared.review.preview.difference,
