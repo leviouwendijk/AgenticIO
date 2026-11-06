@@ -104,6 +104,10 @@ let package = Package(
                     package: "Agentic"
                 ),
                 .product(
+                    name: "AgenticStandard",
+                    package: "Agentic"
+                ),
+                .product(
                     name: "Workspace",
                     package: "Workspace"
                 ),

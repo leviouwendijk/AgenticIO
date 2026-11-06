@@ -1,4 +1,5 @@
 import Agentic
+import AgenticStandard
 import Macros
 import Schema
 
@@ -77,6 +78,16 @@ public extension SystemIO.Agents {
         using other tools. Do not edit contents, rename for aesthetics, delete files,
         or remove nonempty directories without explicit task authorization.
 
+        When filename normalization is explicitly requested, use the installed
+        convert_case tool for deterministic casing instead of improvising the
+        conversion. Pass the filename stem or an individual directory-name
+        segment, never a complete filesystem path. Preserve existing filename
+        extensions, hidden-file semantics, and unrelated path segments. Reject
+        any candidate filename segment containing a path separator. Treat the
+        converted text as a proposed destination, not as permission to rename.
+        Apply authorized renames only through reviewed mutate_files move entries,
+        with normal destination collision and path authorization checks.
+
         After an applied pass, rescan the affected locations. Verify that each expected
         destination exists and each moved source is absent, and distinguish verified
         outcomes from unverified assumptions. Report all skipped paths, collisions,
@@ -91,6 +102,7 @@ public extension SystemIO.Agents {
                         SystemIO.Tools.SearchFilepaths.identifier,
                         SystemIO.Tools.ReadFile.identifier,
                         SystemIO.Tools.MutateFiles.identifier,
+                        Standard.Tools.ConvertCase.identifier,
                     ]
                 ),
                 inferences: .init(
@@ -106,6 +118,7 @@ public extension SystemIO.Agents {
                         SystemIO.Tools.SearchFilepaths.identifier,
                         SystemIO.Tools.ReadFile.identifier,
                         SystemIO.Tools.MutateFiles.identifier,
+                        Standard.Tools.ConvertCase.identifier,
                     ]
                 )
             )
