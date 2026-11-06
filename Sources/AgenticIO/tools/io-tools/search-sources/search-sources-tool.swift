@@ -120,7 +120,7 @@ public extension SystemIO.Tools.SearchSources.Input {
                 forKey: .probes
             ) ?? [],
             lexicalPattern: try container.decodeIfPresent(
-                SourceLexicalPatternInput.self,
+                LexicalPatternInput.self,
                 forKey: .lexicalPattern
             ),
             mode: try container.decodeIfPresent(
@@ -192,7 +192,7 @@ public extension SystemIO.Tools {
 
             /// Optional bounded lexical token pattern. Mutually exclusive with probes.
             @Schema(required: false)
-            public let lexicalPattern: SourceLexicalPatternInput?
+            public let lexicalPattern: LexicalPatternInput?
 
             /// Search mode. Ranked applies ranking and source diversity before delivery; exhaustive preserves every matching region. Defaults to ranked.
             @Schema(required: false)
@@ -233,7 +233,7 @@ public extension SystemIO.Tools {
                 selections: [String] = [],
                 within: [SourceContextCandidateInput] = [],
                 probes: [SourceSearchProbeInput] = [],
-                lexicalPattern: SourceLexicalPatternInput? = nil,
+                lexicalPattern: LexicalPatternInput? = nil,
                 mode: SourceSearchMode = .ranked,
                 caseSensitive: Bool = false,
                 minimumScore: Int = 1,
@@ -297,7 +297,7 @@ public extension SystemIO.Tools {
                 toolName: Self.identifier.rawValue
             )
 
-            let query = try input.resolvedSourceSearchQuery(
+            let query = try input.resolvedSearchQuery(
                 toolName: Self.identifier.rawValue
             )
 
@@ -369,7 +369,7 @@ public extension SystemIO.Tools {
                 excludes: input.excludes,
                 selections: input.selections
             )
-            let query = try input.resolvedSourceSearchQuery(
+            let query = try input.resolvedSearchQuery(
                 toolName: Self.identifier.rawValue
             )
             let options = SearchOptions(

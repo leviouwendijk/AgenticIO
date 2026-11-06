@@ -5,7 +5,7 @@ import Schema
 import Search
 
 @JSONSchema
-public enum SourceLexicalPatternNodeInput:
+public enum LexicalPatternNode:
     Sendable,
     Codable,
     Hashable
@@ -27,20 +27,20 @@ public enum SourceLexicalPatternNodeInput:
 }
 
 @JSONSchema
-public struct SourceLexicalPatternInput:
+public struct LexicalPatternInput:
     Sendable,
     Codable,
     Hashable
 {
     /// Flat bounded lexical-pattern graph. Node references are zero-based
     /// indices and may refer only to earlier nodes.
-    public let nodes: [SourceLexicalPatternNodeInput]
+    public let nodes: [LexicalPatternNode]
 
     /// Zero-based index of the final lexical pattern node.
     public let root: Int
 
     public init(
-        nodes: [SourceLexicalPatternNodeInput],
+        nodes: [LexicalPatternNode],
         root: Int
     ) {
         self.nodes = nodes
@@ -49,11 +49,11 @@ public struct SourceLexicalPatternInput:
 
     func lexicalPattern() throws -> LexicalPattern {
         guard !nodes.isEmpty else {
-            throw SourceLexicalPatternInputError.emptyNodes
+            throw LexicalInputError.emptyNodes
         }
 
         guard nodes.indices.contains(root) else {
-            throw SourceLexicalPatternInputError.invalidRoot(
+            throw LexicalInputError.invalidRoot(
                 root
             )
         }
@@ -79,7 +79,7 @@ public struct SourceLexicalPatternInput:
     }
 }
 
-public enum SourceLexicalPatternInputError:
+public enum LexicalInputError:
     Error,
     Sendable,
     LocalizedError
@@ -142,7 +142,7 @@ public enum SourceLexicalPatternInputError:
     }
 }
 
-private extension SourceLexicalPatternNodeInput {
+private extension LexicalPatternNode {
     func lexicalPattern(
         index: Int,
         prior: [LexicalPattern]
@@ -151,7 +151,7 @@ private extension SourceLexicalPatternNodeInput {
             _ reference: Int
         ) throws -> LexicalPattern {
             guard prior.indices.contains(reference) else {
-                throw SourceLexicalPatternInputError.invalidReference(
+                throw LexicalInputError.invalidReference(
                     node: index,
                     referenced: reference
                 )
@@ -184,7 +184,7 @@ private extension SourceLexicalPatternNodeInput {
 
         case .sequence(let children):
             guard !children.isEmpty else {
-                throw SourceLexicalPatternInputError.emptySequence(
+                throw LexicalInputError.emptySequence(
                     node: index
                 )
             }
@@ -198,8 +198,8 @@ private extension SourceLexicalPatternNodeInput {
             let maximum
         ):
             guard minimum >= 0,
-                  maximum >= minimum else {
-                throw SourceLexicalPatternInputError.invalidGap(
+                maximum >= minimum else {
+                throw LexicalInputError.invalidGap(
                     node: index,
                     minimum: minimum,
                     maximum: maximum
@@ -216,7 +216,7 @@ private extension SourceLexicalPatternNodeInput {
             let child
         ):
             guard !name.isEmpty else {
-                throw SourceLexicalPatternInputError.emptyCaptureName(
+                throw LexicalInputError.emptyCaptureName(
                     node: index
                 )
             }
@@ -237,15 +237,15 @@ private extension SourceLexicalPatternNodeInput {
         _ value: String,
         node: Int
     ) throws -> Token {
-        var options = LexerOptions()
-        options.identifier_continuation = .punctuation_delimited
-        options.emit_whitespace = false
-        options.emit_newlines = false
-        options.emit_comments = false
+        var options = Lexer.Options()
+        options.identifier = .punctuation_delimited
+        options.emit.whitespace = false
+        options.emit.newlines = false
+        options.emit.comments = false
 
         var lexer = Lexer(
             source: value,
-            sets: LexingSets(
+            sets: Lexer.Vocabulary(
                 keywords: []
             ),
             options: options
@@ -256,8 +256,9 @@ private extension SourceLexicalPatternNodeInput {
         }
 
         guard tokens.count == 1,
-              let token = tokens.first?.token else {
-            throw SourceLexicalPatternInputError.invalidToken(
+            let token = tokens.first?.token
+        else {
+            throw LexicalInputError.invalidToken(
                 node: node,
                 value: value
             )
@@ -267,7 +268,7 @@ private extension SourceLexicalPatternNodeInput {
     }
 }
 
-enum ResolvedSourceSearchQuery {
+enum ResolvedSearchQuery {
     case text([SearchProbe])
     case lexical(LexicalPattern)
 
@@ -283,9 +284,9 @@ enum ResolvedSourceSearchQuery {
 }
 
 extension SystemIO.Tools.SearchSources.Input {
-    func resolvedSourceSearchQuery(
+    func resolvedSearchQuery(
         toolName: String
-    ) throws -> ResolvedSourceSearchQuery {
+    ) throws -> ResolvedSearchQuery {
         let resolvedProbes = probes
             .map(\.searchProbe)
             .filter {

@@ -279,7 +279,7 @@ private extension AgenticIOFlowTesting {
         )
 
         let tool = SystemIO.Tools.SearchSources()
-        let pattern = SourceLexicalPatternInput(
+        let pattern = LexicalPatternInput(
             nodes: [
                 .identifier(
                     value: "client"
@@ -370,7 +370,7 @@ private extension AgenticIOFlowTesting {
             "lexical capture token spellings remain compact and inspectable"
         )
 
-        let tokenPattern = SourceLexicalPatternInput(
+        let tokenPattern = LexicalPatternInput(
             nodes: [
                 .token(
                     value: "->"

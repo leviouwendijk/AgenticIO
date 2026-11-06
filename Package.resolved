@@ -1,5 +1,5 @@
 {
-  "originHash" : "2d10047ce51868c8cc5a9bf0d319ad9a485272a41fe5d7c5c001e4c960c7ea95",
+  "originHash" : "f58e4759aab1c5ade5d3358b7c0bf9f1a15e59c70393c6ec0e99c7e6d08081a8",
   "pins" : [
     {
       "identity" : "agentic",
@@ -7,7 +7,7 @@
       "location" : "https://github.com/leviouwendijk/Agentic.git",
       "state" : {
         "branch" : "master",
-        "revision" : "f40810af3bb95b9cd998131d27bcdc1f790e5ff7"
+        "revision" : "081d832d043c85be23d6ae8d013debcfbb2b6758"
       }
     },
     {
@@ -110,6 +110,15 @@
       }
     },
     {
+      "identity" : "grammar",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/leviouwendijk/Grammar.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "08f50f8f423555846d1c349181f2a8e79a6d663c"
+      }
+    },
+    {
       "identity" : "guidelines",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/leviouwendijk/Guidelines.git",
@@ -151,7 +160,7 @@
       "location" : "https://github.com/leviouwendijk/Lexing.git",
       "state" : {
         "branch" : "master",
-        "revision" : "9d9e38a29a365f82869585850e79f616b3b4cda9"
+        "revision" : "e24d4e4844db87667eb99809b9e9a060f226ec2d"
       }
     },
     {
@@ -205,7 +214,7 @@
       "location" : "https://github.com/leviouwendijk/Parsing.git",
       "state" : {
         "branch" : "master",
-        "revision" : "e6c4cb5b7b2884dff15f12878fce80aacee3a598"
+        "revision" : "abaa4f5655579dea0830dd500825591ca702a822"
       }
     },
     {
@@ -323,6 +332,15 @@
       "state" : {
         "revision" : "79e4b74a295b6eb74a8b585e3a39d29e70c1dbd1",
         "version" : "603.0.2"
+      }
+    },
+    {
+      "identity" : "syntax",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/leviouwendijk/Syntax.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "2e0e85f68411c88246fcdf19c2c237c6e7a76bd4"
       }
     },
     {
