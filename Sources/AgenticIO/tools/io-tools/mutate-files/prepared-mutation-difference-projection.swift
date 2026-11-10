@@ -65,7 +65,8 @@ public enum PreparedMutationDifferenceProjection {
         }
 
         var lines: [DifferenceLayout.Line] = []
-        for section in difference.text_sections(options: options) {
+        let sections = difference.text_sections(options: options)
+        for section in sections {
             guard let name = namesByID[section.id] else {
                 throw PreparedMutationDifferenceProjectionError.inconsistentEntries
             }
@@ -88,6 +89,42 @@ public enum PreparedMutationDifferenceProjection {
         }
         let text = DifferenceLayout(lines: lines)
         guard !text.isEmpty || !tree.lines.isEmpty else { return nil }
+
+        // Only promote a single complete, bounded text section. The original
+        // three-line-context layout must already contain every source line;
+        // otherwise source transport would disclose additional unchanged text.
+        if difference.contents.count == 1,
+           let content = difference.contents.first,
+           let section = sections.first,
+           content.id == section.id,
+           let name = namesByID[content.id],
+           content.difference.hasChanges,
+           content.difference.lines.count <= 1_024 {
+            let source = content.difference
+            var remainingBytes = 65_536
+            for line in source.lines {
+                let bytes = line.text.utf8.count
+                if bytes > remainingBytes {
+                    remainingBytes = -1
+                    break
+                }
+                remainingBytes -= bytes
+            }
+
+            if remainingBytes >= 0,
+               DifferenceLayout.make(source, options: .full) == section.layout {
+                let presented = TextDifference(
+                    oldName: "a/\(name)",
+                    newName: "b/\(name)",
+                    lines: source.lines,
+                    quality: source.quality
+                )
+                return .init(title: title, source: presented, tree: tree)
+            }
+        }
+
+        // Multi-file, partial-context, oversized and structural-only reviews
+        // retain the established semantic layout without source expansion.
         return .init(title: title, layout: text, tree: tree)
     }
 }

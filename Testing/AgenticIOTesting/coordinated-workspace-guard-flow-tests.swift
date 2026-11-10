@@ -48,6 +48,24 @@ extension AgenticIOFlowTesting {
 
         let tool_context = ToolContext(workspace: context)
         let preparation = try await tool.prepare(input, in: tool_context)
+
+        let multiInput = SystemIO.Tools.MutateFiles.Input(entries: [
+            .init(kind: .replace_text, path: "sample.txt", content: "modified\n"),
+            .init(kind: .replace_text, path: "second.txt", content: "changed\n")
+        ])
+        let multiPrepared = try await tool.prepare(multiInput, in: tool_context)
+        let multiDifference = try Expect.notNil(
+            multiPrepared.review.preview.difference,
+            "multi-file mutation retains a review difference"
+        )
+        try Expect.true(
+            multiDifference.source == nil,
+            "multi-file previews must not collapse distinct files into one TextDifference"
+        )
+        try Expect.true(
+            multiDifference.layout.changes.insertions.count >= 2,
+            "multi-file fallback retains both text changes"
+        )
         let preview = preparation.review
         try Expect.true(preview.summary.contains("Stage"), "coordinated tool preflight advertises staging")
         let result = try await tool.call(input, prepared: preparation.operation, in: tool_context)

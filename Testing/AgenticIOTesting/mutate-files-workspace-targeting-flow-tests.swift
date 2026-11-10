@@ -107,9 +107,28 @@ extension AgenticIOFlowTesting {
             }),
             "text section headers retain authorized workspace-relative paths"
         )
+        try Expect.equal(
+            preview.source?.oldName,
+            "a/Package/target.txt",
+            "single-file source preview retains the authorized old path"
+        )
+        try Expect.equal(
+            preview.source?.newName,
+            "b/Package/target.txt",
+            "single-file source preview retains the authorized new path"
+        )
+        try Expect.true(
+            preview.source?.hasChanges == true,
+            "complete small text mutation uses source-backed review"
+        )
         let restored = try JSONDecoder().decode(
             ToolPreflight.self,
             from: JSONEncoder().encode(preflight)
+        )
+        try Expect.equal(
+            restored.preview.difference?.source,
+            preview.source,
+            "source-backed preview survives preflight serialization"
         )
         try Expect.equal(
             restored.preview.difference?.tree_layout,
