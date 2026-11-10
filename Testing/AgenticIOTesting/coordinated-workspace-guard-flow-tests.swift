@@ -66,6 +66,79 @@ extension AgenticIOFlowTesting {
             multiDifference.layout.changes.insertions.count >= 2,
             "multi-file fallback retains both text changes"
         )
+        let multiSections = try Expect.notNil(
+            multiDifference.sections,
+            "multi-file mutation exposes bounded semantic sections"
+        )
+        try Expect.equal(multiSections.count, 2, "both changed files have sections")
+        try Expect.true(
+            Set(multiSections.map(\.path)) == Set(["sample.txt", "second.txt"]),
+            "semantic section paths use authorized presentation names"
+        )
+        try Expect.true(
+            multiSections.allSatisfy { section in
+                section.projection.rows.contains { row in
+                    row.old?.role == .delete || row.new?.role == .insert
+                }
+            },
+            "each semantic section preserves changed lines"
+        )
+        try Expect.equal(
+            try JSONDecoder().decode(
+                ToolPreflight.Preview.Difference.self,
+                from: JSONEncoder().encode(multiDifference)
+            ),
+            multiDifference,
+            "multi-file semantic preview survives serialization"
+        )
+
+        // A change in the middle of a long file must not transport untouched
+        // source lines outside the existing three-line review context.
+        let longFile = root.appendingPathComponent("large.txt")
+        let hidden = "untouched-source-outside-review"
+        let longOld = ([hidden] + (1...120).map { "record-\($0)" })
+            .joined(separator: "\n") + "\n"
+        let longNew = longOld.replacingOccurrences(
+            of: "record-60\n", with: "modified-record-60\n"
+        )
+        try longOld.write(to: longFile, atomically: true, encoding: .utf8)
+        let longInput = SystemIO.Tools.MutateFiles.Input(entries: [
+            .init(kind: .replace_text, path: "large.txt", content: longNew)
+        ])
+        let longPrepared = try await tool.prepare(longInput, in: tool_context)
+        let longDifference = try Expect.notNil(
+            longPrepared.review.preview.difference,
+            "long text mutation produces a review"
+        )
+        try Expect.true(
+            longDifference.source == nil,
+            "partial-context previews must not transport whole source differences"
+        )
+        let longSections = try Expect.notNil(
+            longDifference.sections,
+            "partial-context mutation uses semantic sections"
+        )
+        try Expect.equal(longSections.count, 1, "one changed file has one section")
+        let visible = longSections[0].projection.rows
+        try Expect.true(
+            visible.contains { $0.old?.text == "record-60" },
+            "review retains the original changed line"
+        )
+        try Expect.true(
+            visible.contains { $0.new?.text == "modified-record-60" },
+            "review retains the replacement line"
+        )
+        try Expect.true(
+            !visible.contains { $0.old?.text == hidden || $0.new?.text == hidden },
+            "semantic projection excludes out-of-context source text"
+        )
+        try Expect.true(
+            visible.contains { row in
+                if case .collapsed = row.kind { return true }
+                return false
+            },
+            "long-file projection preserves collapsed regions"
+        )
         let preview = preparation.review
         try Expect.true(preview.summary.contains("Stage"), "coordinated tool preflight advertises staging")
         let result = try await tool.call(input, prepared: preparation.operation, in: tool_context)

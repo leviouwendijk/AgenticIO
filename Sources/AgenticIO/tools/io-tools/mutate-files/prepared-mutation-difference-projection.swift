@@ -123,8 +123,68 @@ public enum PreparedMutationDifferenceProjection {
             }
         }
 
-        // Multi-file, partial-context, oversized and structural-only reviews
-        // retain the established semantic layout without source expansion.
+        // Build per-file semantic projections from the same prepared content.
+        // They contain visible rows only, not complete source snapshots.
+        let changed = difference.contents.filter { $0.difference.hasChanges }
+        if !changed.isEmpty && changed.count <= 32 {
+            var semanticSections: [ToolPreflight.Preview.Difference.Section] = []
+            var totalBytes = 0
+            let reviewOptions = DifferenceRenderOptions(
+                showHeader: true,
+                showUnchangedLines: false,
+                contextLineCount: 3,
+                collapseSeparator: " ... {count} unchanged lines",
+                showHunkHeaders: true
+            )
+
+            for content in changed {
+                guard let name = namesByID[content.id] else {
+                    throw PreparedMutationDifferenceProjectionError.inconsistentEntries
+                }
+                let source = content.difference
+                let visibleCount = source.hunks(context: 3).reduce(0) {
+                    $0 + $1.indices.count
+                }
+                guard visibleCount <= 1_024 else { break }
+
+                // Replace all original names with authorized presentation paths.
+                let named = TextDifference(
+                    oldName: "a/\(name)",
+                    newName: "b/\(name)",
+                    lines: source.lines,
+                    quality: source.quality
+                )
+                let projection = DifferenceLayout.project(
+                    named.analyze(), mode: .split, options: reviewOptions
+                )
+                guard projection.rows.count <= 1_024 else { break }
+
+                let section = ToolPreflight.Preview.Difference.Section(
+                    id: content.id,
+                    nodeID: content.node_id,
+                    path: name,
+                    projection: projection
+                )
+                let bytes = try JSONEncoder().encode(section).count
+                guard bytes <= 65_536,
+                      bytes <= 262_144 - totalBytes else { break }
+                totalBytes += bytes
+                semanticSections.append(section)
+            }
+
+            // An incomplete collection must never masquerade as a full review.
+            if semanticSections.count == changed.count {
+                return .init(
+                    title: title,
+                    layout: text,
+                    sections: semanticSections,
+                    tree: tree
+                )
+            }
+        }
+
+        // Oversized, unsupported and structural-only mutations retain the
+        // complete existing layout rather than silently dropping changes.
         return .init(title: title, layout: text, tree: tree)
     }
 }
