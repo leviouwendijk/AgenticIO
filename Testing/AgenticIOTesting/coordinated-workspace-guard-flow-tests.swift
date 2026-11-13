@@ -153,6 +153,15 @@ extension AgenticIOFlowTesting {
             "original\n",
             "coordinated mutate_files does not publish"
         )
+        try Expect.true(result.note != nil, "staged output explains it is not yet on disk")
+        let stagedRead = try await SystemIO.Tools.ReadFile().call(
+            .init(path: "sample.txt"),
+            in: tool_context
+        )
+        try Expect.equal(
+            stagedRead.content, "modified\n",
+            "a participant reads its own staged change before publication"
+        )
 
         var rejected_editor = false
         do {
@@ -183,6 +192,28 @@ extension AgenticIOFlowTesting {
             "owner publication uses canonical mutation applier"
         )
         try await submission.close()
+
+        // An owner-granted participant publishes on admission.
+        let granted = WorkspaceCoordinatedSubmission(
+            participant: await coordinator.participant(name: "agenticio-root")
+        ) { id in
+            try await coordinator.publish(submissions: [id])
+        }
+        let grantedContext = ToolContext(workspace: try authority.context(
+            execution: .init(io: .blocking, mutations: .coordinated(granted))
+        ))
+        let rootInput = SystemIO.Tools.MutateFiles.Input(entries: [
+            .init(kind: .replace_text, path: "second.txt", content: "root\n")
+        ])
+        let rootPrepared = try await tool.prepare(rootInput, in: grantedContext)
+        let rootResult = try await tool.call(
+            rootInput, prepared: rootPrepared.operation, in: grantedContext
+        )
+        try Expect.equal(rootResult.status, "applied", "granted publication applies on approval")
+        try Expect.equal(
+            try String(contentsOf: second_file, encoding: .utf8), "root\n",
+            "granted publication reaches the disk"
+        )
         return [.field("coordinator", "participant-preserved-and-guarded")]
     }
 }

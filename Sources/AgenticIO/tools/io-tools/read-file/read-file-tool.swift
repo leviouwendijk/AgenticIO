@@ -1,4 +1,5 @@
 import Agentic
+import Foundation
 import Workspace
 import Path
 import Primitives
@@ -252,12 +253,10 @@ public extension SystemIO.Tools {
                 type: .file
             )
 
-            let read = try LineReader(
-                authorized.absoluteURL
-            ).readSlice(
-                startLine: input.startLine,
-                endLine: input.endLine,
-                maxLines: input.maxLines
+            let read = try await readSlice(
+                authorized.absoluteURL,
+                input: input,
+                workspace: workspace
             )
 
             let rawContent: String
@@ -308,6 +307,43 @@ public extension SystemIO.Tools {
 }
 
 private extension SystemIO.Tools.ReadFile {
+    /// A coordinated participant reads its own staged changes over the disk,
+    /// so work staged earlier in the run is visible before publication.
+    func readSlice(
+        _ url: URL,
+        input: SystemIO.Tools.ReadFile.Input,
+        workspace: WorkspaceContext
+    ) async throws -> LineSliceReadResult {
+        if case .coordinated(let submission) = workspace.execution.mutations,
+           let staged = try await submission.stagedState(at: url) {
+            guard let text = staged.textContent else {
+                throw PredefinedFileToolError.invalidValue(
+                    tool: Self.identifier.rawValue,
+                    field: "path",
+                    reason: staged.exists
+                        ? "staged content is not text"
+                        : "staged for deletion in this run"
+                )
+            }
+            return LineReadResult(
+                url: url,
+                text: text,
+                encodingUsed: nil,
+                byteCount: text.utf8.count,
+                existed: true
+            ).slice(
+                startLine: input.startLine,
+                endLine: input.endLine,
+                maxLines: input.maxLines
+            )
+        }
+        return try LineReader(url).readSlice(
+            startLine: input.startLine,
+            endLine: input.endLine,
+            maxLines: input.maxLines
+        )
+    }
+
     func summary(
         for input: SystemIO.Tools.ReadFile.Input,
         renderedPath: String,
