@@ -26,8 +26,13 @@ public struct PreparedWritersPublisher: Sendable {
                 options: .init(failure: failure)
             ))
         case .coordinated(let submission):
-            let result = try await submission.submit(plan, in: workspace)
-            return .staged(result.id)
+            let admitted = try await submission.submit(plan, in: workspace)
+            // The owner may grant publication on submit; otherwise the
+            // submission stays staged under its claims.
+            if let publication = try await submission.publish(admitted) {
+                return .applied(publication.result)
+            }
+            return .staged(admitted.id)
         }
     }
 }

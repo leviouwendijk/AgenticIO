@@ -262,6 +262,8 @@ public extension SystemIO.Tools {
             public let appliedEntryIDs: [UUID]
             public let rollbackAvailable: Bool
             public let failureMessage: String?
+            /// What happens next, for outputs that are not yet on disk.
+            public let note: String?
             public let entries: [MutateFilesToolEntryOutput]
             public let records: [MutateFilesToolRecordOutput]
 
@@ -279,6 +281,7 @@ public extension SystemIO.Tools {
                 appliedEntryIDs: [UUID],
                 rollbackAvailable: Bool,
                 failureMessage: String?,
+                note: String? = nil,
                 entries: [MutateFilesToolEntryOutput],
                 records: [MutateFilesToolRecordOutput]
             ) {
@@ -295,6 +298,7 @@ public extension SystemIO.Tools {
                 self.appliedEntryIDs = appliedEntryIDs
                 self.rollbackAvailable = rollbackAvailable
                 self.failureMessage = failureMessage
+                self.note = note
                 self.entries = entries
                 self.records = records
             }
@@ -882,6 +886,9 @@ private extension SystemIO.Tools.MutateFiles {
             appliedEntryIDs: [],
             rollbackAvailable: false,
             failureMessage: nil,
+            note: "Staged, not yet on disk. The changes hold their claims and are "
+                + "published by the session owner at the end of the run or on review. "
+                + "Do not retry or treat this as a denial.",
             entries: plan.entries.enumerated().map { offset, entry in
                 entryOutput(entry, authorizedIndex: offset)
             },
