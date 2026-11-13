@@ -28,7 +28,7 @@ public actor FileAgentFileMutationStore: AgentFileMutationStore {
         let record = AgentFileMutationRecord(
             id: draft.id,
             sessionID: draft.sessionID,
-            toolCallID: draft.toolCallID,
+            callID: draft.callID,
             preparedIntentID: draft.preparedIntentID,
             createdAt: draft.createdAt,
             rootID: draft.rootID,
@@ -134,9 +134,9 @@ public actor FileAgentFileMutationStore: AgentFileMutationStore {
             }
         }
 
-        if let toolCallID = query.toolCallID {
+        if let callID = query.callID {
             records = records.filter {
-                $0.toolCallID == toolCallID
+                $0.callID == callID
             }
         }
 

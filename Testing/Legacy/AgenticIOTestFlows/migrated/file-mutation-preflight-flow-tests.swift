@@ -342,7 +342,7 @@ extension AgenticIOFlowTesting {
             [
                 ("intent", replay.intent.id.rawValue),
                 ("status", replay.intent.status.rawValue),
-                ("tool", replay.toolCall.name),
+                ("tool", replay.functionCall.name),
                 ("mutations", "\(mutations.count)")
             ]
         )
@@ -448,7 +448,7 @@ extension AgenticIOFlowTesting {
             [
                 ("intent", replay.intent.id.rawValue),
                 ("status", replay.intent.status.rawValue),
-                ("tool", replay.toolCall.name),
+                ("tool", replay.functionCall.name),
                 ("mutations", "\(mutations.count)")
             ]
         )

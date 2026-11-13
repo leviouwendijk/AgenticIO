@@ -428,7 +428,7 @@ public extension SystemIO.Tools {
         public func process(
             _ output: Output,
             input _: Input
-        ) -> ToolCall.ResultProjection? {
+        ) -> ToolExecution.Projection? {
             let result = output
 
             return .init(

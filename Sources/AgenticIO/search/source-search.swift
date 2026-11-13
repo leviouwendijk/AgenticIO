@@ -217,7 +217,7 @@ public struct SourceSearchCandidate:
     }
 }
 
-public struct SourceSearchResult: Result {
+public struct SourceSearchResult: Contract.Result {
     public static var jsonschema: JSONSchema {
         .object()
     }

@@ -25,7 +25,7 @@ extension SystemIO.Tools {
         }
 
         @JSONSchema
-        public struct Output: Result {
+        public struct Output: Contract.Result {
             //// Whether or not the write operation succeeded
             public let success: Bool
             

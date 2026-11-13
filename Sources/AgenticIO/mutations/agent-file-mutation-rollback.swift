@@ -78,7 +78,7 @@ public extension AgentFileMutationRollbackInput {
     }
 }
 
-public struct AgentFileMutationRollbackOutput: Result, Hashable {
+public struct AgentFileMutationRollbackOutput: Contract.Result, Hashable {
     public static var jsonschema: JSONSchema {
         .object()
     }

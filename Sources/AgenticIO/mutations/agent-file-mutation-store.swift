@@ -4,20 +4,20 @@ import Writers
 
 public struct AgentFileMutationQuery: Sendable, Codable, Hashable {
     public var target: URL?
-    public var toolCallID: String?
+    public var callID: String?
     public var preparedIntentID: PreparedIntentIdentifier?
     public var latestFirst: Bool
     public var limit: Int?
 
     public init(
         target: URL? = nil,
-        toolCallID: String? = nil,
+        callID: String? = nil,
         preparedIntentID: PreparedIntentIdentifier? = nil,
         latestFirst: Bool = true,
         limit: Int? = nil
     ) {
         self.target = target?.standardizedFileURL
-        self.toolCallID = toolCallID
+        self.callID = callID
         self.preparedIntentID = preparedIntentID
         self.latestFirst = latestFirst
         self.limit = limit

@@ -269,7 +269,7 @@ extension AgenticIOFlowTesting {
             [
                 ("intent", replay.intent.id.rawValue),
                 ("status", replay.intent.status.rawValue),
-                ("tool", replay.toolCall.name),
+                ("tool", replay.functionCall.name),
                 ("file", "rolled-back")
             ]
         )
@@ -544,7 +544,7 @@ private struct RollbackMutationFlowWorkspace {
             recorder: recorder,
             options: .init(
                 mutation: .init(
-                    toolCallID: "rollback-source-tool-call",
+                    callID: "rollback-source-tool-call",
                     metadata: [
                         "source": "rollback-test"
                     ]

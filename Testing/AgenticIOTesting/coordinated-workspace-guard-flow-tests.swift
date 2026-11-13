@@ -295,7 +295,7 @@ extension AgenticIOFlowTesting {
             tool: SystemIO.Tools.MutateFiles.identifier,
             arguments: try JSONValue.encoding(invoked_input)
         )
-        let invoked = try await ToolInvoker(
+        let invoked = try await ToolExecutor(
             registry: registry,
             policy: .init(autonomyMode: .auto_bounded_mutate)
         ).invoke(invocation, context: context)

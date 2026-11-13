@@ -85,19 +85,19 @@ internal func assertPreparedReplayResult(
     )
 
     try Expect.equal(
-        output.toolCall.name,
+        output.functionCall.name,
         expectedToolName,
         "\(label) replay tool name"
     )
 
     try Expect.equal(
-        output.toolResult.toolCallID,
-        output.toolCall.id,
+        output.toolResult.callID,
+        output.functionCall.id,
         "\(label) result links synthetic tool call id"
     )
 
     try Expect.equal(
-        output.toolCall.id,
+        output.functionCall.id,
         "prepared-\(intentID.rawValue)",
         "\(label) synthetic tool call id"
     )

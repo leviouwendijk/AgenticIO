@@ -7,7 +7,7 @@ import Writers
 public struct AgentFileMutationDraft: Sendable, Hashable {
     public let id: UUID
     public let sessionID: String
-    public let toolCallID: String?
+    public let callID: String?
     public let preparedIntentID: PreparedIntentIdentifier?
     public let createdAt: Date
     public let rootID: PathAccessRootIdentifier?
@@ -19,7 +19,7 @@ public struct AgentFileMutationDraft: Sendable, Hashable {
     public init(
         id: UUID = UUID(),
         sessionID: String,
-        toolCallID: String? = nil,
+        callID: String? = nil,
         preparedIntentID: PreparedIntentIdentifier? = nil,
         createdAt: Date = Date(),
         rootID: PathAccessRootIdentifier? = nil,
@@ -30,7 +30,7 @@ public struct AgentFileMutationDraft: Sendable, Hashable {
     ) {
         self.id = id
         self.sessionID = sessionID
-        self.toolCallID = toolCallID
+        self.callID = callID
         self.preparedIntentID = preparedIntentID
         self.createdAt = createdAt
         self.rootID = rootID
@@ -44,7 +44,7 @@ public struct AgentFileMutationDraft: Sendable, Hashable {
 public struct AgentFileMutationRecord: Sendable, Codable, Hashable, Identifiable {
     public let id: UUID
     public let sessionID: String
-    public let toolCallID: String?
+    public let callID: String?
     public let preparedIntentID: PreparedIntentIdentifier?
     public let createdAt: Date
     public let rootID: PathAccessRootIdentifier?
@@ -62,7 +62,7 @@ public struct AgentFileMutationRecord: Sendable, Codable, Hashable, Identifiable
     public init(
         id: UUID = UUID(),
         sessionID: String,
-        toolCallID: String? = nil,
+        callID: String? = nil,
         preparedIntentID: PreparedIntentIdentifier? = nil,
         createdAt: Date = Date(),
         rootID: PathAccessRootIdentifier? = nil,
@@ -77,7 +77,7 @@ public struct AgentFileMutationRecord: Sendable, Codable, Hashable, Identifiable
     ) {
         self.id = id
         self.sessionID = sessionID
-        self.toolCallID = toolCallID
+        self.callID = callID
         self.preparedIntentID = preparedIntentID
         self.createdAt = createdAt
         self.rootID = rootID
@@ -117,7 +117,7 @@ public extension AgentFileMutationRecord {
         .init(
             id: id,
             sessionID: sessionID,
-            toolCallID: toolCallID,
+            callID: callID,
             preparedIntentID: preparedIntentID,
             createdAt: createdAt,
             rootID: rootID,

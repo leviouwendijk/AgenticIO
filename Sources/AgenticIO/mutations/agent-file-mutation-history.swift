@@ -89,7 +89,7 @@ public struct AgentWriteStoredRecordSummary: Sendable, Codable, Hashable {
 public struct AgentFileMutationSummary: Sendable, Codable, Hashable, Identifiable {
     public let id: UUID
     public let sessionID: String
-    public let toolCallID: String?
+    public let callID: String?
     public let preparedIntentID: PreparedIntentIdentifier?
     public let createdAt: Date
     public let rootID: String?
@@ -108,7 +108,7 @@ public struct AgentFileMutationSummary: Sendable, Codable, Hashable, Identifiabl
     public init(
         id: UUID,
         sessionID: String,
-        toolCallID: String?,
+        callID: String?,
         preparedIntentID: PreparedIntentIdentifier?,
         createdAt: Date,
         rootID: String?,
@@ -126,7 +126,7 @@ public struct AgentFileMutationSummary: Sendable, Codable, Hashable, Identifiabl
     ) {
         self.id = id
         self.sessionID = sessionID
-        self.toolCallID = toolCallID
+        self.callID = callID
         self.preparedIntentID = preparedIntentID
         self.createdAt = createdAt
         self.rootID = rootID
@@ -149,7 +149,7 @@ public struct AgentFileMutationSummary: Sendable, Codable, Hashable, Identifiabl
         self.init(
             id: mutation.id,
             sessionID: mutation.sessionID,
-            toolCallID: mutation.toolCallID,
+            callID: mutation.callID,
             preparedIntentID: mutation.preparedIntentID,
             createdAt: mutation.createdAt,
             rootID: mutation.rootID?.rawValue,
@@ -168,7 +168,7 @@ public struct AgentFileMutationSummary: Sendable, Codable, Hashable, Identifiabl
     }
 }
 
-public struct AgentFileMutationHistoryList: Result, Hashable {
+public struct AgentFileMutationHistoryList: Contract.Result, Hashable {
     public static var jsonschema: JSONSchema {
         .object()
     }
@@ -191,7 +191,7 @@ public struct AgentFileMutationHistoryList: Result, Hashable {
     }
 }
 
-public struct AgentFileMutationInspection: Result, Hashable {
+public struct AgentFileMutationInspection: Contract.Result, Hashable {
     public static var jsonschema: JSONSchema {
         .object()
     }

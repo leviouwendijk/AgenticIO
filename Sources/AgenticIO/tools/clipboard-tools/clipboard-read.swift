@@ -21,7 +21,7 @@ extension SystemIO.Tools {
         }
 
         @JSONSchema
-        public struct Output: Result {
+        public struct Output: Contract.Result {
             public let contents: String?
             
             public init(

@@ -201,7 +201,7 @@ public struct SourceContextFile:
     }
 }
 
-public struct SourceContextResult: Result, Hashable {
+public struct SourceContextResult: Contract.Result, Hashable {
     public static var jsonschema: JSONSchema {
         .object()
     }

@@ -6,18 +6,18 @@ import Writers
 
 public struct AgentFileMutationContext: Sendable, Codable, Hashable {
     public var rootID: PathAccessRootIdentifier?
-    public var toolCallID: String?
+    public var callID: String?
     public var preparedIntentID: PreparedIntentIdentifier?
     public var metadata: [String: String]
 
     public init(
         rootID: PathAccessRootIdentifier? = nil,
-        toolCallID: String? = nil,
+        callID: String? = nil,
         preparedIntentID: PreparedIntentIdentifier? = nil,
         metadata: [String: String] = [:]
     ) {
         self.rootID = rootID
-        self.toolCallID = toolCallID
+        self.callID = callID
         self.preparedIntentID = preparedIntentID
         self.metadata = metadata
     }

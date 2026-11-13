@@ -91,7 +91,7 @@ public struct PathGrantSuggestion: Sendable, Codable, Hashable {
 
 
 @JSONSchema
-public struct WorkspaceAccessRequest: Result, Hashable {
+public struct WorkspaceAccessRequest: Contract.Result, Hashable {
     public let rootID: String
     public let rootPath: String
     public let label: String
