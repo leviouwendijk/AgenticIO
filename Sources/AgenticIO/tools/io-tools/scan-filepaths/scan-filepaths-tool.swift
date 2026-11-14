@@ -20,6 +20,7 @@ private extension SystemIO.Tools.ScanFilepaths.Input {
         case includeHidden
         case followSymlinks
         case maxEntries
+        case expand
     }
 }
 
@@ -75,7 +76,11 @@ public extension SystemIO.Tools.ScanFilepaths.Input {
             maxEntries: try container.decodeIfPresent(
                 Int.self,
                 forKey: .maxEntries
-            )
+            ),
+            expand: try container.decodeIfPresent(
+                Bool.self,
+                forKey: .expand
+            ) ?? false
         )
     }
 }
@@ -138,6 +143,10 @@ public extension SystemIO.Tools {
             /// Optional maximum number of returned entries.
             public let maxEntries: Int?
 
+            /// Whether a long listing is shown in full instead of summarizing deeper directories as counts. Defaults to false.
+            @Schema(required: false)
+            public let expand: Bool
+
             public init(
                 rootID: PathAccessRootIdentifier = .project,
                 path: String? = nil,
@@ -149,7 +158,8 @@ public extension SystemIO.Tools {
                 maxdepth: Int? = nil,
                 includeHidden: Bool = false,
                 followSymlinks: Bool = false,
-                maxEntries: Int? = nil
+                maxEntries: Int? = nil,
+                expand: Bool = false
             ) {
                 self.rootID = rootID
                 self.path = path
@@ -162,6 +172,7 @@ public extension SystemIO.Tools {
                 self.includeHidden = includeHidden
                 self.followSymlinks = followSymlinks
                 self.maxEntries = maxEntries
+                self.expand = expand
             }
         }
 
@@ -192,7 +203,13 @@ public extension SystemIO.Tools {
         public static let purpose = "Scan path topology inside the targeted workspace context using PathScan, with optional bounded traversal depth and literal directory-state filtering."
         public static let risk: ActionRisk = .observe
 
-        public init() {}
+        public let projection: Projection
+
+        public init(
+            projection: Projection = .init()
+        ) {
+            self.projection = projection
+        }
 
         public func preflight(
             _ input: Input,

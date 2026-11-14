@@ -290,6 +290,45 @@ extension AgenticIOFlowTesting {
             "scan_filepaths maxdepth 2 overrides recursive false"
         )
 
+        // The model reads a scan as a tree; the output keeps every entry.
+        let deepInput = SystemIO.Tools.ScanFilepaths.Input(maxdepth: 2)
+        try Expect.equal(
+            SystemIO.Tools.ScanFilepaths().render(deepScan, input: deepInput),
+            """
+            .: 3 entries (1 dirs, 2 files)
+            Sources/
+              A.swift
+              B.swift
+            """,
+            "scan_filepaths renders an indented tree"
+        )
+        let collapsing = SystemIO.Tools.ScanFilepaths(projection: .init(collapseAbove: 1))
+        try Expect.equal(
+            collapsing.render(deepScan, input: deepInput),
+            """
+            .: 3 entries (1 dirs, 2 files)
+            Sources/ (0 dirs, 2 files)
+            [Directories with counts are not expanded. Scan one by path, or pass expand: true, to list everything.]
+            """,
+            "A long scan summarizes deeper directories as counts"
+        )
+        try Expect.equal(
+            collapsing.render(deepScan, input: .init(maxdepth: 2, expand: true))?.contains("A.swift"),
+            true,
+            "expand lists everything"
+        )
+        try Expect.equal(deepScan.entries.count, 3, "The output keeps every entry")
+
+        let rankedText = SystemIO.Tools.SearchFilepaths().render(
+            rankedOutput,
+            input: .init(queries: [])
+        ) ?? ""
+        try Expect.true(
+            rankedText.hasPrefix("\(rankedOutput.entries.count) matches"),
+            "search_filepaths renders ranked lines under a count"
+        )
+        try Expect.true(!rankedText.contains("{"), "No JSON reaches the model")
+
         return [
             .message(
                 "search_filepaths and scan_filepaths preserve existing traversal defaults while explicit flatcase maxdepth provides bounded depth control"
