@@ -258,6 +258,17 @@ private extension AgenticIOFlowTesting {
             4,
             "source search merged candidate end line"
         )
+
+        let rendered = try Expect.notNil(tool.render(output, input: input), "search_sources renders")
+        let fileLines = rendered.split(separator: "\n").filter { $0.hasPrefix("Sources/A.swift") }
+        try Expect.equal(fileLines.count, 1, "Each file is named once")
+        try Expect.true(
+            fileLines.first?.hasSuffix("  \(candidate.sourceFingerprint)") == true,
+            "with its fingerprint"
+        )
+        try Expect.true(rendered.contains("\n  2–4  score "), "Regions read as line ranges")
+        try Expect.true(rendered.contains("corpus \(output.corpusFingerprint)"), "The corpus fingerprint stays visible")
+        try Expect.true(!rendered.contains("{"), "No JSON reaches the model when nothing pages")
     }
 
     static func proveLexicalSearch(

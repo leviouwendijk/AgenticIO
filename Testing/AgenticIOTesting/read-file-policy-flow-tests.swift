@@ -83,6 +83,32 @@ extension AgenticIOFlowTesting {
             "denied path explains the denial"
         )
 
+        // The model reads the file text once, under a header.
+        let plainInput = SystemIO.Tools.ReadFile.Input(path: "Sources/example.swift")
+        let plain = try await tool.call(plainInput, in: ToolContext(workspace: fixture.workspace))
+        let plainText = try Expect.notNil(tool.render(plain, input: plainInput), "read_file renders")
+        try Expect.equal(
+            plainText,
+            "Sources/example.swift · \(plain.totalLineCount) lines\n" + plain.content,
+            "read_file renders the header and raw text"
+        )
+        try Expect.true(!plain.lines.isEmpty, "The output still carries structured lines")
+        let numberedInput = SystemIO.Tools.ReadFile.Input(
+            path: "Sources/example.swift",
+            maxLines: 1,
+            includeLineNumbers: true
+        )
+        let numbered = try await tool.call(numberedInput, in: ToolContext(workspace: fixture.workspace))
+        let numberedText = try Expect.notNil(tool.render(numbered, input: numberedInput), "read_file renders a window")
+        try Expect.true(
+            numberedText.hasSuffix("\n" + (numbered.display ?? "-")),
+            "Line numbers are read from the display text"
+        )
+        try Expect.true(
+            numberedText.hasPrefix("Sources/example.swift · lines 1–1 of \(numbered.totalLineCount)"),
+            "A window names its range"
+        )
+
         return [
             .field(
                 "ordinary",
