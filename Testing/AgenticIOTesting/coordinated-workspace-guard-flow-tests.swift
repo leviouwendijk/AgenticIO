@@ -210,6 +210,12 @@ extension AgenticIOFlowTesting {
             rootInput, prepared: rootPrepared.operation, in: grantedContext
         )
         try Expect.equal(rootResult.status, "applied", "granted publication applies on approval")
+        try Expect.equal(rootResult.entries.map(\.path), ["second.txt"], "entry paths are workspace-relative")
+        try Expect.equal(rootResult.records.map(\.target), ["second.txt"], "record paths are workspace-relative")
+        try Expect.true(
+            !String(decoding: try JSONEncoder().encode(rootResult), as: UTF8.self).contains(root.path),
+            "no absolute workspace paths reach the model"
+        )
         try Expect.equal(
             try String(contentsOf: second_file, encoding: .utf8), "root\n",
             "granted publication reaches the disk"

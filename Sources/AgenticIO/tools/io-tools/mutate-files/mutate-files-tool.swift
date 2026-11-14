@@ -117,37 +117,38 @@ public extension SystemIO.Tools.MutateFiles.Input {
     }
 }
 
+/// One planned change, compact for the model: paths relative to the
+/// workspace, zero counts and empty warnings omitted.
 public struct MutateFilesToolEntryOutput: Sendable, Codable, Hashable {
     public let index: Int
+    /// The changed resource; the source of a move or copy.
     public let path: String
-    public let target: String
+    /// Where a move or copy lands.
+    public let destination: String?
     public let resource: String
     public let delta: String
-    public let warnings: [String]
-    public let insertions: Int
-    public let deletions: Int
-    public let changeCount: Int
+    public let warnings: [String]?
+    public let insertions: Int?
+    public let deletions: Int?
 
     public init(
         index: Int,
         path: String,
-        target: String,
+        destination: String? = nil,
         resource: String,
         delta: String,
-        warnings: [String],
-        insertions: Int,
-        deletions: Int,
-        changeCount: Int
+        warnings: [String] = [],
+        insertions: Int = 0,
+        deletions: Int = 0
     ) {
         self.index = index
         self.path = path
-        self.target = target
+        self.destination = destination
         self.resource = resource
         self.delta = delta
-        self.warnings = warnings
-        self.insertions = insertions
-        self.deletions = deletions
-        self.changeCount = changeCount
+        self.warnings = warnings.isEmpty ? nil : warnings
+        self.insertions = insertions == 0 ? nil : insertions
+        self.deletions = deletions == 0 ? nil : deletions
     }
 }
 
@@ -518,9 +519,9 @@ public extension SystemIO.Tools {
             )
             switch publication {
             case .applied(let result):
-                return output(plan: plan, result: result)
+                return output(plan: plan, result: result, root: workspace.rootURL)
             case .staged(let submissionID):
-                return stagedOutput(plan: plan, submissionID: submissionID)
+                return stagedOutput(plan: plan, submissionID: submissionID, root: workspace.rootURL)
             }
             
         }
@@ -575,43 +576,10 @@ public extension SystemIO.Tools {
             let result = output
 
             let changedEntries = result.entries.filter {
-                $0.changeCount > 0
+                $0.insertions != nil
+                    || $0.deletions != nil
+                    || $0.destination != nil
                     || $0.resource != "unchanged"
-            }
-
-            // Canonical Tool projection is independent of invocation workspace.
-            let rootPath: String? = nil
-
-            func displayPath(
-                _ path: String
-            ) -> String {
-                guard path.hasPrefix("/"),
-                      let rootPath
-                else {
-                    return path
-                }
-
-                let target =
-                    URL(
-                        fileURLWithPath: path
-                    )
-                    .standardizedFileURL
-                    .path
-
-                let prefix =
-                    rootPath.hasSuffix("/")
-                        ? rootPath
-                        : rootPath + "/"
-
-                guard target.hasPrefix(prefix) else {
-                    return path
-                }
-
-                return String(
-                    target.dropFirst(
-                        prefix.count
-                    )
-                )
             }
 
             func detail(
@@ -620,26 +588,15 @@ public extension SystemIO.Tools {
                 var parts = [
                     entry.resource
                 ]
-
-                if entry.insertions > 0 {
-                    parts.append(
-                        "+\(entry.insertions)"
-                    )
+                if let destination = entry.destination {
+                    parts.append("→ \(destination)")
                 }
-
-                if entry.deletions > 0 {
-                    parts.append(
-                        "-\(entry.deletions)"
-                    )
+                if let insertions = entry.insertions {
+                    parts.append("+\(insertions)")
                 }
-
-                if parts.count == 1,
-                   entry.changeCount > 0 {
-                    parts.append(
-                        "\(entry.changeCount) changes"
-                    )
+                if let deletions = entry.deletions {
+                    parts.append("-\(deletions)")
                 }
-
                 return parts.joined(
                     separator: " · "
                 )
@@ -684,9 +641,7 @@ public extension SystemIO.Tools {
                         ),
                 facts: changedEntries.map { entry in
                     .init(
-                        label: displayPath(
-                            entry.path
-                        ),
+                        label: entry.path,
                         value: detail(
                             entry
                         )
@@ -870,7 +825,8 @@ private extension SystemIO.Tools.MutateFiles {
 
     func stagedOutput(
         plan: StandardMutationPlan,
-        submissionID: UUID
+        submissionID: UUID,
+        root: URL
     ) -> SystemIO.Tools.MutateFiles.Output {
         SystemIO.Tools.MutateFiles.Output(
             planID: plan.id,
@@ -889,16 +845,15 @@ private extension SystemIO.Tools.MutateFiles {
             note: "Staged, not yet on disk. The changes hold their claims and are "
                 + "published by the session owner at the end of the run or on review. "
                 + "Do not retry or treat this as a denial.",
-            entries: plan.entries.enumerated().map { offset, entry in
-                entryOutput(entry, authorizedIndex: offset)
-            },
+            entries: plan.entries.map { entryOutput($0, root: root) },
             records: []
         )
     }
 
     func output(
         plan: StandardMutationPlan,
-        result: StandardMutationResult
+        result: StandardMutationResult,
+        root: URL
     ) -> SystemIO.Tools.MutateFiles.Output {
         SystemIO.Tools.MutateFiles.Output(
             planID: plan.id,
@@ -913,39 +868,55 @@ private extension SystemIO.Tools.MutateFiles {
             appliedEntryIDs: result.applied,
             rollbackAvailable: result.rollback != nil,
             failureMessage: result.failed?.message,
-            entries: plan.entries.enumerated().map { offset, entry in
-                entryOutput(
-                    entry,
-                    authorizedIndex: offset
-                )
-            },
-            records: result.records.map(recordOutput)
+            entries: plan.entries.map { entryOutput($0, root: root) },
+            records: result.records.map { recordOutput($0, root: root) }
         )
     }
 
     func entryOutput(
         _ entry: StandardPlannedMutation,
-        authorizedIndex: Int
+        root: URL
     ) -> MutateFilesToolEntryOutput {
-        MutateFilesToolEntryOutput(
+        let source: URL
+        let destination: URL?
+        switch entry.entry {
+        case .move(let operation):
+            (source, destination) = (operation.source, operation.destination)
+        case .copy(let operation):
+            (source, destination) = (operation.source, operation.destination)
+        default:
+            (source, destination) = (entry.target, nil)
+        }
+        return MutateFilesToolEntryOutput(
             index: entry.index,
-            path: entry.target.path,
-            target: entry.target.path,
+            path: relative(source, to: root),
+            destination: destination.map { relative($0, to: root) },
             resource: entry.resource.rawValue,
             delta: entry.delta.rawValue,
             warnings: entry.warnings.map(\.rawValue),
             insertions: entry.diff?.insertions ?? 0,
-            deletions: entry.diff?.deletions ?? 0,
-            changeCount: entry.diff?.changeCount ?? 0
+            deletions: entry.diff?.deletions ?? 0
         )
     }
 
+    /// Workspace-relative path; unchanged when outside the workspace.
+    func relative(
+        _ url: URL,
+        to root: URL
+    ) -> String {
+        let path = url.standardizedFileURL.path
+        let base = root.standardizedFileURL.path
+        let prefix = base.hasSuffix("/") ? base : base + "/"
+        return path.hasPrefix(prefix) ? String(path.dropFirst(prefix.count)) : path
+    }
+
     func recordOutput(
-        _ record: WriteMutationRecord
+        _ record: WriteMutationRecord,
+        root: URL
     ) -> MutateFilesToolRecordOutput {
         MutateFilesToolRecordOutput(
             id: record.id,
-            target: record.target.path,
+            target: relative(record.target, to: root),
             operationKind: record.operationKind.rawValue,
             resource: record.surfacedResourceChangeKind.rawValue,
             delta: record.surfacedDeltaKind.rawValue,
