@@ -99,6 +99,9 @@ public struct WorkspaceAccessRequest: Contract.Result, Hashable {
     public let reason: String
     public let policyProfile: String
     public let durationSeconds: Double?
+    /// When set, the grant covers only these files, named relative to
+    /// `rootPath`; otherwise the whole root.
+    public let files: [String]?
 
     public init(
         rootID: String,
@@ -107,7 +110,8 @@ public struct WorkspaceAccessRequest: Contract.Result, Hashable {
         capabilities: [WorkspaceCapability],
         reason: String,
         policyProfile: String,
-        durationSeconds: Double?
+        durationSeconds: Double?,
+        files: [String]? = nil
     ) {
         self.rootID = rootID
         self.rootPath = rootPath
@@ -116,5 +120,6 @@ public struct WorkspaceAccessRequest: Contract.Result, Hashable {
         self.reason = reason
         self.policyProfile = policyProfile
         self.durationSeconds = durationSeconds
+        self.files = files
     }
 }
