@@ -455,11 +455,14 @@ public extension SystemIO.Tools {
             _ input: Input,
             in context: ToolContext
         ) async throws -> CapabilityPreparation<ToolPreflight> {
-            let workspace = try FileToolSupport.requireWorkspace(
-                context.workspace,
-                toolName: Self.identifier.rawValue
+            let (rooted, workspace) = try targeting(
+                input,
+                in: try FileToolSupport.requireWorkspace(
+                    context.workspace,
+                    toolName: Self.identifier.rawValue
+                )
             )
-            let targeted = try workspaceTargetedInput(input, workspace: workspace)
+            let targeted = try workspaceTargetedInput(rooted, workspace: workspace)
             let preparation = try await Self(
                 context: mergedMutationContext(),
                 fileEditPolicy: fileEditPolicy,
@@ -549,9 +552,12 @@ public extension SystemIO.Tools {
                 )
             }
             let work = try operation.plan.decode(MutateFilesPreparedWork.self)
-            let workspace = try FileToolSupport.requireWorkspace(
-                context.workspace,
-                toolName: Self.identifier.rawValue
+            let (rooted, workspace) = try targeting(
+                input,
+                in: try FileToolSupport.requireWorkspace(
+                    context.workspace,
+                    toolName: Self.identifier.rawValue
+                )
             )
             guard work.input == input,
                   work.rootURL == workspace.rootURL,
@@ -561,7 +567,7 @@ public extension SystemIO.Tools {
             else {
                 throw MutateFilesPreparedWorkError.context_mismatch
             }
-            let targeted = try workspaceTargetedInput(input, workspace: workspace)
+            let targeted = try workspaceTargetedInput(rooted, workspace: workspace)
             return try await callInternal(
                 targeted,
                 plan: work.plan,
@@ -662,6 +668,61 @@ private extension SystemIO.Tools.MutateFiles {
         workspace _: WorkspaceContext?
     ) throws -> SystemIO.Tools.MutateFiles.Input {
         input
+    }
+
+    /// The input and context a mutation runs in: the run's root, unless
+    /// every target lies in one other root of the workspace; then that root,
+    /// under its grants and policy, with the input naming it. Targets in
+    /// another root are named by absolute path; one call mutates one root.
+    func targeting(
+        _ input: SystemIO.Tools.MutateFiles.Input,
+        in workspace: WorkspaceContext
+    ) throws -> (SystemIO.Tools.MutateFiles.Input, WorkspaceContext) {
+        let roots = Set(try authorizeEntries(input, workspace: workspace).flatMap { $0 }.map(\.rootIdentifier))
+        guard roots.count <= 1 else {
+            throw PredefinedFileToolError.invalidValue(
+                tool: Self.identifier.rawValue,
+                field: "entries",
+                reason: "targets lie in several workspace roots; mutate one root per call"
+            )
+        }
+        guard let root = roots.first, root != workspace.rootIdentifier else {
+            return (input, workspace)
+        }
+        let paths = input.entries.flatMap { [$0.path] + ($0.destination.map { [$0] } ?? []) }
+        guard paths.allSatisfy({ $0.hasPrefix("/") || $0.hasPrefix("~") }) else {
+            throw PredefinedFileToolError.invalidValue(
+                tool: Self.identifier.rawValue,
+                field: "entries",
+                reason: "name targets in another workspace root by absolute path"
+            )
+        }
+        let target = try workspace.context(forRoot: root)
+        // Writer entries name paths relative to their root.
+        let base = target.rootURL.standardizedFileURL.path
+        func relative(_ path: String) -> String {
+            let absolute = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
+                .standardizedFileURL.path
+            return String(absolute.dropFirst(base.count))
+                .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        }
+        let entries = input.entries.map { entry in
+            MutateFilesToolEntry(
+                kind: entry.kind,
+                rootID: nil,
+                path: relative(entry.path),
+                content: entry.content,
+                replacePolicy: entry.replacePolicy,
+                deletePolicy: entry.deletePolicy,
+                operations: entry.operations,
+                destination: entry.destination.map(relative),
+                createParentDirectories: entry.createParentDirectories
+            )
+        }
+        return (
+            .init(reason: input.reason, rootID: root, failurePolicy: input.failurePolicy, entries: entries),
+            target
+        )
     }
 
     func workspaceWriter(

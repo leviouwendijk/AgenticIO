@@ -43,6 +43,13 @@ enum AgenticIOFlowSuite: TestFlowRegistry {
             try await AgenticIOFlowTesting.runCoordinatedWorkspaceGuard()
         },
         TestFlow(
+            "mutate-files-other-root",
+            tags: ["mutation", "workspace", "roots"]
+        ) {
+            try await AgenticIOFlowTesting
+                .runMutateFilesOtherRoot()
+        },
+        TestFlow(
             "mutate-files-workspace-targeting",
             tags: [
                 "agentic-io",
