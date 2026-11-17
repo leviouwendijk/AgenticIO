@@ -8,7 +8,11 @@ import Schema
 import Macros
 import Search
 
-/// Deterministic text matching strategy used for authorized source search.
+/// How a probe's text matches source: `contains` (literal text anywhere,
+/// following caseSensitive; the default), `exact` (literal text, always
+/// case-sensitive), `regex` (a regular expression; `^` and `$` match at
+/// line ends), `identifier` (a whole identifier), `prefix` (text that starts
+/// a searched slice), `subsequence` and `fuzzy` (approximate).
 @JSONSchema
 public enum SourceSearchStrategy:
     String,
@@ -17,17 +21,20 @@ public enum SourceSearchStrategy:
     Hashable,
     CaseIterable
 {
-    case exact
-    case prefix
     case contains
+    case exact
+    case regex
     case identifier
+    case prefix
     case subsequence
     case fuzzy
 
+    /// Exact runs as a case-sensitive pattern of the escaped text: whole-
+    /// field equality never matches inside source.
     var searchStrategy: SearchStrategy {
         switch self {
-        case .exact:
-            return .exact
+        case .exact, .regex:
+            return .regex
         case .prefix:
             return .prefix
         case .contains:
@@ -38,6 +45,18 @@ public enum SourceSearchStrategy:
             return .subsequence
         case .fuzzy:
             return .fuzzy
+        }
+    }
+
+    /// The text the matcher receives for a probe's text.
+    func searchText(
+        _ text: String
+    ) -> String {
+        switch self {
+        case .exact:
+            "(?-i)" + NSRegularExpression.escapedPattern(for: text)
+        default:
+            text
         }
     }
 }
@@ -73,6 +92,9 @@ private extension SystemIO.Tools.SearchSources.Input {
         case excludes
         case selections
         case within
+        case query
+        case pattern
+        case contextLines
         case probes
         case lexicalPattern
         case mode
@@ -115,6 +137,18 @@ public extension SystemIO.Tools.SearchSources.Input {
                 [SourceContextCandidateInput].self,
                 forKey: .within
             ) ?? [],
+            query: try container.decodeIfPresent(
+                String.self,
+                forKey: .query
+            ),
+            pattern: try container.decodeIfPresent(
+                String.self,
+                forKey: .pattern
+            ),
+            contextLines: try container.decodeIfPresent(
+                Int.self,
+                forKey: .contextLines
+            ) ?? 0,
             probes: try container.decodeIfPresent(
                 [SourceSearchProbeInput].self,
                 forKey: .probes
@@ -162,7 +196,7 @@ public extension SystemIO.Tools.SearchSources.Input {
 public extension SystemIO.Tools {
     @Tool
     struct SearchSources: Tool {
-        /// Search file content inside one authorized workspace source universe and return compact ranked or exhaustive source ranges without returning file contents.
+        /// Search file contents, like rg: give `query` (literal text) or `pattern` (a regular expression), and `includes` path globs to narrow the files. Each hit shows its matching lines; `contextLines` adds lines around them. `probes` combine several terms with roles; `lexicalPattern` matches token patterns.
         @JSONSchema
         public struct Input: HashableSource
         {
@@ -186,7 +220,19 @@ public extension SystemIO.Tools {
             @Schema(required: false)
             public let within: [SourceContextCandidateInput]
 
-            /// Deterministic text-search probes. Each probe owns its admission role and matching strategy. Mutually exclusive with lexicalPattern.
+            /// Literal text to find (contains; follows caseSensitive). The short form: one required term, instead of probes.
+            @Schema(required: false)
+            public let query: String?
+
+            /// A regular expression to find; `^` and `$` match at line ends. The short form, instead of probes.
+            @Schema(required: false)
+            public let pattern: String?
+
+            /// Lines shown before and after each matching line. Defaults to 0.
+            @Schema(required: false)
+            public let contextLines: Int
+
+            /// Several search terms, each with its own admission role and matching strategy. Mutually exclusive with query, pattern and lexicalPattern.
             @Schema(required: false)
             public let probes: [SourceSearchProbeInput]
 
@@ -232,6 +278,9 @@ public extension SystemIO.Tools {
                 excludes: [String] = [],
                 selections: [String] = [],
                 within: [SourceContextCandidateInput] = [],
+                query: String? = nil,
+                pattern: String? = nil,
+                contextLines: Int = 0,
                 probes: [SourceSearchProbeInput] = [],
                 lexicalPattern: LexicalPatternInput? = nil,
                 mode: SourceSearchMode = .ranked,
@@ -250,6 +299,9 @@ public extension SystemIO.Tools {
                 self.excludes = excludes
                 self.selections = selections
                 self.within = within
+                self.query = query
+                self.pattern = pattern
+                self.contextLines = min(10, max(0, contextLines))
                 self.probes = probes
                 self.lexicalPattern = lexicalPattern
                 self.mode = mode
@@ -277,7 +329,7 @@ public extension SystemIO.Tools {
 
         public typealias Output = SourceSearchResult
 
-        public static let purpose = "Search text or bounded lexical token patterns inside an authorized workspace source universe and return compact source ranges without returning source contents."
+        public static let purpose = "Search file contents like rg: literal text (query) or a regular expression (pattern), each hit with its matching lines."
         public static let risk: ActionRisk = .observe
 
         public let searcher: SourceSearcher
@@ -350,7 +402,7 @@ public extension SystemIO.Tools {
                     "stale_search_candidate_rejected",
                     "selection_resolution_bounded_to_authorized_root",
                     "retained_source_cache_only",
-                    "no_source_content_returned",
+                    "matching_lines_only",
                     "no_file_mutation",
                 ]
             )
@@ -399,7 +451,8 @@ public extension SystemIO.Tools {
                     frontierOptions: frontierOptions,
                     within: within,
                     expectedCorpusFingerprint:
-                        input.expectedCorpusFingerprint?.fingerprint
+                        input.expectedCorpusFingerprint?.fingerprint,
+                    contextLines: input.contextLines
                 )
 
             case .lexical(let pattern):
@@ -411,7 +464,8 @@ public extension SystemIO.Tools {
                     frontierOptions: frontierOptions,
                     within: within,
                     expectedCorpusFingerprint:
-                        input.expectedCorpusFingerprint?.fingerprint
+                        input.expectedCorpusFingerprint?.fingerprint,
+                    contextLines: input.contextLines
                 )
             }
 

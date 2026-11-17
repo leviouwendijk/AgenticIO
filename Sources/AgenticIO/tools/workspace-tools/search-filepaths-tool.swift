@@ -21,6 +21,8 @@ public enum SearchFilepathsStrategy:
     case identifier
     case subsequence
     case fuzzy
+    /// A regular expression over the path.
+    case regex
 
     var searchStrategy: SearchStrategy {
         switch self {
@@ -36,6 +38,8 @@ public enum SearchFilepathsStrategy:
             return .subsequence
         case .fuzzy:
             return .fuzzy
+        case .regex:
+            return .regex
         }
     }
 
@@ -55,6 +59,8 @@ public enum SearchFilepathsStrategy:
             self = .subsequence
         case .fuzzy:
             self = .fuzzy
+        case .regex:
+            self = .regex
         }
     }
 }

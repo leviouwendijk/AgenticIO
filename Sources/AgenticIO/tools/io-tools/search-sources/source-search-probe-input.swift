@@ -49,7 +49,7 @@ public struct SourceSearchProbeInput:
     @Schema(required: false)
     public let role: SourceSearchProbeRole
 
-    /// Matching strategy used only by this probe. Defaults to fuzzy.
+    /// Matching strategy used only by this probe. Defaults to contains.
     @Schema(required: false)
     public let strategy: SourceSearchStrategy
 
@@ -58,7 +58,7 @@ public struct SourceSearchProbeInput:
         id: String? = nil,
         weight: Int = 1,
         role: SourceSearchProbeRole = .preferred,
-        strategy: SourceSearchStrategy = .fuzzy
+        strategy: SourceSearchStrategy = .contains
     ) {
         self.text = text
         self.id = id
@@ -72,8 +72,9 @@ public struct SourceSearchProbeInput:
 
     var searchProbe: SearchProbe {
         SearchProbe(
-            text,
-            id: id,
+            strategy.searchText(text),
+            // Exact rewrites the text; the id keeps what was asked.
+            id: id ?? (strategy == .exact ? text : nil),
             weight: weight,
             role: role.searchRole,
             strategy: strategy.searchStrategy
@@ -119,7 +120,7 @@ public extension SourceSearchProbeInput {
             strategy: try container.decodeIfPresent(
                 SourceSearchStrategy.self,
                 forKey: .strategy
-            ) ?? .fuzzy
+            ) ?? .contains
         )
     }
 }

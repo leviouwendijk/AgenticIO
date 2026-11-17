@@ -178,7 +178,7 @@
       "location" : "https://github.com/leviouwendijk/Matching.git",
       "state" : {
         "branch" : "master",
-        "revision" : "5ac7de66e96468fb00a5fb5748fd85101a009968"
+        "revision" : "21573514e18d7ef62c10d7736188e3397c538b92"
       }
     },
     {
@@ -304,7 +304,7 @@
       "location" : "https://github.com/leviouwendijk/Search.git",
       "state" : {
         "branch" : "master",
-        "revision" : "c8dc4ad771dedc7a6adb05f2b59de57e40c99a8e"
+        "revision" : "1df2c136b9ce868cc46cf0b0a7e0b9ceb3cbc72b"
       }
     },
     {

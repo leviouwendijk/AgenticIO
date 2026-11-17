@@ -1,9 +1,9 @@
 import Agentic
 
 public extension SystemIO.Tools.SearchSources {
-    /// Candidate regions grouped by file. Each file names its section and
-    /// fingerprint once, as `load_search_context` takes them; fingerprints
-    /// read `algorithm:value`.
+    /// Hits grouped by file, each with its lines as `rg` prints them:
+    /// `12:` for a matching line, `11-` for context, `--` between regions.
+    /// Which term matched is named only when several were searched.
     func render(
         _ output: Output,
         input: Input
@@ -12,7 +12,6 @@ public extension SystemIO.Tools.SearchSources {
             "\(output.kind.rawValue) search (\(output.mode.rawValue)): "
                 + "\(output.returnedCandidateCount) of \(output.totalCandidateCount) regions from offset \(output.offset)"
                 + " · \(output.searchedDocumentCount) slices searched, \(output.matchedDocumentCount) matched",
-            "corpus \(output.corpusFingerprint)",
         ]
         if output.hasMore, let next = output.nextOffset {
             lines.append(
@@ -20,41 +19,44 @@ public extension SystemIO.Tools.SearchSources {
             )
         }
 
+        let terms = Set(output.candidates.flatMap { $0.evidence.map(\.query) })
         var files: [String] = []
         var grouped: [String: [SourceSearchCandidate]] = [:]
         for candidate in output.candidates {
-            let key = candidate.path + "\u{0}" + candidate.sectionKey + "\u{0}" + candidate.sourceFingerprint.description
-            if grouped[key] == nil {
-                files.append(key)
+            if grouped[candidate.path] == nil {
+                files.append(candidate.path)
             }
-            grouped[key, default: []].append(candidate)
+            grouped[candidate.path, default: []].append(candidate)
         }
 
-        for key in files {
-            guard let candidates = grouped[key], let first = candidates.first else {
-                continue
-            }
-            var file = first.path
-            if !first.sectionKey.isEmpty, first.sectionKey != first.path {
-                file += "  section \(first.sectionKey)"
-            }
+        for path in files {
+            guard let candidates = grouped[path] else { continue }
             lines.append("")
-            lines.append(file + "  \(first.sourceFingerprint)")
-            for candidate in candidates {
-                var line = "  \(candidate.lineRange.start)–\(candidate.lineRange.end)  score \(candidate.score)"
-                let evidence = candidate.evidence.map { evidence in
-                    let ranges = evidence.lineRanges
-                        .map { $0.start == $0.end ? "\($0.start)" : "\($0.start)–\($0.end)" }
-                        .joined(separator: ",")
-                    return "\"\(evidence.query)\"" + (ranges.isEmpty ? "" : " " + ranges)
-                }
-                if !evidence.isEmpty {
-                    line += "  [" + evidence.joined(separator: "; ") + "]"
+            lines.append(path)
+            var printed = Set<Int>()
+            for (index, candidate) in candidates.enumerated() {
+                var label = ""
+                if terms.count > 1 {
+                    label = candidate.evidence.map { evidence in
+                        "\"\(evidence.queryID ?? evidence.query)\""
+                    }.joined(separator: ", ")
                 }
                 for capture in candidate.captures {
-                    line += "  \(capture.name)=\(capture.tokens.joined(separator: " "))"
+                    label += (label.isEmpty ? "" : "  ") + "\(capture.name)=\(capture.tokens.joined(separator: " "))"
                 }
-                lines.append(line)
+                let shown = (candidate.lines ?? []).filter { !printed.contains($0.number) }
+                if index > 0, !shown.isEmpty || !label.isEmpty {
+                    lines.append("--")
+                }
+                if !label.isEmpty || shown.isEmpty {
+                    let range = candidate.lineRange
+                    let span = range.start == range.end ? "\(range.start)" : "\(range.start)–\(range.end)"
+                    lines.append("lines \(span)" + (label.isEmpty ? "" : "  [\(label)]"))
+                }
+                for line in shown {
+                    printed.insert(line.number)
+                    lines.append("\(line.number)\(line.isMatch ? ":" : "-")\(line.text)")
+                }
             }
         }
         return lines.joined(separator: "\n")

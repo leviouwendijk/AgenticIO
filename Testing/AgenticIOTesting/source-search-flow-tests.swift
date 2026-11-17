@@ -263,12 +263,83 @@ private extension AgenticIOFlowTesting {
         let fileLines = rendered.split(separator: "\n").filter { $0.hasPrefix("Sources/A.swift") }
         try Expect.equal(fileLines.count, 1, "Each file is named once")
         try Expect.true(
-            fileLines.first?.hasSuffix("  \(candidate.sourceFingerprint)") == true,
-            "with its fingerprint"
+            rendered.contains("\n2:needle alpha\n4:needle beta"),
+            "Hits show their matching lines, as rg prints them"
         )
-        try Expect.true(rendered.contains("\n  2–4  score "), "Regions read as line ranges")
-        try Expect.true(rendered.contains("corpus \(output.corpusFingerprint)"), "The corpus fingerprint stays visible")
+        try Expect.true(
+            !rendered.contains(candidate.sourceFingerprint.description)
+                && !rendered.contains(output.corpusFingerprint.description),
+            "Fingerprints appear only when a result pages"
+        )
         try Expect.true(!rendered.contains("{"), "No JSON reaches the model when nothing pages")
+
+        // The short form: literal text, a pattern, context lines.
+        let context = ToolContext(workspace: fixture.workspace)
+        let literal = try await tool.call(
+            .init(includes: ["Sources/**"], query: "NEEDLE beta", contextLines: 1),
+            in: context
+        )
+        let literalText = try Expect.notNil(
+            tool.render(literal, input: .init(query: "NEEDLE beta")),
+            "short form renders"
+        )
+        try Expect.true(
+            literalText.contains("3-middle\n4:needle beta\n5-footer"),
+            "query matches literal text, case-insensitively, with context lines"
+        )
+        let pattern = try await tool.call(
+            .init(includes: ["Sources/**"], pattern: "^needle (alpha|beta)$"),
+            in: context
+        )
+        try Expect.equal(
+            pattern.candidates.flatMap { $0.lines ?? [] }.filter(\.isMatch).map(\.number),
+            [2, 4],
+            "pattern matches a regular expression per line"
+        )
+        let exact = try await tool.call(
+            .init(includes: ["Sources/**"], probes: [.init(text: "NEEDLE", strategy: .exact)]),
+            in: context
+        )
+        try Expect.equal(exact.candidates.count, 0, "exact is literal and case-sensitive")
+        let exactHit = try await tool.call(
+            .init(includes: ["Sources/**"], probes: [.init(text: "alpha", strategy: .exact)]),
+            in: context
+        )
+        try Expect.equal(
+            exactHit.candidates.first?.evidence.first?.queryID,
+            "alpha",
+            "exact matches inside a line and keeps the asked text"
+        )
+        do {
+            _ = try await tool.call(.init(pattern: "needle("), in: context)
+            try Expect.true(false, "an invalid pattern is refused")
+        } catch {
+            try Expect.true(
+                "\(error)".contains("regular expression"),
+                "an invalid pattern is refused with a reason"
+            )
+        }
+
+        // read_files: several windows in one call, each as read_file reads it.
+        let files = SystemIO.Tools.ReadFiles()
+        let reads = SystemIO.Tools.ReadFiles.Input(reads: [
+            .init(path: "Sources/A.swift", startLine: 2, endLine: 3),
+            .init(path: "Sources/B.swift"),
+        ])
+        let preflight = try await files.preflight(reads, in: context)
+        try Expect.equal(preflight.risk, .observe, "read_files keeps read_file's risk")
+        let read = try await files.call(reads, in: context)
+        try Expect.equal(
+            read.files.map(\.content),
+            ["needle alpha\nmiddle", "unrelated\nsource\ntext"],
+            "read_files returns each window"
+        )
+        let readText = try Expect.notNil(files.render(read, input: reads), "read_files renders")
+        try Expect.true(
+            readText.contains("Sources/A.swift · lines 2–3 of 5\nneedle alpha")
+                && readText.contains("\n\nSources/B.swift · 3 lines\nunrelated"),
+            "each window under its own header"
+        )
     }
 
     static func proveLexicalSearch(

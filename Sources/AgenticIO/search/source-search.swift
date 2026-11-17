@@ -19,6 +19,8 @@ public struct SourceSearchRequest: Sendable {
     public let frontierOptions: SearchFrontierOptions
     public let within: [SourceContextReference]
     public let expectedCorpusFingerprint: ContentFingerprint?
+    /// Lines shown before and after each matching line.
+    public let contextLines: Int
 
     public var queries: [SearchQuery] {
         probes.map(\.query)
@@ -32,8 +34,10 @@ public struct SourceSearchRequest: Sendable {
         options: SearchOptions = .defaults,
         frontierOptions: SearchFrontierOptions = .defaults,
         within: [SourceContextReference] = [],
-        expectedCorpusFingerprint: ContentFingerprint? = nil
+        expectedCorpusFingerprint: ContentFingerprint? = nil,
+        contextLines: Int = 0
     ) {
+        self.contextLines = max(0, contextLines)
         self.rootID = rootID
         self.definition = definition
         self.probes = probes
@@ -55,7 +59,8 @@ public struct SourceSearchRequest: Sendable {
         options: SearchOptions = .defaults,
         frontierOptions: SearchFrontierOptions = .defaults,
         within: [SourceContextReference] = [],
-        expectedCorpusFingerprint: ContentFingerprint? = nil
+        expectedCorpusFingerprint: ContentFingerprint? = nil,
+        contextLines: Int = 0
     ) {
         self.init(
             rootID: rootID,
@@ -71,7 +76,8 @@ public struct SourceSearchRequest: Sendable {
             options: options,
             frontierOptions: frontierOptions,
             within: within,
-            expectedCorpusFingerprint: expectedCorpusFingerprint
+            expectedCorpusFingerprint: expectedCorpusFingerprint,
+            contextLines: contextLines
         )
     }
 
@@ -82,7 +88,8 @@ public struct SourceSearchRequest: Sendable {
         options: SearchOptions = .defaults,
         frontierOptions: SearchFrontierOptions = .defaults,
         within: [SourceContextReference] = [],
-        expectedCorpusFingerprint: ContentFingerprint? = nil
+        expectedCorpusFingerprint: ContentFingerprint? = nil,
+        contextLines: Int = 0
     ) {
         self.init(
             rootID: rootID,
@@ -92,7 +99,8 @@ public struct SourceSearchRequest: Sendable {
             options: options,
             frontierOptions: frontierOptions,
             within: within,
-            expectedCorpusFingerprint: expectedCorpusFingerprint
+            expectedCorpusFingerprint: expectedCorpusFingerprint,
+            contextLines: contextLines
         )
     }
 }
@@ -182,6 +190,28 @@ public struct SourceSearchEvidence:
     }
 }
 
+/// One source line shown with a search result.
+public struct SourceSearchLine:
+    Sendable,
+    Codable,
+    Hashable
+{
+    public let number: Int
+    public let text: String
+    /// False for context lines around a match.
+    public let isMatch: Bool
+
+    public init(
+        number: Int,
+        text: String,
+        isMatch: Bool
+    ) {
+        self.number = number
+        self.text = text
+        self.isMatch = isMatch
+    }
+}
+
 public struct SourceSearchCandidate:
     Sendable,
     Codable,
@@ -195,6 +225,9 @@ public struct SourceSearchCandidate:
     public let probeCount: Int
     public let evidence: [SourceSearchEvidence]
     public let captures: [SourceSearchCapture]
+    /// The matching lines (and context), as `rg` shows them; nil in
+    /// results recorded before lines were attached.
+    public let lines: [SourceSearchLine]?
 
     public init(
         path: String,
@@ -204,7 +237,8 @@ public struct SourceSearchCandidate:
         score: Int,
         probeCount: Int,
         evidence: [SourceSearchEvidence],
-        captures: [SourceSearchCapture] = []
+        captures: [SourceSearchCapture] = [],
+        lines: [SourceSearchLine]? = nil
     ) {
         self.path = path
         self.sectionKey = sectionKey
@@ -214,6 +248,23 @@ public struct SourceSearchCandidate:
         self.probeCount = probeCount
         self.evidence = evidence
         self.captures = captures
+        self.lines = lines
+    }
+
+    func with(
+        lines: [SourceSearchLine]
+    ) -> Self {
+        .init(
+            path: path,
+            sectionKey: sectionKey,
+            sourceFingerprint: sourceFingerprint,
+            lineRange: lineRange,
+            score: score,
+            probeCount: probeCount,
+            evidence: evidence,
+            captures: captures,
+            lines: lines
+        )
     }
 }
 
@@ -267,6 +318,27 @@ public struct SourceSearchResult: Contract.Result {
         self.truncated = truncated
         self.hasMore = hasMore
         self.candidates = candidates
+    }
+
+    func with(
+        candidates: [SourceSearchCandidate]
+    ) -> Self {
+        .init(
+            kind: kind,
+            mode: mode,
+            corpusFingerprint: corpusFingerprint,
+            sourceCount: sourceCount,
+            searchedDocumentCount: searchedDocumentCount,
+            matchedDocumentCount: matchedDocumentCount,
+            discoveredCandidateCount: discoveredCandidateCount,
+            totalCandidateCount: totalCandidateCount,
+            offset: offset,
+            returnedCandidateCount: returnedCandidateCount,
+            nextOffset: nextOffset,
+            truncated: truncated,
+            hasMore: hasMore,
+            candidates: candidates
+        )
     }
 }
 
@@ -540,7 +612,7 @@ private extension SourceSearcher {
             options: request.frontierOptions
         )
 
-        return SourceSearchResult(
+        return attachingLines(to: SourceSearchResult(
             kind: .text,
             mode: frontier.mode,
             corpusFingerprint: corpusFingerprint,
@@ -557,7 +629,7 @@ private extension SourceSearcher {
             candidates: frontier.candidates.map(
                 sourceCandidate
             )
-        )
+        ), from: searchCorpus, contextLines: request.contextLines)
     }
 
     func lexicalSourceSearchResult(
@@ -623,7 +695,7 @@ private extension SourceSearcher {
                 && offset > 0
         ) || hasMore
 
-        return SourceSearchResult(
+        return attachingLines(to: SourceSearchResult(
             kind: .lexical,
             mode: request.options.mode,
             corpusFingerprint: corpusFingerprint,
@@ -640,7 +712,7 @@ private extension SourceSearcher {
             candidates: selected.map(
                 sourceCandidate
             )
-        )
+        ), from: searchCorpus, contextLines: request.contextLines)
     }
 
     func diversifiedLexicalMatches(

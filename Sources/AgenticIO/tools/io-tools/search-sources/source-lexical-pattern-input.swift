@@ -287,7 +287,31 @@ extension SystemIO.Tools.SearchSources.Input {
     func resolvedSearchQuery(
         toolName: String
     ) throws -> ResolvedSearchQuery {
-        let resolvedProbes = probes
+        var shortForm: [SourceSearchProbeInput] = []
+        if let query, !query.isEmpty {
+            shortForm.append(.init(text: query, role: .required, strategy: .contains))
+        }
+        if let pattern, !pattern.isEmpty {
+            shortForm.append(.init(text: pattern, role: .required, strategy: .regex))
+        }
+        guard shortForm.isEmpty || (probes.isEmpty && lexicalPattern == nil) else {
+            throw PredefinedFileToolError.invalidValue(
+                tool: toolName,
+                field: "query/pattern",
+                reason: "cannot be combined with probes or lexicalPattern; put every term in probes instead"
+            )
+        }
+        let inputs = shortForm.isEmpty ? probes : shortForm
+        for input in inputs where input.strategy == .regex {
+            guard (try? NSRegularExpression(pattern: input.text)) != nil else {
+                throw PredefinedFileToolError.invalidValue(
+                    tool: toolName,
+                    field: shortForm.isEmpty ? "probes" : "pattern",
+                    reason: "'\(input.text)' is not a valid regular expression"
+                )
+            }
+        }
+        let resolvedProbes = inputs
             .map(\.searchProbe)
             .filter {
                 !$0.isEmpty
@@ -310,8 +334,8 @@ extension SystemIO.Tools.SearchSources.Input {
         case (true, nil):
             throw PredefinedFileToolError.invalidValue(
                 tool: toolName,
-                field: "probes/lexicalPattern",
-                reason: "must provide at least one non-empty search probe or one lexical pattern"
+                field: "query",
+                reason: "give query (literal text), pattern (a regular expression), probes or lexicalPattern"
             )
 
         case (false, .some):
