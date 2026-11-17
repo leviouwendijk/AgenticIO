@@ -154,12 +154,12 @@ extension AgenticIOFlowTesting {
             "coordinated mutate_files does not publish"
         )
         try Expect.true(result.note != nil, "staged output explains it is not yet on disk")
-        let stagedRead = try await SystemIO.Tools.ReadFile().call(
+        let stagedRead = try await SystemIO.Tools.ReadFiles().call(
             .init(path: "sample.txt"),
             in: tool_context
         )
         try Expect.equal(
-            stagedRead.content, "modified\n",
+            stagedRead.files.first?.content, "modified\n",
             "a participant reads its own staged change before publication"
         )
 

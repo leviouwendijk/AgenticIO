@@ -320,14 +320,15 @@ private extension AgenticIOFlowTesting {
             )
         }
 
-        // read_files: several windows in one call, each as read_file reads it.
+        // read_files: several windows in one call, each under its own header.
         let files = SystemIO.Tools.ReadFiles()
         let reads = SystemIO.Tools.ReadFiles.Input(reads: [
             .init(path: "Sources/A.swift", startLine: 2, endLine: 3),
             .init(path: "Sources/B.swift"),
         ])
         let preflight = try await files.preflight(reads, in: context)
-        try Expect.equal(preflight.risk, .observe, "read_files keeps read_file's risk")
+        try Expect.equal(preflight.risk, .observe, "several ordinary reads stay observe")
+        try Expect.equal(preflight.access.targets, ["Sources/A.swift", "Sources/B.swift"], "every file is a target")
         let read = try await files.call(reads, in: context)
         try Expect.equal(
             read.files.map(\.content),
@@ -340,6 +341,14 @@ private extension AgenticIOFlowTesting {
                 && readText.contains("\n\nSources/B.swift · 3 lines\nunrelated"),
             "each window under its own header"
         )
+        do {
+            _ = try JSONDecoder().decode(
+                SystemIO.Tools.ReadFiles.Input.self,
+                from: Data(#"{"path": "Sources/A.swift", "reads": [{"path": "Sources/B.swift"}]}"#.utf8)
+            )
+            try Expect.true(false, "path and reads together are refused")
+        } catch is DecodingError {
+        }
     }
 
     static func proveLexicalSearch(

@@ -100,7 +100,7 @@ public extension SystemIO.Agents {
                     members: [
                         SystemIO.Tools.ScanFilepaths.identifier,
                         SystemIO.Tools.SearchFilepaths.identifier,
-                        SystemIO.Tools.ReadFile.identifier,
+                        SystemIO.Tools.ReadFiles.identifier,
                         SystemIO.Tools.MutateFiles.identifier,
                         Standard.Tools.ConvertCase.identifier,
                     ]
@@ -116,7 +116,7 @@ public extension SystemIO.Agents {
                     members: [
                         SystemIO.Tools.ScanFilepaths.identifier,
                         SystemIO.Tools.SearchFilepaths.identifier,
-                        SystemIO.Tools.ReadFile.identifier,
+                        SystemIO.Tools.ReadFiles.identifier,
                         SystemIO.Tools.MutateFiles.identifier,
                         Standard.Tools.ConvertCase.identifier,
                     ]

@@ -13,13 +13,13 @@ extension AgenticIOFlowTesting {
             fixture.remove()
         }
 
-        let tool = SystemIO.Tools.ReadFile()
+        let tool = SystemIO.Tools.ReadFiles()
         let policy = ToolExecutionPolicy(
             autonomyMode: .auto_observe
         )
 
         let ordinary = try await tool.preflight(
-            SystemIO.Tools.ReadFile.Input(
+            SystemIO.Tools.ReadFiles.Input(
                                 path: "Sources/example.swift"
                             ),
             in: ToolContext(workspace: fixture.workspace)
@@ -36,7 +36,7 @@ extension AgenticIOFlowTesting {
             "ordinary source read remains automatic"
         )
         let sensitive = try await tool.preflight(
-            SystemIO.Tools.ReadFile.Input(
+            SystemIO.Tools.ReadFiles.Input(
                                 path: "notes/private-notes.txt"
                             ),
             in: ToolContext(workspace: fixture.workspace)
@@ -60,7 +60,7 @@ extension AgenticIOFlowTesting {
         )
 
         let forbidden = try await tool.preflight(
-            SystemIO.Tools.ReadFile.Input(
+            SystemIO.Tools.ReadFiles.Input(
                                 path: "notes/do-not-read.txt"
                             ),
             in: ToolContext(workspace: fixture.workspace)
@@ -84,22 +84,24 @@ extension AgenticIOFlowTesting {
         )
 
         // The model reads the file text once, under a header.
-        let plainInput = SystemIO.Tools.ReadFile.Input(path: "Sources/example.swift")
-        let plain = try await tool.call(plainInput, in: ToolContext(workspace: fixture.workspace))
-        let plainText = try Expect.notNil(tool.render(plain, input: plainInput), "read_file renders")
+        let plainInput = SystemIO.Tools.ReadFiles.Input(path: "Sources/example.swift")
+        let plainOutput = try await tool.call(plainInput, in: ToolContext(workspace: fixture.workspace))
+        let plain = try Expect.notNil(plainOutput.files.first, "one read, one file")
+        let plainText = try Expect.notNil(tool.render(plainOutput, input: plainInput), "read_files renders")
         try Expect.equal(
             plainText,
             "Sources/example.swift · \(plain.totalLineCount) lines\n" + plain.content,
-            "read_file renders the header and raw text"
+            "read_files renders the header and raw text"
         )
         try Expect.true(!plain.lines.isEmpty, "The output still carries structured lines")
-        let numberedInput = SystemIO.Tools.ReadFile.Input(
+        let numberedInput = SystemIO.Tools.ReadFiles.Input(
             path: "Sources/example.swift",
             maxLines: 1,
             includeLineNumbers: true
         )
-        let numbered = try await tool.call(numberedInput, in: ToolContext(workspace: fixture.workspace))
-        let numberedText = try Expect.notNil(tool.render(numbered, input: numberedInput), "read_file renders a window")
+        let numberedOutput = try await tool.call(numberedInput, in: ToolContext(workspace: fixture.workspace))
+        let numbered = try Expect.notNil(numberedOutput.files.first, "one window, one file")
+        let numberedText = try Expect.notNil(tool.render(numberedOutput, input: numberedInput), "read_files renders a window")
         try Expect.true(
             numberedText.hasSuffix("\n" + (numbered.display ?? "-")),
             "Line numbers are read from the display text"
