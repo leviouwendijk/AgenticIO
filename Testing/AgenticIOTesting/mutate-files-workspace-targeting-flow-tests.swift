@@ -92,7 +92,7 @@ extension AgenticIOFlowTesting {
         )
 
         // Both preflight layouts derive from the prepared Writers difference.
-        guard let preview = preflight.preview.difference else {
+        guard let preview = preflight.preview.differences.first else {
             throw MutateFilesNativeDifferenceTestError.missing_preview
         }
         try Expect.true(
@@ -126,12 +126,12 @@ extension AgenticIOFlowTesting {
             from: JSONEncoder().encode(preflight)
         )
         try Expect.equal(
-            restored.preview.difference?.source,
+            restored.preview.differences.first?.source,
             preview.source,
             "source-backed preview survives preflight serialization"
         )
         try Expect.equal(
-            restored.preview.difference?.tree_layout,
+            restored.preview.differences.first?.tree_layout,
             preview.tree_layout,
             "native tree layout survives preflight Codable round trip"
         )
@@ -214,7 +214,7 @@ extension AgenticIOFlowTesting {
         )
 
         try Expect.true(
-            copyPreflight.preview.difference?.tree_layout?.lines.contains(where: {
+            copyPreflight.preview.differences.first?.tree_layout?.lines.contains(where: {
                 $0.change == .added && $0.label == "CopyDestination/"
             }) == true,
             "native tree represents a copy destination as added"
@@ -283,7 +283,7 @@ extension AgenticIOFlowTesting {
             "directory move authorizes source and destination"
         )
         let moveTree = try Expect.notNil(
-            movePrepared.review.preview.difference?.tree_layout,
+            movePrepared.review.preview.differences.first?.tree_layout,
             "directory move includes a native tree difference"
         )
         let moveLine = try Expect.notNil(
@@ -313,7 +313,7 @@ extension AgenticIOFlowTesting {
             from: JSONEncoder().encode(movePrepared.review)
         )
         try Expect.equal(
-            moveReview.preview.difference?.tree_layout,
+            moveReview.preview.differences.first?.tree_layout,
             moveTree,
             "review serialization preserves both move endpoints"
         )
@@ -348,7 +348,7 @@ extension AgenticIOFlowTesting {
             fileMoveInput,
             in: ToolContext(workspace: fixture.workspace)
         )
-        let fileMoveLine = fileMovePrepared.review.preview.difference?
+        let fileMoveLine = fileMovePrepared.review.preview.differences.first?
             .tree_layout?.lines.first { $0.change == .moved }
         try Expect.equal(
             fileMoveLine?.relocation?.from,

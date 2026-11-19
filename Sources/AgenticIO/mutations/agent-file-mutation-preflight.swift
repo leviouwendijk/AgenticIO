@@ -290,7 +290,7 @@ private extension AgentFileMutationPreflight {
             willRecordSessionMutation: willRecordSessionMutation,
             willStoreBackupPayload: willStoreBackupPayload,
             willEmitDiffArtifact: willEmitDiffArtifact,
-            diffPreview: toolPreflight.preview.difference,
+            diffPreview: toolPreflight.preview.differences.first,
             estimatedByteCount: toolPreflight.estimates.bytes ?? toolPreflight.estimates.write.bytes,
             estimatedWriteCount: toolPreflight.estimates.write.count,
             estimatedChangedLineCount: toolPreflight.estimates.write.changedLines,
@@ -361,7 +361,7 @@ private extension AgentFileMutationPreflight {
             "prepared_operation_plan_captured"
         )
 
-        if preflight.preview.difference != nil {
+        if preflight.preview.differences.first != nil {
             values.append(
                 "diff_preview_generated"
             )
@@ -402,7 +402,7 @@ private extension AgentFileMutationPreflight {
             )
         }
 
-        if preflight.preview.difference == nil {
+        if preflight.preview.differences.first == nil {
             values.append(
                 "No diff preview was generated for this file mutation preflight."
             )

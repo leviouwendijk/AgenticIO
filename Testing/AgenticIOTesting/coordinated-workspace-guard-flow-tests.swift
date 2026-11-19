@@ -55,7 +55,7 @@ extension AgenticIOFlowTesting {
         ])
         let multiPrepared = try await tool.prepare(multiInput, in: tool_context)
         let multiDifference = try Expect.notNil(
-            multiPrepared.review.preview.difference,
+            multiPrepared.review.preview.differences.first,
             "multi-file mutation retains a review difference"
         )
         try Expect.true(
@@ -107,7 +107,7 @@ extension AgenticIOFlowTesting {
         ])
         let longPrepared = try await tool.prepare(longInput, in: tool_context)
         let longDifference = try Expect.notNil(
-            longPrepared.review.preview.difference,
+            longPrepared.review.preview.differences.first,
             "long text mutation produces a review"
         )
         try Expect.true(
@@ -269,7 +269,7 @@ extension AgenticIOFlowTesting {
             presentationPaths: [[presentedPath]]
         )
         try Expect.equal(
-            prepared.review.preview.difference,
+            prepared.review.preview.differences.first,
             projected,
             "mutate_files and semantic refactoring share an identical review diff"
         )

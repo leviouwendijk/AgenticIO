@@ -403,12 +403,12 @@ public extension SystemIO.Tools {
                     )
                 ),
                 preview: .init(
-                    difference: try makeStructuredDiffPreview(
+                    try makeStructuredDiffPreview(
                         input: input,
                         plan: plan,
                         authorized: authorized,
                         workspace: workspace
-                    )
+                    ).map { [.difference($0)] } ?? []
                 ),
                 sideEffects: risk.defaultSideEffects,
                 policyChecks: [

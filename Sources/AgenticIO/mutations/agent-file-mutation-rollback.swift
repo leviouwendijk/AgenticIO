@@ -231,7 +231,7 @@ public extension AgentFileMutationPreflight {
                 bytes: rollbackBytes
             ),
             preview: .init(
-                difference: diffPreview
+                diffPreview.map { [.difference($0)] } ?? []
             ),
             sideEffects: sideEffects,
             policyChecks: policyChecks,

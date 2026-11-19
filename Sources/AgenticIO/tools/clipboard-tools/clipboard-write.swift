@@ -1,4 +1,5 @@
 import Agentic
+import Reporting
 import Schema
 import Macros
 import Clipboard
@@ -61,9 +62,20 @@ extension SystemIO.Tools {
                     runtime: 0.1,
                     bytes: input.contents.utf8.count
                 ),
-                preview: .init(
-                    command: "clipboard write \(input.contents.prefix(20))\(input.contents.count > 20 ? "..." : "")"
-                ),
+                preview: .init([
+                    .report(
+                        try ReportDocument(
+                            title: "Clipboard",
+                            datasets: [],
+                            blocks: [
+                                .facts(.init(facts: [
+                                    .init("characters", String(input.contents.count)),
+                                    .init("starts with", String(input.contents.prefix(200))),
+                                ])),
+                            ]
+                        )
+                    ),
+                ]),
                 sideEffects: ["clipboard_content_overwritten"],
                 policyChecks: [
                     "clipboard_access_authorized"
