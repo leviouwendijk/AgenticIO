@@ -14,12 +14,6 @@ let package = Package(
                 "AgenticIO",
             ]
         ),
-        .executable(
-            name: "t_aio_all",
-            targets: [
-                "AgenticIOTesting",
-            ]
-        ),
     ],
     dependencies: [
         .package(
@@ -88,10 +82,6 @@ let package = Package(
         ),
         .package(
             url: "https://github.com/leviouwendijk/Parsing.git",
-            branch: "master"
-        ),
-        .package(
-            url: "https://github.com/leviouwendijk/Testing.git",
             branch: "master"
         ),
         .package(
@@ -184,61 +174,6 @@ let package = Package(
                     package: "Parsing"
                 ),
             ]
-        ),
-        .executableTarget(
-            name: "AgenticIOTesting",
-            dependencies: [
-                "AgenticIO",
-                .product(
-                    name: "Agentic",
-                    package: "Agentic"
-                ),
-                .product(
-                    name: "Workspace",
-                    package: "Workspace"
-                ),
-                .product(
-                    name: "Concatenation",
-                    package: "Concatenation"
-                ),
-                .product(
-                    name: "Path",
-                    package: "Path"
-                ),
-                .product(
-                    name: "PathParsing",
-                    package: "Path"
-                ),
-                .product(
-                    name: "Position",
-                    package: "Position"
-                ),
-                .product(
-                    name: "Schema",
-                    package: "Schema"
-                ),
-                .product(
-                    name: "Search",
-                    package: "Search"
-                ),
-                .product(
-                    name: "Selection",
-                    package: "Selection"
-                ),
-                .product(
-                    name: "Primitives",
-                    package: "Primitives"
-                ),
-                .product(
-                    name: "Writers",
-                    package: "Writers"
-                ),
-                .product(
-                    name: "Testing",
-                    package: "Testing"
-                ),
-            ],
-            path: "Testing/AgenticIOTesting"
         ),
     ],
     swiftLanguageModes: [
