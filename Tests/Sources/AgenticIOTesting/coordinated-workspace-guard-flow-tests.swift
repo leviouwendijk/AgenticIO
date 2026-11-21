@@ -220,6 +220,63 @@ extension AgenticIOFlowTesting {
             try String(contentsOf: second_file, encoding: .utf8), "root\n",
             "granted publication reaches the disk"
         )
+
+        // Recovery: not blocked yet, so the tool refuses.
+        let recovering = WorkspaceCoordinatedSubmission(
+            participant: await coordinator.participant(name: "agenticio-recovering"),
+            publication: { id in try await coordinator.publish(submissions: [id]) },
+            recovery: .init(
+                cause: { await coordinator.recovery_cause() },
+                recover: { await coordinator.recover() }
+            )
+        )
+        let recoveringContext = ToolContext(workspace: try authority.context(
+            execution: .init(io: .blocking, mutations: .coordinated(recovering))
+        ))
+        let recover = SystemIO.Tools.RecoverMutations()
+        let recoverInput = SystemIO.Tools.RecoverMutations.Input(reason: "checked second.txt")
+        var idle = false
+        do {
+            _ = try await recover.preflight(recoverInput, in: recoveringContext)
+        } catch RecoverMutationsToolError.nothing_to_recover {
+            idle = true
+        }
+        try Expect.true(idle, "recover refuses when nothing is blocked")
+
+        // A stale rollback blocks the coordinator; mutate then names the recovery tool.
+        let later = SystemIO.Tools.Mutate.Input(entries: [
+            .init(kind: .replace_text, path: "second.txt", content: "later\n")
+        ])
+        _ = try await tool.call(
+            later, prepared: try await tool.prepare(later, in: grantedContext).operation, in: grantedContext
+        )
+        let first_publication = try Expect.notNil(await coordinator.journal().compactMap { submission -> UUID? in
+            if case .committed(let id) = submission.state { return id }
+            return nil
+        }.dropLast().last, "recover.earlier_publication")
+        _ = try await coordinator.rollback(publication_id: first_publication)
+        try Expect.true(await coordinator.requires_recovery(), "recover.blocked")
+        var named = false
+        do {
+            let blocked = SystemIO.Tools.Mutate.Input(entries: [
+                .init(kind: .replace_text, path: "second.txt", content: "blocked\n")
+            ])
+            _ = try await tool.call(
+                blocked,
+                prepared: try await tool.prepare(blocked, in: recoveringContext).operation,
+                in: recoveringContext
+            )
+        } catch let error as PreparedWritersPublicationError {
+            named = error.localizedDescription.contains("recover_mutations")
+        }
+        try Expect.true(named, "blocked mutate names recover_mutations")
+
+        let review = try await recover.preflight(recoverInput, in: recoveringContext)
+        try Expect.equal(review.risk, .privileged, "recovery is always reviewed")
+        try Expect.true(review.summary.contains("checked second.txt"), "review carries the agent's reason")
+        let recovered = try await recover.call(recoverInput, in: recoveringContext)
+        try Expect.true(recovered.recovered, "recover unblocks")
+        try Expect.false(await coordinator.requires_recovery(), "coordinator unblocked")
         return [.field("coordinator", "participant-preserved-and-guarded")]
     }
 }
@@ -318,8 +375,13 @@ extension AgenticIOFlowTesting {
         ])
         let stale_prepared = try await tool.prepare(stale, in: context)
         try "external\n".write(to: file, atomically: true, encoding: .utf8)
-        let failed = try await tool.call(stale, prepared: stale_prepared.operation, in: context)
-        try Expect.true(failed.status != "applied", "Writers rejects stale source snapshots")
+        var rejected = false
+        do {
+            _ = try await tool.call(stale, prepared: stale_prepared.operation, in: context)
+        } catch MutateToolError.publication_failed(let status, _, _, _, let recoveryRequired) {
+            rejected = status == .failed && !recoveryRequired
+        }
+        try Expect.true(rejected, "Writers rejects stale source snapshots as a clean tool error")
         try Expect.equal(try String(contentsOf: file, encoding: .utf8), "external\n", "no stale overwrite")
 
         var registry = ToolRegistry()

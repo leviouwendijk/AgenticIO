@@ -26,13 +26,48 @@ public struct PreparedWritersPublisher: Sendable {
                 options: .init(failure: failure)
             ))
         case .coordinated(let submission):
-            let admitted = try await submission.submit(plan, in: workspace)
-            // The owner may grant publication on submit; otherwise the
-            // submission stays staged under its claims.
-            if let publication = try await submission.publish(admitted) {
-                return .applied(publication.result)
+            do {
+                let admitted = try await submission.submit(plan, in: workspace)
+                // The owner may grant publication on submit; otherwise the
+                // submission stays staged under its claims.
+                if let publication = try await submission.publish(admitted) {
+                    return .applied(publication.result)
+                }
+                return .staged(admitted.id)
+            } catch StandardMutationCoordinationError.requires_recovery {
+                throw PreparedWritersPublicationError.recovery_required(
+                    await submission.recoveryCause(),
+                    canRequest: submission.canRequestRecovery
+                )
             }
-            return .staged(admitted.id)
+        }
+    }
+}
+
+public enum PreparedWritersPublicationError: Error, Sendable, LocalizedError {
+    /// The coordinator refuses changes until a failed publication is recovered.
+    case recovery_required(StandardMutationRecoveryCause?, canRequest: Bool)
+
+    public var errorDescription: String? {
+        switch self {
+        case .recovery_required(let cause, let canRequest):
+            var text = "File changes are blocked: an earlier"
+            if let cause {
+                text += " \(cause.kind.rawValue) failed (\(cause.status))"
+                if let target = cause.target {
+                    text += " at \(target.path)"
+                }
+                if let message = cause.message {
+                    text += ": \(message)"
+                }
+            } else {
+                text += " publication failed"
+            }
+            text += ". Its effect on disk is uncertain. "
+            text += canRequest
+                ? "Inspect that target, then call recover_mutations with what you found; the operator reviews it."
+                : "Ask the operator to recover before making further changes."
+            return text
         }
     }
 }

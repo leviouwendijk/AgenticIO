@@ -206,6 +206,36 @@ public enum MutatePreparedWorkError: Error, Sendable {
     case context_mismatch
 }
 
+public enum MutateToolError: Error, Sendable, LocalizedError {
+    /// The pass did not apply as a whole.
+    case publication_failed(
+        status: StandardMutationStatus,
+        applied: Int,
+        entries: Int,
+        message: String?,
+        recoveryRequired: Bool
+    )
+
+    public var errorDescription: String? {
+        switch self {
+        case .publication_failed(let status, let applied, let entries, let message, let recoveryRequired):
+            var text = "Mutation pass \(status.rawValue): \(applied) of \(entries) entries applied"
+            switch status {
+            case .rolled_back: text += ", then rolled back"
+            case .failed: text += "; no entry completed"
+            default: break
+            }
+            if let message {
+                text += ". Failure: \(message)"
+            }
+            text += recoveryRequired
+                ? ". The failing change may have stopped halfway, so further changes are blocked until recovered."
+                : ". Further changes can proceed."
+            return text
+        }
+    }
+}
+
 public enum MutatePreparedWorkSchema {
     public static let value = PreparedOperation.Schema(
         identifier: "tool.mutate",
@@ -522,6 +552,15 @@ public extension SystemIO.Tools {
             )
             switch publication {
             case .applied(let result):
+                guard result.status == .applied else {
+                    throw MutateToolError.publication_failed(
+                        status: result.status,
+                        applied: result.applied.count,
+                        entries: plan.entries.count,
+                        message: result.failed?.message,
+                        recoveryRequired: StandardMutationCoordinator.requires_recovery(after: result)
+                    )
+                }
                 return output(plan: plan, result: result, root: workspace.rootURL)
             case .staged(let submissionID):
                 return stagedOutput(plan: plan, submissionID: submissionID, root: workspace.rootURL)

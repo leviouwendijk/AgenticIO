@@ -101,6 +101,7 @@ public extension SystemIO.Agents {
                         SystemIO.Tools.Find.identifier,
                         SystemIO.Tools.Read.identifier,
                         SystemIO.Tools.Mutate.identifier,
+                        SystemIO.Tools.RecoverMutations.identifier,
                         Standard.Tools.ConvertCase.identifier,
                     ]
                 ),
