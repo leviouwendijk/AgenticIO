@@ -10,7 +10,7 @@ import Writers
 import Version
 
 @JSONSchema
-public enum MutateFilesToolEntryKind: String, Sendable, Codable, Hashable, CaseIterable {
+public enum MutateToolEntryKind: String, Sendable, Codable, Hashable, CaseIterable {
     case create_text
     case replace_text
     case edit_text
@@ -27,9 +27,9 @@ public enum MutateFilesToolEntryKind: String, Sendable, Codable, Hashable, CaseI
 /// move requires path as the source and destination as the destination path.
 /// delete requires path and defaults deletePolicy to existing.
 @JSONSchema
-public struct MutateFilesToolEntry: Sendable, Codable, Hashable {
+public struct MutateToolEntry: Sendable, Codable, Hashable {
     /// Mutation kind.
-    public let kind: MutateFilesToolEntryKind
+    public let kind: MutateToolEntryKind
 
     /// Workspace root identifier. Usually use 'project'.
     public let rootID: PathAccessRootIdentifier?
@@ -56,7 +56,7 @@ public struct MutateFilesToolEntry: Sendable, Codable, Hashable {
     public let createParentDirectories: Bool?
 
     public init(
-        kind: MutateFilesToolEntryKind,
+        kind: MutateToolEntryKind,
         rootID: PathAccessRootIdentifier? = nil,
         path: String,
         content: String? = nil,
@@ -79,7 +79,7 @@ public struct MutateFilesToolEntry: Sendable, Codable, Hashable {
 }
 
 
-private extension SystemIO.Tools.MutateFiles.Input {
+private extension SystemIO.Tools.Mutate.Input {
     enum CodingKeys: String, CodingKey {
         case reason
         case rootID
@@ -88,7 +88,7 @@ private extension SystemIO.Tools.MutateFiles.Input {
     }
 }
 
-public extension SystemIO.Tools.MutateFiles.Input {
+public extension SystemIO.Tools.Mutate.Input {
     init(
         from decoder: any Decoder
     ) throws {
@@ -110,7 +110,7 @@ public extension SystemIO.Tools.MutateFiles.Input {
                 forKey: .failurePolicy
             ) ?? .rollback_applied,
             entries: try container.decode(
-                [MutateFilesToolEntry].self,
+                [MutateToolEntry].self,
                 forKey: .entries
             )
         )
@@ -119,7 +119,7 @@ public extension SystemIO.Tools.MutateFiles.Input {
 
 /// One planned change, compact for the model: paths relative to the
 /// workspace, zero counts and empty warnings omitted.
-public struct MutateFilesToolEntryOutput: Sendable, Codable, Hashable {
+public struct MutateToolEntryOutput: Sendable, Codable, Hashable {
     public let index: Int
     /// The changed resource; the source of a move or copy.
     public let path: String
@@ -152,7 +152,7 @@ public struct MutateFilesToolEntryOutput: Sendable, Codable, Hashable {
     }
 }
 
-public struct MutateFilesToolRecordOutput: Sendable, Codable, Hashable {
+public struct MutateToolRecordOutput: Sendable, Codable, Hashable {
     public let id: UUID
     public let target: String
     public let operationKind: String
@@ -178,7 +178,7 @@ public struct MutateFilesToolRecordOutput: Sendable, Codable, Hashable {
 }
 
 
-public struct MutateFilesToolPreparation: Sendable {
+public struct MutateToolPreparation: Sendable {
     public let plan: StandardMutationPlan
     public let preflight: ToolPreflight
 
@@ -193,8 +193,8 @@ public struct MutateFilesToolPreparation: Sendable {
 
 /// Serialized with the review record; no tool-local state or token is authoritative.
 /// The plan remains an exact Writers plan even after process restart.
-public struct MutateFilesPreparedWork: Sendable, Codable, Hashable {
-    public let input: SystemIO.Tools.MutateFiles.Input
+public struct MutatePreparedWork: Sendable, Codable, Hashable {
+    public let input: SystemIO.Tools.Mutate.Input
     public let rootURL: URL
     public let absoluteURL: URL
     public let rootIdentifier: PathAccessRootIdentifier
@@ -202,20 +202,20 @@ public struct MutateFilesPreparedWork: Sendable, Codable, Hashable {
     public let plan: StandardMutationPlan
 }
 
-public enum MutateFilesPreparedWorkError: Error, Sendable {
+public enum MutatePreparedWorkError: Error, Sendable {
     case context_mismatch
 }
 
-public enum MutateFilesPreparedWorkSchema {
+public enum MutatePreparedWorkSchema {
     public static let value = PreparedOperation.Schema(
-        identifier: "tool.mutate_files",
+        identifier: "tool.mutate",
         version: .init(major: 1, minor: 0, patch: 0)
     )
 }
 
 public extension SystemIO.Tools {
     @Tool
-    struct MutateFiles: Tool {
+    struct Mutate: Tool {
         @JSONSchema
         public struct Input: HashableSource {
             /// Brief reason for this coherent mutation pass.
@@ -230,13 +230,13 @@ public extension SystemIO.Tools {
             public let failurePolicy: StandardMutationFailurePolicy
 
             /// Ordered file mutation entries. All entries are planned and applied as one pass.
-            public let entries: [MutateFilesToolEntry]
+            public let entries: [MutateToolEntry]
 
             public init(
                 reason: String? = nil,
                 rootID: PathAccessRootIdentifier = .project,
                 failurePolicy: StandardMutationFailurePolicy = .rollback_applied,
-                entries: [MutateFilesToolEntry]
+                entries: [MutateToolEntry]
             ) {
                 self.reason = reason
                 self.rootID = rootID
@@ -265,8 +265,8 @@ public extension SystemIO.Tools {
             public let failureMessage: String?
             /// What happens next, for outputs that are not yet on disk.
             public let note: String?
-            public let entries: [MutateFilesToolEntryOutput]
-            public let records: [MutateFilesToolRecordOutput]
+            public let entries: [MutateToolEntryOutput]
+            public let records: [MutateToolRecordOutput]
 
             public init(
                 planID: UUID,
@@ -283,8 +283,8 @@ public extension SystemIO.Tools {
                 rollbackAvailable: Bool,
                 failureMessage: String?,
                 note: String? = nil,
-                entries: [MutateFilesToolEntryOutput],
-                records: [MutateFilesToolRecordOutput]
+                entries: [MutateToolEntryOutput],
+                records: [MutateToolRecordOutput]
             ) {
                 self.planID = planID
                 self.resultID = resultID
@@ -331,7 +331,7 @@ public extension SystemIO.Tools {
             _ input: Input,
             workspace: WorkspaceContext?,
             writeOptions: SafeWriteOptions = .overwriteWithoutBackup
-        ) async throws -> MutateFilesToolPreparation {
+        ) async throws -> MutateToolPreparation {
             try operationPolicy.authorize(input.entries)
             let workspace = try FileToolSupport.requireWorkspace(
                 workspace,
@@ -434,7 +434,7 @@ public extension SystemIO.Tools {
             _ input: Input,
             workspace: WorkspaceContext?,
             writeOptions: SafeWriteOptions = .overwriteWithoutBackup
-        ) async throws -> MutateFilesToolPreparation {
+        ) async throws -> MutateToolPreparation {
             let targetedInput = try workspaceTargetedInput(
                 input,
                 workspace: workspace
@@ -471,7 +471,7 @@ public extension SystemIO.Tools {
                 targeted,
                 workspace: workspace
             )
-            let work = MutateFilesPreparedWork(
+            let work = MutatePreparedWork(
                 input: input,
                 rootURL: workspace.rootURL,
                 absoluteURL: workspace.absoluteURL,
@@ -482,7 +482,7 @@ public extension SystemIO.Tools {
             return .init(
                 review: preparation.preflight,
                 operation: .init(
-                    schema: MutateFilesPreparedWorkSchema.value,
+                    schema: MutatePreparedWorkSchema.value,
                     plan: try JSONValue.encoding(work)
                 )
             )
@@ -545,13 +545,13 @@ public extension SystemIO.Tools {
             guard let operation else {
                 throw ToolPreparationError.prepared_operation_required
             }
-            guard operation.schema == MutateFilesPreparedWorkSchema.value else {
+            guard operation.schema == MutatePreparedWorkSchema.value else {
                 throw PreparedOperation.EnvelopeError.schema_mismatch(
-                    expected: MutateFilesPreparedWorkSchema.value,
+                    expected: MutatePreparedWorkSchema.value,
                     actual: operation.schema
                 )
             }
-            let work = try operation.plan.decode(MutateFilesPreparedWork.self)
+            let work = try operation.plan.decode(MutatePreparedWork.self)
             let (rooted, workspace) = try targeting(
                 input,
                 in: try FileToolSupport.requireWorkspace(
@@ -565,7 +565,7 @@ public extension SystemIO.Tools {
                   work.rootIdentifier == workspace.rootIdentifier,
                   work.revision == workspace.revision
             else {
-                throw MutateFilesPreparedWorkError.context_mismatch
+                throw MutatePreparedWorkError.context_mismatch
             }
             let targeted = try workspaceTargetedInput(rooted, workspace: workspace)
             return try await callInternal(
@@ -589,7 +589,7 @@ public extension SystemIO.Tools {
             }
 
             func detail(
-                _ entry: MutateFilesToolEntryOutput
+                _ entry: MutateToolEntryOutput
             ) -> String {
                 var parts = [
                     entry.resource
@@ -662,11 +662,11 @@ public extension SystemIO.Tools {
 private enum FileMutationDifferenceProjectionError: Error {
     case inconsistent_entries
 }
-private extension SystemIO.Tools.MutateFiles {
+private extension SystemIO.Tools.Mutate {
     func workspaceTargetedInput(
-        _ input: SystemIO.Tools.MutateFiles.Input,
+        _ input: SystemIO.Tools.Mutate.Input,
         workspace _: WorkspaceContext?
-    ) throws -> SystemIO.Tools.MutateFiles.Input {
+    ) throws -> SystemIO.Tools.Mutate.Input {
         input
     }
 
@@ -675,9 +675,9 @@ private extension SystemIO.Tools.MutateFiles {
     /// under its grants and policy, with the input naming it. Targets in
     /// another root are named by absolute path; one call mutates one root.
     func targeting(
-        _ input: SystemIO.Tools.MutateFiles.Input,
+        _ input: SystemIO.Tools.Mutate.Input,
         in workspace: WorkspaceContext
-    ) throws -> (SystemIO.Tools.MutateFiles.Input, WorkspaceContext) {
+    ) throws -> (SystemIO.Tools.Mutate.Input, WorkspaceContext) {
         let roots = Set(try authorizeEntries(input, workspace: workspace).flatMap { $0 }.map(\.rootIdentifier))
         guard roots.count <= 1 else {
             throw PredefinedFileToolError.invalidValue(
@@ -707,7 +707,7 @@ private extension SystemIO.Tools.MutateFiles {
                 .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         }
         let entries = input.entries.map { entry in
-            MutateFilesToolEntry(
+            MutateToolEntry(
                 kind: entry.kind,
                 rootID: nil,
                 path: relative(entry.path),
@@ -735,7 +735,7 @@ private extension SystemIO.Tools.MutateFiles {
     }
 
     func authorizeEntries(
-        _ input: SystemIO.Tools.MutateFiles.Input,
+        _ input: SystemIO.Tools.Mutate.Input,
         workspace: WorkspaceContext
     ) throws -> [[AuthorizedPath]] {
         try input.entries.map { entry in
@@ -813,7 +813,7 @@ private extension SystemIO.Tools.MutateFiles {
     }
 
     func workspaceEntries(
-        _ input: SystemIO.Tools.MutateFiles.Input,
+        _ input: SystemIO.Tools.Mutate.Input,
         workspace: WorkspaceContext,
         writeOptions: SafeWriteOptions = .overwriteWithoutBackup
     ) throws -> [WorkspaceMutationEntry] {
@@ -829,7 +829,7 @@ private extension SystemIO.Tools.MutateFiles {
     }
 
     func preflightSummary(
-        input: SystemIO.Tools.MutateFiles.Input,
+        input: SystemIO.Tools.Mutate.Input,
         plan: StandardMutationPlan
     ) -> String {
         let reason = input.reason?.trimmingCharacters(
@@ -844,7 +844,7 @@ private extension SystemIO.Tools.MutateFiles {
     }
 
     func estimatedByteCount(
-        input: SystemIO.Tools.MutateFiles.Input
+        input: SystemIO.Tools.Mutate.Input
     ) -> Int {
         input.entries.reduce(0) { partial, entry in
             partial + (entry.content?.utf8.count ?? 0)
@@ -862,7 +862,7 @@ private extension SystemIO.Tools.MutateFiles {
     /// Project the authoritative prepared Writers difference for transport.
     /// The same projector is shared with semantic refactoring approval.
     func makeStructuredDiffPreview(
-        input: SystemIO.Tools.MutateFiles.Input,
+        input: SystemIO.Tools.Mutate.Input,
         plan: StandardMutationPlan,
         authorized: [[AuthorizedPath]],
         workspace: WorkspaceContext
@@ -888,8 +888,8 @@ private extension SystemIO.Tools.MutateFiles {
         plan: StandardMutationPlan,
         submissionID: UUID,
         root: URL
-    ) -> SystemIO.Tools.MutateFiles.Output {
-        SystemIO.Tools.MutateFiles.Output(
+    ) -> SystemIO.Tools.Mutate.Output {
+        SystemIO.Tools.Mutate.Output(
             planID: plan.id,
             resultID: nil,
             submissionID: submissionID,
@@ -915,8 +915,8 @@ private extension SystemIO.Tools.MutateFiles {
         plan: StandardMutationPlan,
         result: StandardMutationResult,
         root: URL
-    ) -> SystemIO.Tools.MutateFiles.Output {
-        SystemIO.Tools.MutateFiles.Output(
+    ) -> SystemIO.Tools.Mutate.Output {
+        SystemIO.Tools.Mutate.Output(
             planID: plan.id,
             resultID: result.id,
             status: result.status.rawValue,
@@ -937,7 +937,7 @@ private extension SystemIO.Tools.MutateFiles {
     func entryOutput(
         _ entry: StandardPlannedMutation,
         root: URL
-    ) -> MutateFilesToolEntryOutput {
+    ) -> MutateToolEntryOutput {
         let source: URL
         let destination: URL?
         switch entry.entry {
@@ -948,7 +948,7 @@ private extension SystemIO.Tools.MutateFiles {
         default:
             (source, destination) = (entry.target, nil)
         }
-        return MutateFilesToolEntryOutput(
+        return MutateToolEntryOutput(
             index: entry.index,
             path: relative(source, to: root),
             destination: destination.map { relative($0, to: root) },
@@ -974,8 +974,8 @@ private extension SystemIO.Tools.MutateFiles {
     func recordOutput(
         _ record: WriteMutationRecord,
         root: URL
-    ) -> MutateFilesToolRecordOutput {
-        MutateFilesToolRecordOutput(
+    ) -> MutateToolRecordOutput {
+        MutateToolRecordOutput(
             id: record.id,
             target: relative(record.target, to: root),
             operationKind: record.operationKind.rawValue,
@@ -986,7 +986,7 @@ private extension SystemIO.Tools.MutateFiles {
     }
 
     func mutationMetadata(
-        input: SystemIO.Tools.MutateFiles.Input,
+        input: SystemIO.Tools.Mutate.Input,
         context: AgentFileMutationContext
     ) -> [String: String] {
         var metadata = context.metadata
@@ -1012,7 +1012,7 @@ private extension SystemIO.Tools.MutateFiles {
     }
 }
 
-private extension MutateFilesToolEntry {
+private extension MutateToolEntry {
     func workspaceEntry(
         defaultRootID: PathAccessRootIdentifier,
         toolName: String,

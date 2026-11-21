@@ -73,7 +73,7 @@ public extension SystemIO.Agents {
         ancestor/descendant moves, and move ordering. Never silently overwrite.
 
         If applyChanges is false, stop at a proposed plan. If true, use the installed
-        mutate_files tool with move entries, coherent bounded passes, and normal
+        mutate tool with move entries, coherent bounded passes, and normal
         host-governed preflight and approval. Do not bypass denial or approval by
         using other tools. Do not edit contents, rename for aesthetics, delete files,
         or remove nonempty directories without explicit task authorization.
@@ -85,7 +85,7 @@ public extension SystemIO.Agents {
         extensions, hidden-file semantics, and unrelated path segments. Reject
         any candidate filename segment containing a path separator. Treat the
         converted text as a proposed destination, not as permission to rename.
-        Apply authorized renames only through reviewed mutate_files move entries,
+        Apply authorized renames only through reviewed mutate move entries,
         with normal destination collision and path authorization checks.
 
         After an applied pass, rescan the affected locations. Verify that each expected
@@ -98,10 +98,9 @@ public extension SystemIO.Agents {
             available: .init(
                 tools: .init(
                     members: [
-                        SystemIO.Tools.ScanFilepaths.identifier,
-                        SystemIO.Tools.SearchFilepaths.identifier,
-                        SystemIO.Tools.ReadFiles.identifier,
-                        SystemIO.Tools.MutateFiles.identifier,
+                        SystemIO.Tools.Find.identifier,
+                        SystemIO.Tools.Read.identifier,
+                        SystemIO.Tools.Mutate.identifier,
                         Standard.Tools.ConvertCase.identifier,
                     ]
                 ),
@@ -114,10 +113,9 @@ public extension SystemIO.Agents {
             visible: .init(
                 tools: .init(
                     members: [
-                        SystemIO.Tools.ScanFilepaths.identifier,
-                        SystemIO.Tools.SearchFilepaths.identifier,
-                        SystemIO.Tools.ReadFiles.identifier,
-                        SystemIO.Tools.MutateFiles.identifier,
+                        SystemIO.Tools.Find.identifier,
+                        SystemIO.Tools.Read.identifier,
+                        SystemIO.Tools.Mutate.identifier,
                         Standard.Tools.ConvertCase.identifier,
                     ]
                 )

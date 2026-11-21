@@ -1,6 +1,6 @@
 import Agentic
 
-public extension SystemIO.Tools.SearchSources {
+public extension SystemIO.Tools.Search {
     /// Hits grouped by file, each with its lines as `rg` prints them:
     /// `12:` for a matching line, `11-` for context, `--` between regions.
     /// Which term matched is named only when several were searched.

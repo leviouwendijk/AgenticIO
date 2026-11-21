@@ -7,7 +7,7 @@ import Macros
 
 public extension SystemIO.Tools {
     @Tool
-    struct InspectFileMutation: Tool {
+    struct InspectMutation: Tool {
         /// Model-facing input for Inspect fileMutation.
         @JSONSchema
         public struct Input: HashableSource {

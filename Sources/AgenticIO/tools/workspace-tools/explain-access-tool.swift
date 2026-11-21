@@ -8,7 +8,7 @@ import Path
 
 public extension SystemIO.Tools {
     @Tool
-    struct ExplainPathAccess: Tool {
+    struct ExplainAccess: Tool {
         /// Model-facing input for Explain pathAccess.
         @JSONSchema
         public struct Input: HashableSource {
@@ -215,7 +215,7 @@ public extension SystemIO.Tools {
     }
 }
 
-internal extension SystemIO.Tools.ExplainPathAccess {
+internal extension SystemIO.Tools.ExplainAccess {
     func normalizedToolName(
         _ value: String?
     ) -> String {

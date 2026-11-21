@@ -85,7 +85,7 @@ public enum SourceSearchMode:
 }
 
 
-private extension SystemIO.Tools.SearchSources.Input {
+private extension SystemIO.Tools.Search.Input {
     enum CodingKeys: String, CodingKey {
         case rootID
         case includes
@@ -108,7 +108,7 @@ private extension SystemIO.Tools.SearchSources.Input {
     }
 }
 
-public extension SystemIO.Tools.SearchSources.Input {
+public extension SystemIO.Tools.Search.Input {
     init(
         from decoder: any Decoder
     ) throws {
@@ -195,7 +195,7 @@ public extension SystemIO.Tools.SearchSources.Input {
 
 public extension SystemIO.Tools {
     @Tool
-    struct SearchSources: Tool {
+    struct Search: Tool {
         /// Search file contents, like rg: give `query` (literal text) or `pattern` (a regular expression), and `includes` path globs to narrow the files. Each hit shows its matching lines; `contextLines` adds lines around them. `probes` combine several terms with roles; `lexicalPattern` matches token patterns.
         @JSONSchema
         public struct Input: HashableSource

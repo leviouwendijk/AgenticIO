@@ -6,14 +6,14 @@ import Testing
 
 extension AgenticIOFlowTesting {
     static func runMutateFilesWorkspaceTargeting() async throws -> [TestDiagnostic] {
-        let fixture = try MutateFilesWorkspaceTargetFixture.make()
+        let fixture = try MutateWorkspaceTargetFixture.make()
 
         defer {
             fixture.remove()
         }
 
-        let tool = SystemIO.Tools.MutateFiles()
-        let input = SystemIO.Tools.MutateFiles.Input(
+        let tool = SystemIO.Tools.Mutate()
+        let input = SystemIO.Tools.Mutate.Input(
                         entries: [
                             .init(
                                 kind: .replace_text,
@@ -28,10 +28,10 @@ extension AgenticIOFlowTesting {
             in: ToolContext(workspace: fixture.workspace)
         )
 
-        let moveOnly = SystemIO.Tools.MutateFiles(
+        let moveOnly = SystemIO.Tools.Mutate(
             operationPolicy: .only([.move])
         )
-        let deniedInput = SystemIO.Tools.MutateFiles.Input(entries: [
+        let deniedInput = SystemIO.Tools.Mutate.Input(entries: [
             .init(kind: .replace_text, path: "target.txt", content: "denied\n"),
         ])
         do {
@@ -67,7 +67,7 @@ extension AgenticIOFlowTesting {
             "target\n",
             "denied operations leave the file unchanged"
         )
-        let mixedInput = SystemIO.Tools.MutateFiles.Input(entries: [
+        let mixedInput = SystemIO.Tools.Mutate.Input(entries: [
             .init(kind: .move, path: "target.txt", destination: "moved.txt"),
             .init(kind: .delete, path: "target.txt"),
         ])
@@ -88,12 +88,12 @@ extension AgenticIOFlowTesting {
             [
                 "Package/target.txt",
             ],
-            "workspace-targeted mutate_files preflight resolves relative to the working location"
+            "workspace-targeted mutate preflight resolves relative to the working location"
         )
 
         // Both preflight layouts derive from the prepared Writers difference.
         guard let preview = preflight.preview.differences.first else {
-            throw MutateFilesNativeDifferenceTestError.missing_preview
+            throw MutateNativeDifferenceTestError.missing_preview
         }
         try Expect.true(
             preview.tree_layout?.lines.contains(where: {
@@ -148,7 +148,7 @@ extension AgenticIOFlowTesting {
                 encoding: .utf8
             ),
             "targeted\n",
-            "workspace-targeted mutate_files changes the target-local file"
+            "workspace-targeted mutate changes the target-local file"
         )
         try Expect.equal(
             try String(
@@ -156,7 +156,7 @@ extension AgenticIOFlowTesting {
                 encoding: .utf8
             ),
             "root\n",
-            "workspace-targeted mutate_files does not reinterpret the path at the authority root"
+            "workspace-targeted mutate does not reinterpret the path at the authority root"
         )
 
         let copySourceDirectory = fixture.targetDirectoryURL
@@ -188,7 +188,7 @@ extension AgenticIOFlowTesting {
             encoding: .utf8
         )
 
-        let copyInput = SystemIO.Tools.MutateFiles.Input(
+        let copyInput = SystemIO.Tools.Mutate.Input(
             failurePolicy: .stop,
             entries: [
                 .init(
@@ -210,7 +210,7 @@ extension AgenticIOFlowTesting {
                 "Package/CopySource",
                 "Package/CopyDestination",
             ],
-            "workspace-targeted mutate_files copy authorizes source and destination"
+            "workspace-targeted mutate copy authorizes source and destination"
         )
 
         try Expect.true(
@@ -229,13 +229,13 @@ extension AgenticIOFlowTesting {
         try Expect.equal(
             copyOutput.status,
             "applied",
-            "workspace-targeted mutate_files copy applies"
+            "workspace-targeted mutate copy applies"
         )
         try Expect.true(
             FileManager.default.fileExists(
                 atPath: copySourceFile.path
             ),
-            "workspace-targeted mutate_files copy preserves the source"
+            "workspace-targeted mutate copy preserves the source"
         )
         try Expect.equal(
             try String(
@@ -243,12 +243,12 @@ extension AgenticIOFlowTesting {
                 encoding: .utf8
             ),
             "copy fixture\n",
-            "workspace-targeted mutate_files copy recursively copies directory contents"
+            "workspace-targeted mutate copy recursively copies directory contents"
         )
         try Expect.equal(
             copyOutput.rollbackAvailable,
             false,
-            "workspace-targeted mutate_files directory copy reports no rollback plan"
+            "workspace-targeted mutate directory copy reports no rollback plan"
         )
 
         let moveDestinationDirectory = fixture.targetDirectoryURL
@@ -260,7 +260,7 @@ extension AgenticIOFlowTesting {
             .appendingPathComponent(
                 "nested/fixture.txt"
             )
-        let moveInput = SystemIO.Tools.MutateFiles.Input(
+        let moveInput = SystemIO.Tools.Mutate.Input(
             failurePolicy: .stop,
             entries: [
                 .init(
@@ -325,7 +325,7 @@ extension AgenticIOFlowTesting {
         try Expect.equal(
             moveOutput.status,
             "applied",
-            "mutate_files applies a directory move"
+            "mutate applies a directory move"
         )
         try Expect.false(
             FileManager.default.fileExists(atPath: copyDestinationDirectory.path),
@@ -337,7 +337,7 @@ extension AgenticIOFlowTesting {
             "move preserves nested file contents"
         )
 
-        let fileMoveInput = SystemIO.Tools.MutateFiles.Input(entries: [
+        let fileMoveInput = SystemIO.Tools.Mutate.Input(entries: [
             .init(
                 kind: .move,
                 path: "target.txt",
@@ -365,7 +365,7 @@ extension AgenticIOFlowTesting {
             "preflight does not move the file"
         )
 
-        let escapingInput = SystemIO.Tools.MutateFiles.Input(
+        let escapingInput = SystemIO.Tools.Mutate.Input(
                         entries: [
                             .init(
                                 kind: .replace_text,
@@ -411,7 +411,7 @@ extension AgenticIOFlowTesting {
     }
 }
 
-private struct MutateFilesWorkspaceTargetFixture {
+private struct MutateWorkspaceTargetFixture {
     let containerURL: URL
     let workspaceURL: URL
     let targetDirectoryURL: URL
@@ -491,6 +491,6 @@ private struct MutateFilesWorkspaceTargetFixture {
     }
 }
 
-private enum MutateFilesNativeDifferenceTestError: Error {
+private enum MutateNativeDifferenceTestError: Error {
     case missing_preview
 }

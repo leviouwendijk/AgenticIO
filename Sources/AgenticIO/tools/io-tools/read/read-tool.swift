@@ -5,22 +5,206 @@ import Path
 import Primitives
 import Schema
 import Readers
+import Selection
 import Macros
 import Position
 
-private extension SystemIO.Tools.ReadFiles.Input {
+/// One model-facing content selection inside a read.
+///
+/// The enum deliberately owns a stable AgenticIO wire representation instead
+/// of exposing Selection.ContentSelection's compiler-generated Codable shape.
+@JSONSchema
+public enum ReadFileSelection:
+    Sendable,
+    Codable,
+    Hashable
+{
+    /// Select an inclusive 1-based line range.
+    case lines(
+        start: Int,
+        end: Int
+    )
+
+    /// Select one 1-based source position.
+    case point(
+        line: Int,
+        column: Int
+    )
+
+    /// Select an inclusive source span using 1-based positions.
+    case span(
+        startLine: Int,
+        startColumn: Int,
+        endLine: Int,
+        endColumn: Int
+    )
+
+    /// Select content relative to exact anchor text. Offset defaults to 0 and count defaults to 1 when omitted.
+    case anchor(
+        text: String,
+        offset: Int?,
+        count: Int?
+    )
+}
+
+public enum ReadFileSelectionError:
+    Error,
+    Sendable,
+    LocalizedError
+{
+    case invalidLineRange(
+        start: Int,
+        end: Int
+    )
+    case invalidPosition(
+        line: Int,
+        column: Int
+    )
+    case invalidSpan
+    case emptyAnchor
+    case invalidAnchorCount(Int)
+
+    public var errorDescription: String? {
+        switch self {
+        case .invalidLineRange(let start, let end):
+            return "read selections require a positive line range with end >= start; received \(start)...\(end)."
+
+        case .invalidPosition(let line, let column):
+            return "read selections require positive 1-based line and column values; received \(line):\(column)."
+
+        case .invalidSpan:
+            return "read selection spans require the end position to be at or after the start position."
+
+        case .emptyAnchor:
+            return "read selection anchor text must not be empty."
+
+        case .invalidAnchorCount(let count):
+            return "read selection anchor count must be positive; received \(count)."
+        }
+    }
+}
+
+public extension ReadFileSelection {
+    func contentSelection() throws -> ContentSelection {
+        switch self {
+        case .lines(let start, let end):
+            guard start > 0,
+                  end >= start
+            else {
+                throw ReadFileSelectionError.invalidLineRange(
+                    start: start,
+                    end: end
+                )
+            }
+
+            return .lines(
+                LineRange(
+                    uncheckedStart: start,
+                    uncheckedEnd: end
+                )
+            )
+
+        case .point(let line, let column):
+            return .point(
+                try position(
+                    line: line,
+                    column: column
+                )
+            )
+
+        case .span(
+            let startLine,
+            let startColumn,
+            let endLine,
+            let endColumn
+        ):
+            let start = try position(
+                line: startLine,
+                column: startColumn
+            )
+            let end = try position(
+                line: endLine,
+                column: endColumn
+            )
+
+            guard endLine > startLine
+                    || (
+                        endLine == startLine
+                        && endColumn >= startColumn
+                    )
+            else {
+                throw ReadFileSelectionError.invalidSpan
+            }
+
+            return .span(
+                PositionSpan(
+                    uncheckedStart: start,
+                    uncheckedEnd: end
+                )
+            )
+
+        case .anchor(
+            let text,
+            let offset,
+            let count
+        ):
+            guard !text.isEmpty else {
+                throw ReadFileSelectionError.emptyAnchor
+            }
+
+            let count = count ?? 1
+            guard count > 0 else {
+                throw ReadFileSelectionError.invalidAnchorCount(
+                    count
+                )
+            }
+
+            return .anchor(
+                ContentAnchorSelection(
+                    text: text,
+                    offset: offset ?? 0,
+                    count: count
+                )
+            )
+        }
+    }
+
+    private func position(
+        line: Int,
+        column: Int
+    ) throws -> Position {
+        guard line > 0,
+              column > 0
+        else {
+            throw ReadFileSelectionError.invalidPosition(
+                line: line,
+                column: column
+            )
+        }
+
+        return Position(
+            uncheckedFile: nil,
+            line: line,
+            column: column,
+            invocation: nil
+        )
+    }
+}
+
+private extension SystemIO.Tools.Read.Input {
     enum CodingKeys: String, CodingKey {
         case rootID
         case path
         case startLine
         case endLine
         case maxLines
+        case selections
         case reads
         case includeLineNumbers
     }
 }
 
-public extension SystemIO.Tools.ReadFiles.Input {
+public extension SystemIO.Tools.Read.Input {
     /// One read (`path` with its window) or several (`reads`), never both.
     init(
         from decoder: any Decoder
@@ -30,7 +214,7 @@ public extension SystemIO.Tools.ReadFiles.Input {
         )
         let path = try container.decodeIfPresent(String.self, forKey: .path)
         let reads = try container.decodeIfPresent(
-            [SystemIO.Tools.ReadFiles.Window].self,
+            [SystemIO.Tools.Read.Window].self,
             forKey: .reads
         ) ?? []
 
@@ -60,6 +244,10 @@ public extension SystemIO.Tools.ReadFiles.Input {
                 Int.self,
                 forKey: .maxLines
             ),
+            selections: try container.decodeIfPresent(
+                [ReadFileSelection].self,
+                forKey: .selections
+            ) ?? [],
             reads: reads,
             includeLineNumbers: try container.decodeIfPresent(
                 Bool.self,
@@ -69,17 +257,18 @@ public extension SystemIO.Tools.ReadFiles.Input {
     }
 }
 
-private extension SystemIO.Tools.ReadFiles.Window {
+private extension SystemIO.Tools.Read.Window {
     enum CodingKeys: String, CodingKey {
         case rootID
         case path
         case startLine
         case endLine
         case maxLines
+        case selections
     }
 }
 
-public extension SystemIO.Tools.ReadFiles.Window {
+public extension SystemIO.Tools.Read.Window {
     init(
         from decoder: any Decoder
     ) throws {
@@ -107,7 +296,11 @@ public extension SystemIO.Tools.ReadFiles.Window {
             maxLines: try container.decodeIfPresent(
                 Int.self,
                 forKey: .maxLines
-            )
+            ),
+            selections: try container.decodeIfPresent(
+                [ReadFileSelection].self,
+                forKey: .selections
+            ) ?? []
         )
     }
 }
@@ -127,8 +320,8 @@ public struct ReadFileLine: Sendable, Codable, Hashable {
 
 public extension SystemIO.Tools {
     @Tool
-    struct ReadFiles: Tool {
-        /// One file, or one line window of it.
+    struct Read: Tool {
+        /// One file: whole, a line window of it, or selections in it.
         @JSONSchema
         public struct Window: HashableSource {
             /// Workspace root identifier. Usually use 'project'.
@@ -147,22 +340,28 @@ public extension SystemIO.Tools {
             /// Optional maximum number of lines to read.
             public let maxLines: Int?
 
+            /// Lines, a position, a span, or text around an anchor, each read as its own slice; instead of a line window.
+            @Schema(required: false)
+            public let selections: [ReadFileSelection]
+
             public init(
                 rootID: PathAccessRootIdentifier = .project,
                 path: String,
                 startLine: Int? = nil,
                 endLine: Int? = nil,
-                maxLines: Int? = nil
+                maxLines: Int? = nil,
+                selections: [ReadFileSelection] = []
             ) {
                 self.rootID = rootID
                 self.path = path
                 self.startLine = startLine
                 self.endLine = endLine
                 self.maxLines = maxLines
+                self.selections = selections
             }
         }
 
-        /// Read one file with `path` (and optionally a line window), or several files or windows at once with `reads`.
+        /// Read one file with `path` (optionally a line window or selections), or several files or windows at once with `reads`.
         @JSONSchema
         public struct Input: HashableSource {
             /// Workspace root identifier for path. Usually use 'project'.
@@ -181,7 +380,11 @@ public extension SystemIO.Tools {
             /// Optional maximum number of lines to read from path.
             public let maxLines: Int?
 
-            /// Several reads in one call, each a path with an optional line window; instead of path. At most 20.
+            /// Lines, a position, a span, or text around an anchor in path, each read as its own slice; instead of a line window.
+            @Schema(required: false)
+            public let selections: [ReadFileSelection]
+
+            /// Several reads in one call, each a path with an optional line window or selections; instead of path. At most 20.
             @Schema(required: false)
             public let reads: [Window]
 
@@ -195,6 +398,7 @@ public extension SystemIO.Tools {
                 startLine: Int? = nil,
                 endLine: Int? = nil,
                 maxLines: Int? = nil,
+                selections: [ReadFileSelection] = [],
                 reads: [Window] = [],
                 includeLineNumbers: Bool = false
             ) {
@@ -203,6 +407,7 @@ public extension SystemIO.Tools {
                 self.startLine = startLine
                 self.endLine = endLine
                 self.maxLines = maxLines
+                self.selections = selections
                 self.reads = reads
                 self.includeLineNumbers = includeLineNumbers
             }
@@ -216,13 +421,14 @@ public extension SystemIO.Tools {
                         path: path,
                         startLine: startLine,
                         endLine: endLine,
-                        maxLines: maxLines
+                        maxLines: maxLines,
+                        selections: selections
                     ),
                 ]
             }
         }
 
-        /// One read's result.
+        /// One read's result: a file, a line window of it, or one selected slice.
         public struct File: Sendable, Codable, Hashable {
             public let rootID: String
             public let path: String
@@ -268,7 +474,7 @@ public extension SystemIO.Tools {
                 .object()
             }
 
-            /// One per read, in the order asked.
+            /// One per read in the order asked; a read with selections gives one per selected slice.
             public let files: [File]
 
             public init(
@@ -278,7 +484,7 @@ public extension SystemIO.Tools {
             }
         }
 
-        public static let purpose = "Read files from the workspace: one with path (optionally a line window), or several files or windows at once with reads."
+        public static let purpose = "Read files from the workspace: one with path (optionally a line window or selections), or several files or windows at once with reads."
         public static let risk: ActionRisk = .observe
         public static let maximumReads = 20
 
@@ -377,7 +583,7 @@ public extension SystemIO.Tools {
             )
             var files: [File] = []
             for window in try validatedWindows(input) {
-                files.append(try await read(
+                files.append(contentsOf: try await read(
                     window,
                     includeLineNumbers: input.includeLineNumbers,
                     workspace: workspace
@@ -388,7 +594,7 @@ public extension SystemIO.Tools {
     }
 }
 
-private extension SystemIO.Tools.ReadFiles {
+private extension SystemIO.Tools.Read {
     func validatedWindows(
         _ input: Input
     ) throws -> [Window] {
@@ -401,6 +607,22 @@ private extension SystemIO.Tools.ReadFiles {
             )
         }
         for window in windows {
+            guard window.selections.isEmpty else {
+                guard window.startLine == nil,
+                      window.endLine == nil,
+                      window.maxLines == nil
+                else {
+                    throw PredefinedFileToolError.invalidValue(
+                        tool: Self.identifier.rawValue,
+                        field: "selections",
+                        reason: "give selections or a line window (startLine, endLine, maxLines), not both"
+                    )
+                }
+                for selection in window.selections {
+                    _ = try selection.contentSelection()
+                }
+                continue
+            }
             try FileToolSupport.validateReadWindow(
                 toolName: Self.identifier.rawValue,
                 startLine: window.startLine,
@@ -415,7 +637,7 @@ private extension SystemIO.Tools.ReadFiles {
         _ window: Window,
         includeLineNumbers: Bool,
         workspace: WorkspaceContext
-    ) async throws -> File {
+    ) async throws -> [File] {
         let authorized = try FileToolAccess.authorize(
             workspace: workspace,
             rootID: window.rootID,
@@ -425,74 +647,162 @@ private extension SystemIO.Tools.ReadFiles {
             type: .file
         )
 
+        guard window.selections.isEmpty else {
+            return try await readSelections(
+                window,
+                authorized: authorized,
+                includeLineNumbers: includeLineNumbers,
+                workspace: workspace
+            )
+        }
+
         let read = try await readSlice(
             authorized.absoluteURL,
             window: window,
             workspace: workspace
         )
 
-        let rawContent: String
-        let displayContent: String?
-        let structuredLines: [ReadFileLine]
-
-        if let range = read.selectedLineRange {
-            rawContent = FileToolSupport.renderLines(
-                read.selectedLines,
-                startingAt: range.start,
-                includeLineNumbers: false
-            )
-            displayContent = includeLineNumbers
-                ? FileToolSupport.renderLines(
-                    read.selectedLines,
-                    startingAt: range.start,
-                    includeLineNumbers: true
-                )
-                : nil
-            structuredLines = read.selectedLines.enumerated().map { offset, text in
-                ReadFileLine(
-                    number: range.start + offset,
-                    text: text
-                )
-            }
-        } else {
-            rawContent = ""
-            displayContent = nil
-            structuredLines = []
+        guard let range = read.selectedLineRange else {
+            return [
+                File(
+                    rootID: authorized.rootIdentifier.rawValue,
+                    path: authorized.presentationPath,
+                    content: "",
+                    lineRange: nil,
+                    lineCount: 0,
+                    totalLineCount: read.totalLineCount,
+                    byteCount: read.byteCount,
+                    truncated: read.truncated,
+                    encoding: read.encodingUsed?.name
+                ),
+            ]
         }
 
-        return File(
+        return [
+            file(
+                authorized: authorized,
+                lines: read.selectedLines,
+                startingAt: range.start,
+                lineRange: range,
+                includeLineNumbers: includeLineNumbers,
+                totalLineCount: read.totalLineCount,
+                byteCount: read.byteCount,
+                truncated: read.truncated,
+                encoding: read.encodingUsed?.name
+            ),
+        ]
+    }
+
+    /// Each selected slice as its own file entry, resolved over the same
+    /// text a line window reads (staged changes included).
+    func readSelections(
+        _ window: Window,
+        authorized: AuthorizedPath,
+        includeLineNumbers: Bool,
+        workspace: WorkspaceContext
+    ) async throws -> [File] {
+        let text = try await readWhole(
+            authorized.absoluteURL,
+            workspace: workspace
+        )
+        let resolved = SelectionResolver.resolve(
+            file: authorized.absoluteURL,
+            readResult: text,
+            selections: try window.selections.map {
+                try $0.contentSelection()
+            }
+        )
+
+        return resolved.slices.map { slice in
+            file(
+                authorized: authorized,
+                lines: slice.lines,
+                startingAt: slice.startLine,
+                lineRange: slice.lines.isEmpty
+                    ? nil
+                    : try? LineRange(
+                        start: slice.startLine,
+                        end: slice.endLine
+                    ),
+                includeLineNumbers: includeLineNumbers,
+                totalLineCount: resolved.totalLineCount,
+                byteCount: resolved.byteCount,
+                truncated: false,
+                encoding: resolved.encodingUsed?.name
+            )
+        }
+    }
+
+    func file(
+        authorized: AuthorizedPath,
+        lines: [String],
+        startingAt start: Int,
+        lineRange: LineRange?,
+        includeLineNumbers: Bool,
+        totalLineCount: Int,
+        byteCount: Int,
+        truncated: Bool,
+        encoding: String?
+    ) -> File {
+        File(
             rootID: authorized.rootIdentifier.rawValue,
             path: authorized.presentationPath,
-            content: rawContent,
-            display: displayContent,
-            lines: structuredLines,
-            lineRange: read.selectedLineRange,
-            lineCount: read.selectedLines.count,
-            totalLineCount: read.totalLineCount,
-            byteCount: read.byteCount,
-            truncated: read.truncated,
-            encoding: read.encodingUsed?.name
+            content: FileToolSupport.renderLines(
+                lines,
+                startingAt: start,
+                includeLineNumbers: false
+            ),
+            display: includeLineNumbers
+                ? FileToolSupport.renderLines(
+                    lines,
+                    startingAt: start,
+                    includeLineNumbers: true
+                )
+                : nil,
+            lines: lines.enumerated().map { offset, text in
+                ReadFileLine(
+                    number: start + offset,
+                    text: text
+                )
+            },
+            lineRange: lineRange,
+            lineCount: lines.count,
+            totalLineCount: totalLineCount,
+            byteCount: byteCount,
+            truncated: truncated,
+            encoding: encoding
         )
     }
 
     /// A coordinated participant reads its own staged changes over the disk,
     /// so work staged earlier in the run is visible before publication.
+    func stagedText(
+        _ url: URL,
+        workspace: WorkspaceContext
+    ) async throws -> String? {
+        guard case .coordinated(let submission) = workspace.execution.mutations,
+              let staged = try await submission.stagedState(at: url)
+        else {
+            return nil
+        }
+        guard let text = staged.textContent else {
+            throw PredefinedFileToolError.invalidValue(
+                tool: Self.identifier.rawValue,
+                field: "path",
+                reason: staged.exists
+                    ? "staged content is not text"
+                    : "staged for deletion in this run"
+            )
+        }
+        return text
+    }
+
     func readSlice(
         _ url: URL,
         window: Window,
         workspace: WorkspaceContext
     ) async throws -> LineSliceReadResult {
-        if case .coordinated(let submission) = workspace.execution.mutations,
-           let staged = try await submission.stagedState(at: url) {
-            guard let text = staged.textContent else {
-                throw PredefinedFileToolError.invalidValue(
-                    tool: Self.identifier.rawValue,
-                    field: "path",
-                    reason: staged.exists
-                        ? "staged content is not text"
-                        : "staged for deletion in this run"
-                )
-            }
+        if let text = try await stagedText(url, workspace: workspace) {
             return LineReadResult(
                 url: url,
                 text: text,
@@ -512,6 +822,24 @@ private extension SystemIO.Tools.ReadFiles {
         )
     }
 
+    func readWhole(
+        _ url: URL,
+        workspace: WorkspaceContext
+    ) async throws -> LineReadResult {
+        if let text = try await stagedText(url, workspace: workspace) {
+            return LineReadResult(
+                url: url,
+                text: text,
+                encodingUsed: nil,
+                byteCount: text.utf8.count,
+                existed: true
+            )
+        }
+        return try LineReader(url).read(
+            options: .default
+        )
+    }
+
     func summary(
         for window: Window,
         includeLineNumbers: Bool,
@@ -520,7 +848,11 @@ private extension SystemIO.Tools.ReadFiles {
     ) -> String {
         var parts: [String] = []
 
-        if let startLine = window.startLine,
+        if !window.selections.isEmpty {
+            parts.append(
+                "\(window.selections.count) selection(s)"
+            )
+        } else if let startLine = window.startLine,
            let endLine = window.endLine {
             parts.append(
                 "lines \(startLine)-\(endLine)"
@@ -565,6 +897,10 @@ private extension SystemIO.Tools.ReadFiles {
     func estimatedLineCount(
         for window: Window
     ) -> Int? {
+        guard window.selections.isEmpty else {
+            return nil
+        }
+
         if let maxLines = window.maxLines {
             return maxLines
         }

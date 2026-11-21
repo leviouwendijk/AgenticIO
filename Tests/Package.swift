@@ -21,6 +21,10 @@ let package = Package(
             branch: "master"
         ),
         .package(
+            url: "https://github.com/leviouwendijk/IO.git",
+            branch: "master"
+        ),
+        .package(
             url: "https://github.com/leviouwendijk/Workspace.git",
             branch: "master"
         ),
@@ -67,6 +71,7 @@ let package = Package(
             name: "AgenticIOTesting",
             dependencies: [
                 .product(name: "AgenticIO", package: "AgenticIO"),
+                .product(name: "IO", package: "IO"),
                 .product(
                     name: "Agentic",
                     package: "Agentic"

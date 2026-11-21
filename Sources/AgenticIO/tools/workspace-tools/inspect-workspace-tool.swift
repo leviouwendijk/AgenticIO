@@ -3,25 +3,34 @@ import Workspace
 import Primitives
 import Schema
 import Macros
+import Path
 
 
 public extension SystemIO.Tools {
     @Tool
     struct InspectWorkspace: Tool {
-        /// Model-facing input for InspectWorkspace.
+        /// The workspace's roots and path grants, optionally narrowed to one root.
         @JSONSchema
         public struct Input: HashableSource {
-            /// Whether workspace diagnostics are included.
+            /// Only this root and its grants. Defaults to every root.
+            public let rootID: PathAccessRootIdentifier?
+            /// Whether workspace diagnostics are included. Defaults to true.
             public let includeDiagnostics: Bool?
-            /// Whether current path grants are included.
+            /// Whether current path grants are included. Defaults to true.
             public let includeGrants: Bool?
+            /// Whether expired grants are included. Defaults to false.
+            public let includeExpired: Bool?
 
             public init(
+                rootID: PathAccessRootIdentifier? = nil,
                 includeDiagnostics: Bool? = nil,
-                includeGrants: Bool? = nil
+                includeGrants: Bool? = nil,
+                includeExpired: Bool? = nil
             ) {
+                self.rootID = rootID
                 self.includeDiagnostics = includeDiagnostics
                 self.includeGrants = includeGrants
+                self.includeExpired = includeExpired
             }
         }
 
@@ -105,20 +114,34 @@ public extension SystemIO.Tools {
 
             let includeDiagnostics = input.includeDiagnostics ?? true
             let includeGrants = input.includeGrants ?? true
+            let roots = WorkspaceToolSupport.rootSummaries(
+                workspace: workspace,
+                includeDiagnostics: includeDiagnostics
+            ).filter { root in
+                input.rootID.map { root.rootID == $0.rawValue } ?? true
+            }
+            let grants = WorkspaceToolSupport.grantSummaries(
+                workspace: workspace
+            ).filter { summary in
+                if let rootID = input.rootID,
+                   summary.rootID != rootID.rawValue {
+                    return false
+                }
+                if input.includeExpired != true,
+                   summary.status == "expired" {
+                    return false
+                }
+                return true
+            }
 
             return Output(
                 hasWorkspace: true,
                 defaultRootID: workspace.defaultRootIdentifier?.rawValue,
                 rootCount: workspace.roots.count,
                 grantCount: workspace.grants.count,
-                roots: WorkspaceToolSupport.rootSummaries(
-                    workspace: workspace,
-                    includeDiagnostics: includeDiagnostics
-                ),
+                roots: roots,
                 grants: includeGrants
-                    ? WorkspaceToolSupport.grantSummaries(
-                        workspace: workspace
-                    )
+                    ? grants
                     : [],
                 diagnostics: includeDiagnostics
                     ? WorkspaceToolSupport.diagnostics(

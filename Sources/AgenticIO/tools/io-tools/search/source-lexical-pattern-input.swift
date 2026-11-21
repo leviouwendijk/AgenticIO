@@ -283,7 +283,7 @@ enum ResolvedSearchQuery {
     }
 }
 
-extension SystemIO.Tools.SearchSources.Input {
+extension SystemIO.Tools.Search.Input {
     func resolvedSearchQuery(
         toolName: String
     ) throws -> ResolvedSearchQuery {

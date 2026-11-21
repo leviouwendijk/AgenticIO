@@ -17,10 +17,10 @@ public extension FileMutationIntentAction {
         switch self {
         case .write,
              .edit:
-            return SystemIO.Tools.MutateFiles.identifier.rawValue
+            return SystemIO.Tools.Mutate.identifier.rawValue
 
         case .rollback:
-            return "rollback_file_mutation"
+            return "rollback_mutation"
         }
     }
 
@@ -140,7 +140,7 @@ public extension AgentFileMutationPreflight {
         workspace: WorkspaceContext?,
         recorder: AgentFileMutationRecorder? = nil
     ) async throws -> Self {
-        let mutationInput = SystemIO.Tools.MutateFiles.Input(
+        let mutationInput = SystemIO.Tools.Mutate.Input(
             reason: "Prepare one whole-file replacement.",
             rootID: input.rootID,
             entries: [
@@ -151,7 +151,7 @@ public extension AgentFileMutationPreflight {
                 ),
             ]
         )
-        let preparation = try await SystemIO.Tools.MutateFiles().prepare(
+        let preparation = try await SystemIO.Tools.Mutate().prepare(
             mutationInput,
             workspace: workspace,
             writeOptions: recorder?.writeOptions()
@@ -199,7 +199,7 @@ public extension AgentFileMutationPreflight {
         workspace: WorkspaceContext?,
         recorder: AgentFileMutationRecorder? = nil
     ) async throws -> Self {
-        let mutationInput = SystemIO.Tools.MutateFiles.Input(
+        let mutationInput = SystemIO.Tools.Mutate.Input(
             reason: "Prepare one structured file edit.",
             rootID: input.rootID,
             entries: [
@@ -210,7 +210,7 @@ public extension AgentFileMutationPreflight {
                 ),
             ]
         )
-        let preparation = try await SystemIO.Tools.MutateFiles().prepare(
+        let preparation = try await SystemIO.Tools.Mutate().prepare(
             mutationInput,
             workspace: workspace,
             writeOptions: recorder?.writeOptions()

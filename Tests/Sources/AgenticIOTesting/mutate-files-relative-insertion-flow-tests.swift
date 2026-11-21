@@ -39,23 +39,23 @@ extension AgenticIOFlowTesting {
         let workspace = try makeAgenticIOTestingWorkspace(
             root: root
         )
-        let tool = SystemIO.Tools.MutateFiles()
+        let tool = SystemIO.Tools.Mutate()
         let schema = String(
-            describing: SystemIO.Tools.MutateFiles.Input.jsonschema
+            describing: SystemIO.Tools.Mutate.Input.jsonschema
         )
 
         try Expect.contains(
             schema,
             "insert_before",
-            "mutate_files schema exposes insert_before"
+            "mutate schema exposes insert_before"
         )
         try Expect.contains(
             schema,
             "insert_after",
-            "mutate_files schema exposes insert_after"
+            "mutate schema exposes insert_after"
         )
 
-        let input = SystemIO.Tools.MutateFiles.Input(
+        let input = SystemIO.Tools.Mutate.Input(
             entries: [
                 .init(
                     kind: .edit_text,
@@ -111,7 +111,7 @@ extension AgenticIOFlowTesting {
             "insert_before and insert_after lower against the original line snapshot"
         )
 
-        let invalid = SystemIO.Tools.MutateFiles.Input(
+        let invalid = SystemIO.Tools.Mutate.Input(
             entries: [
                 .init(
                     kind: .edit_text,

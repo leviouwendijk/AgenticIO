@@ -400,7 +400,7 @@ public actor SourceSearcher {
     public func search(
         _ request: SourceSearchRequest,
         workspace: WorkspaceContext,
-        toolName: String = "search_sources"
+        toolName: String = "search"
     ) throws -> SourceSearchResult {
         let probes = request.probes.filter {
             !$0.isEmpty

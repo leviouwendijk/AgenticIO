@@ -173,5 +173,17 @@ enum AgenticIOFlowSuite: TestFlowRegistry {
         ) {
             try await AgenticIOFlowTesting.runReadFilePolicy()
         },
+        TestFlow(
+            "read-selections",
+            tags: ["agentic-io", "read", "selection"]
+        ) {
+            try await AgenticIOFlowTesting.runReadSelections()
+        },
+        TestFlow(
+            "remove",
+            tags: ["agentic-io", "remove", "directory", "risk"]
+        ) {
+            try await AgenticIOFlowTesting.runRemove()
+        },
     ]
 }

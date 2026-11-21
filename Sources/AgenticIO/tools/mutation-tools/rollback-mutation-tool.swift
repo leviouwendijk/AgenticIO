@@ -7,7 +7,7 @@ import Writers
 
 public extension SystemIO.Tools {
     @Tool
-    struct RollbackFileMutation: Tool {
+    struct RollbackMutation: Tool {
         public typealias Input = AgentFileMutationRollbackInput
         public typealias Output = AgentFileMutationRollbackOutput
 
@@ -111,7 +111,7 @@ public extension SystemIO.Tools {
     }
 }
 
-private extension SystemIO.Tools.RollbackFileMutation {
+private extension SystemIO.Tools.RollbackMutation {
     func rollbackRecordingRecord(
         _ rollback: WriteMutationRollbackResult
     ) -> WriteMutationRecord {

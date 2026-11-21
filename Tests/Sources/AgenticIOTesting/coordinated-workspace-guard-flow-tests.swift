@@ -41,15 +41,15 @@ extension AgenticIOFlowTesting {
         let context = try authority.context(
             execution: .init(io: .blocking, mutations: .coordinated(submission))
         )
-        let tool = SystemIO.Tools.MutateFiles()
-        let input = SystemIO.Tools.MutateFiles.Input(entries: [
+        let tool = SystemIO.Tools.Mutate()
+        let input = SystemIO.Tools.Mutate.Input(entries: [
             .init(kind: .replace_text, path: "sample.txt", content: "modified\n")
         ])
 
         let tool_context = ToolContext(workspace: context)
         let preparation = try await tool.prepare(input, in: tool_context)
 
-        let multiInput = SystemIO.Tools.MutateFiles.Input(entries: [
+        let multiInput = SystemIO.Tools.Mutate.Input(entries: [
             .init(kind: .replace_text, path: "sample.txt", content: "modified\n"),
             .init(kind: .replace_text, path: "second.txt", content: "changed\n")
         ])
@@ -102,7 +102,7 @@ extension AgenticIOFlowTesting {
             of: "record-60\n", with: "modified-record-60\n"
         )
         try longOld.write(to: longFile, atomically: true, encoding: .utf8)
-        let longInput = SystemIO.Tools.MutateFiles.Input(entries: [
+        let longInput = SystemIO.Tools.Mutate.Input(entries: [
             .init(kind: .replace_text, path: "large.txt", content: longNew)
         ])
         let longPrepared = try await tool.prepare(longInput, in: tool_context)
@@ -142,19 +142,19 @@ extension AgenticIOFlowTesting {
         let preview = preparation.review
         try Expect.true(preview.summary.contains("Stage"), "coordinated tool preflight advertises staging")
         let result = try await tool.call(input, prepared: preparation.operation, in: tool_context)
-        try Expect.equal(result.status, "staged", "mutate_files stages under coordination")
+        try Expect.equal(result.status, "staged", "mutate stages under coordination")
         let staged_work = try Expect.notNil(preparation.operation, "staged preparation has plan")
-        try Expect.equal(result.planID, try staged_work.plan.decode(MutateFilesPreparedWork.self).plan.id, "staged plan uses reviewed identity")
+        try Expect.equal(result.planID, try staged_work.plan.decode(MutatePreparedWork.self).plan.id, "staged plan uses reviewed identity")
         try Expect.true(result.submissionID != nil, "staged result carries submission ID")
         try Expect.true(result.resultID == nil, "staged result is not a published result")
         try Expect.equal(result.records.count, 0, "no disk mutation records before publication")
         try Expect.equal(
             try String(contentsOf: file, encoding: .utf8),
             "original\n",
-            "coordinated mutate_files does not publish"
+            "coordinated mutate does not publish"
         )
         try Expect.true(result.note != nil, "staged output explains it is not yet on disk")
-        let stagedRead = try await SystemIO.Tools.ReadFiles().call(
+        let stagedRead = try await SystemIO.Tools.Read().call(
             .init(path: "sample.txt"),
             in: tool_context
         )
@@ -202,7 +202,7 @@ extension AgenticIOFlowTesting {
         let grantedContext = ToolContext(workspace: try authority.context(
             execution: .init(io: .blocking, mutations: .coordinated(granted))
         ))
-        let rootInput = SystemIO.Tools.MutateFiles.Input(entries: [
+        let rootInput = SystemIO.Tools.Mutate.Input(entries: [
             .init(kind: .replace_text, path: "second.txt", content: "root\n")
         ])
         let rootPrepared = try await tool.prepare(rootInput, in: grantedContext)
@@ -250,18 +250,18 @@ extension AgenticIOFlowTesting {
         )
         let workspace = try authority.context(execution: .init(io: .blocking, mutations: .immediate))
         let context = ToolContext(workspace: workspace)
-        let tool = SystemIO.Tools.MutateFiles()
-        let input = SystemIO.Tools.MutateFiles.Input(entries: [
+        let tool = SystemIO.Tools.Mutate()
+        let input = SystemIO.Tools.Mutate.Input(entries: [
             .init(kind: .replace_text, path: "approved.txt", content: "approved\n")
         ])
         let prepared = try await tool.prepare(input, in: context)
         let envelope = try Expect.notNil(prepared.operation, "review retains a serializable plan")
-        let work = try envelope.plan.decode(MutateFilesPreparedWork.self)
+        let work = try envelope.plan.decode(MutatePreparedWork.self)
         let presentedPath = try FileToolAccess.authorize(
             workspace: workspace,
             path: "approved.txt",
             capability: .write,
-            toolName: SystemIO.Tools.MutateFiles.identifier.rawValue
+            toolName: SystemIO.Tools.Mutate.identifier.rawValue
         ).presentationPath
         let projected = try PreparedMutationDifferenceProjection.project(
             work.plan,
@@ -271,7 +271,7 @@ extension AgenticIOFlowTesting {
         try Expect.equal(
             prepared.review.preview.differences.first,
             projected,
-            "mutate_files and semantic refactoring share an identical review diff"
+            "mutate and semantic refactoring share an identical review diff"
         )
         try Expect.true(
             projected?.layout.lines.contains(where: { $0.role == .headerNew }) == true,
@@ -283,20 +283,20 @@ extension AgenticIOFlowTesting {
             try Expect.true(false, "direct unprepared call should fail")
         } catch ToolPreparationError.prepared_operation_required {}
 
-        let modified = SystemIO.Tools.MutateFiles.Input(entries: [
+        let modified = SystemIO.Tools.Mutate.Input(entries: [
             .init(kind: .replace_text, path: "approved.txt", content: "other\n")
         ])
         do {
             _ = try await tool.call(modified, prepared: envelope, in: context)
             try Expect.true(false, "input substitution must fail")
-        } catch MutateFilesPreparedWorkError.context_mismatch {}
+        } catch MutatePreparedWorkError.context_mismatch {}
         try Expect.equal(try String(contentsOf: file, encoding: .utf8), "before\n", "unchanged before execution")
 
         // Transport and checkpoint persistence preserve the *same* plan bytes.
         let reviewed = ToolInvocation.Review(
             invocation: ToolInvocation(
                 id: "roundtrip",
-                tool: SystemIO.Tools.MutateFiles.identifier,
+                tool: SystemIO.Tools.Mutate.identifier,
                 arguments: try JSONValue.encoding(input)
             ),
             preflight: prepared.review,
@@ -313,7 +313,7 @@ extension AgenticIOFlowTesting {
         try Expect.equal(result.planID, work.plan.id, "execution used exact prepared plan")
         try Expect.equal(try String(contentsOf: file, encoding: .utf8), "approved\n", "approved content applied")
 
-        let stale = SystemIO.Tools.MutateFiles.Input(entries: [
+        let stale = SystemIO.Tools.Mutate.Input(entries: [
             .init(kind: .replace_text, path: "approved.txt", content: "stale-write\n")
         ])
         let stale_prepared = try await tool.prepare(stale, in: context)
@@ -323,13 +323,13 @@ extension AgenticIOFlowTesting {
         try Expect.equal(try String(contentsOf: file, encoding: .utf8), "external\n", "no stale overwrite")
 
         var registry = ToolRegistry()
-        try registry.register(SystemIO.Tools.MutateFiles())
-        let invoked_input = SystemIO.Tools.MutateFiles.Input(entries: [
+        try registry.register(SystemIO.Tools.Mutate())
+        let invoked_input = SystemIO.Tools.Mutate.Input(entries: [
             .init(kind: .replace_text, path: "approved.txt", content: "invoked\n")
         ])
         let invocation = ToolInvocation(
             id: "prepared-plan-invocation",
-            tool: SystemIO.Tools.MutateFiles.identifier,
+            tool: SystemIO.Tools.Mutate.identifier,
             arguments: try JSONValue.encoding(invoked_input)
         )
         let invoked = try await ToolExecutor(

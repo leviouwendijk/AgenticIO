@@ -12,40 +12,8 @@ extension AgenticIOFlowTesting {
             fixture.remove()
         }
 
-        var registry = ToolRegistry()
-
-        try registry.register(SystemIO.Tools.LoadSearchContext())
-
-        _ = try Expect.notNil(
-            registry.registeredTool(
-                named: "load_search_context"
-            ),
-            "AgenticIO registers load_search_context"
-        )
-
-        let schema = String(
-            describing: SystemIO.Tools.LoadSearchContext.Input.jsonschema
-        )
-
-        for field in [
-            "candidates",
-            "sourceFingerprint",
-            "lineRange",
-            "beforeLines",
-            "afterLines",
-            "maximumCandidates",
-            "maximumLinesPerCandidate",
-            "maximumTotalLines",
-        ] {
-            try Expect.contains(
-                schema,
-                field,
-                "load_search_context schema exposes \(field)"
-            )
-        }
-
-        let searchOutput = try await SystemIO.Tools.SearchSources().call(
-            SystemIO.Tools.SearchSources.Input(
+        let searchOutput = try await SystemIO.Tools.Search().call(
+            SystemIO.Tools.Search.Input(
                                 includes: [
                                     "Sources/**",
                                 ],
@@ -85,12 +53,12 @@ extension AgenticIOFlowTesting {
             "searched candidate ends on original source line 4"
         )
 
-        let tool = SystemIO.Tools.LoadSearchContext()
-        let input = SystemIO.Tools.LoadSearchContext.Input(
+        let loader = SourceContextLoader()
+        let request = SourceContextRequest(
             candidates: [
-                .init(
+                try SourceContextCandidateInput(
                     candidate
-                ),
+                ).reference(),
             ],
             beforeLines: 1,
             afterLines: 1,
@@ -98,9 +66,9 @@ extension AgenticIOFlowTesting {
             maximumLinesPerCandidate: 16,
             maximumTotalLines: 32
         )
-        let output = try await tool.call(
-            input,
-            in: ToolContext(workspace: fixture.workspace)
+        let output = try loader.load(
+            request,
+            workspace: fixture.workspace
         )
         let context = output
 
@@ -181,9 +149,9 @@ extension AgenticIOFlowTesting {
         var staleRejected = false
 
         do {
-            _ = try await tool.call(
-                input,
-                in: ToolContext(workspace: fixture.workspace)
+            _ = try loader.load(
+                request,
+                workspace: fixture.workspace
             )
         } catch let error as SourceContextLoadError {
             switch error {
@@ -197,12 +165,12 @@ extension AgenticIOFlowTesting {
         try Expect.equal(
             staleRejected,
             true,
-            "load_search_context rejects a candidate after its searched source changes"
+            "the context loader rejects a candidate after its searched source changes"
         )
 
         return [
             .message(
-                "load_search_context reauthorizes searched sources, validates source fingerprints, expands bounded LineRanges, delegates exact materialization to SelectionResolver, and rejects stale candidates"
+                "SourceContextLoader reauthorizes searched sources, validates source fingerprints, expands bounded LineRanges, delegates exact materialization to SelectionResolver, and rejects stale candidates"
             ),
         ]
     }

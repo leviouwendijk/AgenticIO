@@ -1,6 +1,6 @@
 import Agentic
 
-public extension SystemIO.Tools.ReadFiles {
+public extension SystemIO.Tools.Read {
     /// Each read's text once, under a one-line header, reads separated by a
     /// blank line. The output keeps `content`, `lines` and `display` for
     /// programs; the model reads the numbered display when it asked for line

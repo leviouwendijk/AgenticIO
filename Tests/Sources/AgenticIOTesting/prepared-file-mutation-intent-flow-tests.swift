@@ -55,13 +55,13 @@ extension AgenticIOFlowTesting {
         )
         let writeReview = writeDraft.invocation.review
         let writeInput = try writeReview.invocation.arguments.decode(
-            SystemIO.Tools.MutateFiles.Input.self
+            SystemIO.Tools.Mutate.Input.self
         )
 
         try Expect.equal(
             writeReview.invocation.tool.rawValue,
-            SystemIO.Tools.MutateFiles.identifier.rawValue,
-            "prepared write intent records mutate_files as its canonical reviewed call"
+            SystemIO.Tools.Mutate.identifier.rawValue,
+            "prepared write intent records mutate as its canonical reviewed call"
         )
         try Expect.equal(
             writeReview.requirement,
@@ -71,7 +71,7 @@ extension AgenticIOFlowTesting {
         try Expect.equal(
             writeInput.entries.count,
             1,
-            "prepared write intent retains one mutate_files entry"
+            "prepared write intent retains one mutate entry"
         )
         try Expect.equal(
             writeInput.entries[0].kind,
@@ -118,18 +118,18 @@ extension AgenticIOFlowTesting {
         )
         let editReview = editDraft.invocation.review
         let editInput = try editReview.invocation.arguments.decode(
-            SystemIO.Tools.MutateFiles.Input.self
+            SystemIO.Tools.Mutate.Input.self
         )
 
         try Expect.equal(
             editReview.invocation.tool.rawValue,
-            SystemIO.Tools.MutateFiles.identifier.rawValue,
-            "prepared edit intent records mutate_files instead of an obsolete edit tool"
+            SystemIO.Tools.Mutate.identifier.rawValue,
+            "prepared edit intent records mutate instead of an obsolete edit tool"
         )
         try Expect.equal(
             editInput.entries.count,
             1,
-            "prepared edit intent retains one mutate_files entry"
+            "prepared edit intent retains one mutate entry"
         )
         try Expect.equal(
             editInput.entries[0].kind,

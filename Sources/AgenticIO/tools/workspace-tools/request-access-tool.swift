@@ -8,7 +8,7 @@ import Macros
 
 public extension SystemIO.Tools {
     @Tool
-    struct RequestPathGrant: Tool {
+    struct RequestAccess: Tool {
         @JSONSchema
         public struct Input: HashableSource {
             public let requestedRootPath: String
@@ -116,7 +116,7 @@ public extension SystemIO.Tools {
     }
 }
 
-private extension SystemIO.Tools.RequestPathGrant {
+private extension SystemIO.Tools.RequestAccess {
     func normalizedExistingDirectoryURL(
         _ value: String
     ) throws -> URL {

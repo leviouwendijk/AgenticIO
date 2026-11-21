@@ -49,7 +49,7 @@ enum AgenticIOFlowTesting {
 
         return [
             .message(
-                "search_sources is schema-derived, workspace-authorized, retained through Concatenation, rebases source coordinates, and bounds repeated candidate regions per source document"
+                "search is schema-derived, workspace-authorized, retained through Concatenation, rebases source coordinates, and bounds repeated candidate regions per source document"
             ),
         ]
     }
@@ -88,92 +88,92 @@ private extension AgenticIOFlowTesting {
     ) async throws {
         var registry = ToolRegistry()
 
-        try registry.register(SystemIO.Tools.SearchSources())
+        try registry.register(SystemIO.Tools.Search())
 
         _ = try Expect.notNil(
             registry.registeredTool(
-                named: "search_sources"
+                named: "search"
             ),
-            "AgenticIO registers search_sources"
+            "AgenticIO registers search"
         )
 
         let schema = String(
-            describing: SystemIO.Tools.SearchSources.Input.jsonschema
+            describing: SystemIO.Tools.Search.Input.jsonschema
         )
 
         try Expect.contains(
             schema,
             "probes",
-            "search_sources schema exposes canonical probes"
+            "search schema exposes canonical probes"
         )
         try Expect.contains(
             schema,
             "subsequence",
-            "search_sources schema derives strategy enum cases"
+            "search schema derives strategy enum cases"
         )
         try Expect.contains(
             schema,
             "identifier",
-            "search_sources schema exposes identifier-boundary matching"
+            "search schema exposes identifier-boundary matching"
         )
         try Expect.contains(
             schema,
             "maximumCandidatesPerDocument",
-            "search_sources schema exposes per-document frontier diversity"
+            "search schema exposes per-document frontier diversity"
         )
         try Expect.contains(
             schema,
             "mode",
-            "search_sources schema exposes search mode"
+            "search schema exposes search mode"
         )
         try Expect.contains(
             schema,
             "exhaustive",
-            "search_sources schema derives exhaustive mode"
+            "search schema derives exhaustive mode"
         )
         try Expect.equal(
             schema.contains("maximumResults"),
             false,
-            "search_sources does not expose a pre-frontier Search hit delivery limit"
+            "search does not expose a pre-frontier Search hit delivery limit"
         )
         try Expect.contains(
             schema,
             "offset",
-            "search_sources schema exposes stateless continuation offset"
+            "search schema exposes stateless continuation offset"
         )
         try Expect.contains(
             schema,
             "expectedCorpusFingerprint",
-            "search_sources schema exposes continuation freshness guard"
+            "search schema exposes continuation freshness guard"
         )
         try Expect.contains(
             schema,
             "within",
-            "search_sources schema exposes explicit candidate-local refinement"
+            "search schema exposes explicit candidate-local refinement"
         )
         try Expect.contains(
             schema,
             "lexicalPattern",
-            "search_sources schema exposes bounded lexical search"
+            "search schema exposes bounded lexical search"
         )
         try Expect.contains(
             schema,
             "capture",
-            "search_sources schema exposes lexical capture nodes"
+            "search schema exposes lexical capture nodes"
         )
         try Expect.contains(
             schema,
             "gap",
-            "search_sources schema exposes bounded lexical gaps"
+            "search schema exposes bounded lexical gaps"
         )
         try Expect.contains(
             schema,
             "token",
-            "search_sources schema exposes exact token nodes"
+            "search schema exposes exact token nodes"
         )
 
-        let tool = SystemIO.Tools.SearchSources()
-        let input = SystemIO.Tools.SearchSources.Input(
+        let tool = SystemIO.Tools.Search()
+        let input = SystemIO.Tools.Search.Input(
             includes: [
                 "Sources/**",
             ],
@@ -259,7 +259,7 @@ private extension AgenticIOFlowTesting {
             "source search merged candidate end line"
         )
 
-        let rendered = try Expect.notNil(tool.render(output, input: input), "search_sources renders")
+        let rendered = try Expect.notNil(tool.render(output, input: input), "search renders")
         let fileLines = rendered.split(separator: "\n").filter { $0.hasPrefix("Sources/A.swift") }
         try Expect.equal(fileLines.count, 1, "Each file is named once")
         try Expect.true(
@@ -320,9 +320,9 @@ private extension AgenticIOFlowTesting {
             )
         }
 
-        // read_files: several windows in one call, each under its own header.
-        let files = SystemIO.Tools.ReadFiles()
-        let reads = SystemIO.Tools.ReadFiles.Input(reads: [
+        // read: several windows in one call, each under its own header.
+        let files = SystemIO.Tools.Read()
+        let reads = SystemIO.Tools.Read.Input(reads: [
             .init(path: "Sources/A.swift", startLine: 2, endLine: 3),
             .init(path: "Sources/B.swift"),
         ])
@@ -333,9 +333,9 @@ private extension AgenticIOFlowTesting {
         try Expect.equal(
             read.files.map(\.content),
             ["needle alpha\nmiddle", "unrelated\nsource\ntext"],
-            "read_files returns each window"
+            "read returns each window"
         )
-        let readText = try Expect.notNil(files.render(read, input: reads), "read_files renders")
+        let readText = try Expect.notNil(files.render(read, input: reads), "read renders")
         try Expect.true(
             readText.contains("Sources/A.swift · lines 2–3 of 5\nneedle alpha")
                 && readText.contains("\n\nSources/B.swift · 3 lines\nunrelated"),
@@ -343,7 +343,7 @@ private extension AgenticIOFlowTesting {
         )
         do {
             _ = try JSONDecoder().decode(
-                SystemIO.Tools.ReadFiles.Input.self,
+                SystemIO.Tools.Read.Input.self,
                 from: Data(#"{"path": "Sources/A.swift", "reads": [{"path": "Sources/B.swift"}]}"#.utf8)
             )
             try Expect.true(false, "path and reads together are refused")
@@ -369,7 +369,7 @@ private extension AgenticIOFlowTesting {
             encoding: .utf8
         )
 
-        let tool = SystemIO.Tools.SearchSources()
+        let tool = SystemIO.Tools.Search()
         let pattern = LexicalPatternInput(
             nodes: [
                 .identifier(
@@ -409,7 +409,7 @@ private extension AgenticIOFlowTesting {
             root: 7
         )
         let lexical = try await tool.call(
-            SystemIO.Tools.SearchSources.Input(
+            SystemIO.Tools.Search.Input(
                 includes: [
                     "Sources/Lexical.swift",
                 ],
@@ -470,7 +470,7 @@ private extension AgenticIOFlowTesting {
             root: 0
         )
         let exactToken = try await tool.call(
-            SystemIO.Tools.SearchSources.Input(
+            SystemIO.Tools.Search.Input(
                 includes: [
                     "Sources/Lexical.swift",
                 ],
@@ -493,7 +493,7 @@ private extension AgenticIOFlowTesting {
         )
 
         let broad = try await tool.call(
-            SystemIO.Tools.SearchSources.Input(
+            SystemIO.Tools.Search.Input(
                 includes: [
                     "Sources/Lexical.swift",
                 ],
@@ -518,7 +518,7 @@ private extension AgenticIOFlowTesting {
             "text search produces the lexical refinement region"
         )
         let refined = try await tool.call(
-            SystemIO.Tools.SearchSources.Input(
+            SystemIO.Tools.Search.Input(
                 includes: [
                     "Sources/Lexical.swift",
                 ],
@@ -584,8 +584,8 @@ private extension AgenticIOFlowTesting {
             encoding: .utf8
         )
 
-        let output = try await SystemIO.Tools.SearchSources().call(
-            SystemIO.Tools.SearchSources.Input(
+        let output = try await SystemIO.Tools.Search().call(
+            SystemIO.Tools.Search.Input(
                                 includes: [
                                     "Sources/DiversityA.swift",
                                     "Sources/DiversityB.swift",
@@ -853,8 +853,8 @@ private extension AgenticIOFlowTesting {
             encoding: .utf8
         )
 
-        let output = try await SystemIO.Tools.SearchSources().call(
-            SystemIO.Tools.SearchSources.Input(
+        let output = try await SystemIO.Tools.Search().call(
+            SystemIO.Tools.Search.Input(
                                 includes: [
                                     "Sources/Identifier.swift",
                                 ],
@@ -1052,9 +1052,9 @@ private extension AgenticIOFlowTesting {
     static func proveCandidateRefinement(
         _ fixture: SourceSearchFixture
     ) async throws {
-        let tool = SystemIO.Tools.SearchSources()
+        let tool = SystemIO.Tools.Search()
         let broad = try await tool.call(
-            SystemIO.Tools.SearchSources.Input(
+            SystemIO.Tools.Search.Input(
                 includes: [
                     "Sources/**",
                 ],
@@ -1083,7 +1083,7 @@ private extension AgenticIOFlowTesting {
         )
 
         let refined = try await tool.call(
-            SystemIO.Tools.SearchSources.Input(
+            SystemIO.Tools.Search.Input(
                 includes: [
                     "Sources/**",
                 ],
@@ -1134,7 +1134,7 @@ private extension AgenticIOFlowTesting {
         )
 
         let outside = try await tool.call(
-            SystemIO.Tools.SearchSources.Input(
+            SystemIO.Tools.Search.Input(
                 includes: [
                     "Sources/**",
                 ],
@@ -1182,7 +1182,7 @@ private extension AgenticIOFlowTesting {
 
         do {
             _ = try await tool.call(
-                SystemIO.Tools.SearchSources.Input(
+                SystemIO.Tools.Search.Input(
                     includes: [
                         "Sources/**",
                     ],
@@ -1225,9 +1225,9 @@ private extension AgenticIOFlowTesting {
     static func proveCandidateRefinementBudgets(
         _ fixture: SourceSearchFixture
     ) async throws {
-        let tool = SystemIO.Tools.SearchSources()
+        let tool = SystemIO.Tools.Search()
         let broad = try await tool.call(
-            SystemIO.Tools.SearchSources.Input(
+            SystemIO.Tools.Search.Input(
                 includes: [
                     "Sources/**",
                 ],
@@ -1259,7 +1259,7 @@ private extension AgenticIOFlowTesting {
 
         do {
             _ = try await tool.call(
-                SystemIO.Tools.SearchSources.Input(
+                SystemIO.Tools.Search.Input(
                     includes: [
                         "Sources/**",
                     ],
@@ -1314,7 +1314,7 @@ private extension AgenticIOFlowTesting {
 
         do {
             _ = try await tool.call(
-                SystemIO.Tools.SearchSources.Input(
+                SystemIO.Tools.Search.Input(
                     includes: [
                         "Sources/**",
                     ],
@@ -1368,7 +1368,7 @@ private extension AgenticIOFlowTesting {
 
         do {
             _ = try await tool.call(
-                SystemIO.Tools.SearchSources.Input(
+                SystemIO.Tools.Search.Input(
                     includes: [
                         "Sources/**",
                     ],

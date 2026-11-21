@@ -47,20 +47,20 @@ extension AgenticIOFlowTesting {
         let workspace = try makeAgenticIOTestingWorkspace(
             root: root
         )
-        let tool = SystemIO.Tools.MutateFiles()
+        let tool = SystemIO.Tools.Mutate()
         let schema = String(
-            describing: SystemIO.Tools.MutateFiles.Input.jsonschema
+            describing: SystemIO.Tools.Mutate.Input.jsonschema
         )
 
         try Expect.contains(
             schema,
             "replace_range",
-            "mutate_files schema exposes replace_range"
+            "mutate schema exposes replace_range"
         )
         try Expect.contains(
             schema,
             "position_range",
-            "mutate_files schema exposes the line/column position range payload"
+            "mutate schema exposes the line/column position range payload"
         )
 
         let decoded = try JSONDecoder().decode(
@@ -104,7 +104,7 @@ extension AgenticIOFlowTesting {
             "replace_range encodes the explicit position_range field"
         )
 
-        let input = SystemIO.Tools.MutateFiles.Input(
+        let input = SystemIO.Tools.Mutate.Input(
             entries: [
                 .init(
                     kind: .edit_text,
@@ -147,7 +147,7 @@ extension AgenticIOFlowTesting {
             "multiple position ranges resolve against the original Character-coordinate snapshot"
         )
 
-        let multiline = SystemIO.Tools.MutateFiles.Input(
+        let multiline = SystemIO.Tools.Mutate.Input(
             entries: [
                 .init(
                     kind: .edit_text,
@@ -189,7 +189,7 @@ extension AgenticIOFlowTesting {
             "replace_range may cross line boundaries without replacing either entire line"
         )
 
-        let invalid = SystemIO.Tools.MutateFiles.Input(
+        let invalid = SystemIO.Tools.Mutate.Input(
             entries: [
                 .init(
                     kind: .edit_text,
@@ -232,7 +232,7 @@ extension AgenticIOFlowTesting {
             "replace_range rejects unresolved line/column coordinates during preflight"
         )
 
-        let mixed = SystemIO.Tools.MutateFiles.Input(
+        let mixed = SystemIO.Tools.Mutate.Input(
             entries: [
                 .init(
                     kind: .edit_text,

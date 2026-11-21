@@ -46,8 +46,8 @@ extension AgenticIOFlowTesting {
             ]
         )
         let context = try workspace.context(execution: .init(io: .blocking, mutations: .immediate))
-        let tool = SystemIO.Tools.MutateFiles()
-        let input = SystemIO.Tools.MutateFiles.Input(entries: [
+        let tool = SystemIO.Tools.Mutate()
+        let input = SystemIO.Tools.Mutate.Input(entries: [
             .init(kind: .replace_text, path: note.path, content: "after\n"),
         ])
         let prepared = try await tool.prepare(input, in: ToolContext(workspace: context))
@@ -61,7 +61,7 @@ extension AgenticIOFlowTesting {
             io: .blocking,
             mutations: .coordinated(WorkspaceCoordinatedSubmission(participant: participant))
         ))
-        let second = SystemIO.Tools.MutateFiles.Input(entries: [
+        let second = SystemIO.Tools.Mutate.Input(entries: [
             .init(kind: .replace_text, path: note.path, content: "staged\n"),
         ])
         let preparedStaged = try await tool.prepare(second, in: ToolContext(workspace: staged))

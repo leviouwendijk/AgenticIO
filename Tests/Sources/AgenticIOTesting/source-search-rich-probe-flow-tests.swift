@@ -13,37 +13,37 @@ extension AgenticIOFlowTesting {
         }
 
         let schema = String(
-            describing: SystemIO.Tools.SearchSources.Input.jsonschema
+            describing: SystemIO.Tools.Search.Input.jsonschema
         )
 
         try Expect.contains(
             schema,
             "probes",
-            "search_sources schema exposes rich probes"
+            "search schema exposes rich probes"
         )
         try Expect.contains(
             schema,
             "required",
-            "search_sources schema exposes required probe role"
+            "search schema exposes required probe role"
         )
         try Expect.contains(
             schema,
             "preferred",
-            "search_sources schema exposes preferred probe role"
+            "search schema exposes preferred probe role"
         )
         try Expect.contains(
             schema,
             "excluded",
-            "search_sources schema exposes excluded probe role"
+            "search schema exposes excluded probe role"
         )
         try Expect.equal(
             schema.contains("queries"),
             false,
-            "search_sources schema omits the legacy queries representation"
+            "search schema omits the legacy queries representation"
         )
 
-        let output = try await SystemIO.Tools.SearchSources().call(
-            SystemIO.Tools.SearchSources.Input(
+        let output = try await SystemIO.Tools.Search().call(
+            SystemIO.Tools.Search.Input(
                                 includes: [
                                     "Sources/RichPlain.swift",
                                     "Sources/RichStrong.swift",

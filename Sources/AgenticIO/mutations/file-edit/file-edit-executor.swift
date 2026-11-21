@@ -5,9 +5,9 @@ import Writers
 
 /// Executes one structured file edit request outside the model-facing tool layer.
 ///
-/// Model-facing file mutation goes through `SystemIO.Tools.MutateFiles`. This executor is
+/// Model-facing file mutation goes through `SystemIO.Tools.Mutate`. This executor is
 /// for internal single-file workflows such as prepared-intent replay while
-/// sharing the same resolver and policy semantics as `mutate_files.edit_text`.
+/// sharing the same resolver and policy semantics as `mutate.edit_text`.
 public struct FileEditExecutor: Sendable {
     public static let name = "file_edit_executor"
 
@@ -41,7 +41,7 @@ public struct FileEditExecutor: Sendable {
     public func preview(
         _ request: FileEditRequest,
         workspace: WorkspaceContext,
-        authorizationToolName: String = SystemIO.Tools.MutateFiles.identifier.rawValue
+        authorizationToolName: String = SystemIO.Tools.Mutate.identifier.rawValue
     ) throws -> StandardEditResult {
         let resolution = try FileEditResolver(
             toolName: authorizationToolName
@@ -71,7 +71,7 @@ public struct FileEditExecutor: Sendable {
     public func execute(
         _ request: FileEditRequest,
         workspace: WorkspaceContext,
-        authorizationToolName: String = SystemIO.Tools.MutateFiles.identifier.rawValue
+        authorizationToolName: String = SystemIO.Tools.Mutate.identifier.rawValue
     ) async throws -> Result {
         try workspace.execution.requireImmediateMutation()
         let resolution = try FileEditResolver(

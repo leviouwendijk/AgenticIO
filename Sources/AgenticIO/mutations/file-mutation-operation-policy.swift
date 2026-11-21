@@ -2,7 +2,7 @@ import Foundation
 import Writers
 
 public enum FileMutationOperationPolicyError: Error, Sendable, LocalizedError {
-    case operation_not_allowed(MutateFilesToolEntryKind)
+    case operation_not_allowed(MutateToolEntryKind)
     case plan_entry_mismatch
 
     public var errorDescription: String? {
@@ -15,7 +15,7 @@ public enum FileMutationOperationPolicyError: Error, Sendable, LocalizedError {
     }
 }
 
-/// Restricts the top-level operations accepted by one configured MutateFiles tool.
+/// Restricts the top-level operations accepted by one configured Mutate tool.
 ///
 /// The policy is immutable and currently belongs to the concrete tool instance.
 /// Its default is unrestricted; defining an agent's capability identifier alone
@@ -40,21 +40,21 @@ public enum FileMutationOperationPolicyError: Error, Sendable, LocalizedError {
 /// Do not introduce generalized configuration storage or UI infrastructure here
 /// until the agent realization and capability-state boundaries are established.
 public struct FileMutationOperationPolicy: Sendable, Codable, Hashable {
-    public let allowed: Set<MutateFilesToolEntryKind>
+    public let allowed: Set<MutateToolEntryKind>
 
-    public init(allowed: Set<MutateFilesToolEntryKind>) {
+    public init(allowed: Set<MutateToolEntryKind>) {
         self.allowed = allowed
     }
 
     public static let unrestricted = Self(
-        allowed: Set(MutateFilesToolEntryKind.allCases)
+        allowed: Set(MutateToolEntryKind.allCases)
     )
 
-    public static func only(_ kinds: Set<MutateFilesToolEntryKind>) -> Self {
+    public static func only(_ kinds: Set<MutateToolEntryKind>) -> Self {
         .init(allowed: kinds)
     }
 
-    public func authorize(_ entries: [MutateFilesToolEntry]) throws {
+    public func authorize(_ entries: [MutateToolEntry]) throws {
         for entry in entries {
             try authorize(entry.kind)
         }
@@ -69,7 +69,7 @@ public struct FileMutationOperationPolicy: Sendable, Codable, Hashable {
     /// permissions that have since been revoked.
     public func authorize(
         _ plan: StandardMutationPlan,
-        matching entries: [MutateFilesToolEntry]
+        matching entries: [MutateToolEntry]
     ) throws {
         guard plan.entries.count == entries.count else {
             throw FileMutationOperationPolicyError.plan_entry_mismatch
@@ -84,13 +84,13 @@ public struct FileMutationOperationPolicy: Sendable, Codable, Hashable {
         }
     }
 
-    private func authorize(_ kind: MutateFilesToolEntryKind) throws {
+    private func authorize(_ kind: MutateToolEntryKind) throws {
         guard allowed.contains(kind) else {
             throw FileMutationOperationPolicyError.operation_not_allowed(kind)
         }
     }
 
-    private static func kind(of entry: StandardMutationEntry) -> MutateFilesToolEntryKind {
+    private static func kind(of entry: StandardMutationEntry) -> MutateToolEntryKind {
         switch entry {
         case .create_text: .create_text
         case .replace_text: .replace_text

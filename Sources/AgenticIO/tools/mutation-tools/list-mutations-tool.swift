@@ -8,7 +8,7 @@ import Macros
 
 public extension SystemIO.Tools {
     @Tool
-    struct ListFileMutations: Tool {
+    struct ListMutations: Tool {
         /// Model-facing input for List fileMutations.
         @JSONSchema
         public struct Input: HashableSource {
@@ -97,9 +97,9 @@ public extension SystemIO.Tools {
     }
 }
 
-private extension SystemIO.Tools.ListFileMutations {
+private extension SystemIO.Tools.ListMutations {
     func summary(
-        for input: SystemIO.Tools.ListFileMutations.Input
+        for input: SystemIO.Tools.ListMutations.Input
     ) -> String {
         var parts = [
             "List recorded file mutations."
@@ -139,7 +139,7 @@ private extension SystemIO.Tools.ListFileMutations {
     }
 }
 
-private extension SystemIO.Tools.ListFileMutations.Input {
+private extension SystemIO.Tools.ListMutations.Input {
     var normalizedPath: String? {
         normalized(
             path

@@ -44,8 +44,8 @@ extension AgenticIOFlowTesting {
             "AgenticIO registers prove_search_results"
         )
 
-        let searchOutput = try await SystemIO.Tools.SearchSources().call(
-            SystemIO.Tools.SearchSources.Input(
+        let searchOutput = try await SystemIO.Tools.Search().call(
+            SystemIO.Tools.Search.Input(
                                 includes: [
                                     "Sources/**",
                                 ],
