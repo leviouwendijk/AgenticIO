@@ -41,6 +41,10 @@ let package = Package(
             branch: "master"
         ),
         .package(
+            url: "https://github.com/leviouwendijk/Errors.git",
+            branch: "master"
+        ),
+        .package(
             url: "https://github.com/leviouwendijk/Path.git",
             branch: "master"
         ),
@@ -115,6 +119,10 @@ let package = Package(
                 .product(
                     name: "Writers",
                     package: "Writers"
+                ),
+                .product(
+                    name: "Errors",
+                    package: "Errors"
                 ),
                 .product(
                     name: "Testing",

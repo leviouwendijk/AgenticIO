@@ -88,6 +88,10 @@ let package = Package(
             url: "https://github.com/leviouwendijk/Reporting.git",
             branch: "master"
         ),
+        .package(
+            url: "https://github.com/leviouwendijk/Errors.git",
+            branch: "master"
+        ),
     ],
     targets: [
         .target(
@@ -132,6 +136,10 @@ let package = Package(
                 .product(
                     name: "Writers",
                     package: "Writers"
+                ),
+                .product(
+                    name: "Errors",
+                    package: "Errors"
                 ),
                 .product(
                     name: "Readers",

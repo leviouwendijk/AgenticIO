@@ -1,4 +1,5 @@
 import Agentic
+import Errors
 import AgenticIO
 import Workspace
 import Writers
@@ -267,7 +268,17 @@ extension AgenticIOFlowTesting {
                 in: recoveringContext
             )
         } catch let error as PreparedWritersPublicationError {
-            named = error.localizedDescription.contains("io_tool_recover_mutations")
+            named = error.explanation.contains("io_tool_recover_mutations")
+            try Expect.equal(
+                error.errorIdentity.raw,
+                "agentic_io.publication.recovery_required",
+                "blocked mutate has a stable identity"
+            )
+            try Expect.equal(error.errorDisposition, .requires_access, "blocked mutate needs someone to act")
+            try Expect.true(
+                error.report(for: .diagnostic).diagnostic.fields.contains { $0.name == "mutation.publication" },
+                "blocked mutate names the publication that blocked it"
+            )
         }
         try Expect.true(named, "blocked mutate names io_tool_recover_mutations")
 
