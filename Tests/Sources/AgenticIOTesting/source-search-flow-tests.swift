@@ -92,7 +92,7 @@ private extension AgenticIOFlowTesting {
 
         _ = try Expect.notNil(
             registry.registeredTool(
-                named: "search"
+                named: "io_tool_search"
             ),
             "AgenticIO registers search"
         )

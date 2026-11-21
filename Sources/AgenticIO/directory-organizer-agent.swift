@@ -79,7 +79,7 @@ public extension SystemIO.Agents {
         or remove nonempty directories without explicit task authorization.
 
         When filename normalization is explicitly requested, use the installed
-        convert_case tool for deterministic casing instead of improvising the
+        standard_tool_convert_case tool for deterministic casing instead of improvising the
         conversion. Pass the filename stem or an individual directory-name
         segment, never a complete filesystem path. Preserve existing filename
         extensions, hidden-file semantics, and unrelated path segments. Reject

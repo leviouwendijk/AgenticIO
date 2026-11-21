@@ -65,7 +65,7 @@ public enum PreparedWritersPublicationError: Error, Sendable, LocalizedError {
             }
             text += ". Its effect on disk is uncertain. "
             text += canRequest
-                ? "Inspect that target, then call recover_mutations with what you found; the operator reviews it."
+                ? "Inspect that target, then call io_tool_recover_mutations with what you found; the operator reviews it."
                 : "Ask the operator to recover before making further changes."
             return text
         }

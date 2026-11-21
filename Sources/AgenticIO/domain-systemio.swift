@@ -1,4 +1,4 @@
 import Agentic
 
-@Domain
+@Domain("io", aliases: ["systemio", "fs"])
 public enum SystemIO {}

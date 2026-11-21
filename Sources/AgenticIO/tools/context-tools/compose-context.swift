@@ -4,7 +4,7 @@ import Primitives
 import Schema
 import Macros
 
-/// What compose_context does with a plan.
+/// What io_tool_compose_context does with a plan.
 @JSONSchema
 public enum ContextComposeMode:
     String,

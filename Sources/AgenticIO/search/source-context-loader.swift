@@ -231,7 +231,7 @@ public struct SourceContextLoader: Sendable {
     public let toolName: String
 
     public init(
-        toolName: String = "search"
+        toolName: String = "io_tool_search"
     ) {
         self.toolName = toolName
     }

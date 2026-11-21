@@ -18,7 +18,7 @@ extension AgenticIOFlowTesting {
 
         _ = try Expect.notNil(
             registry.registeredTool(
-                named: "find"
+                named: "io_tool_find"
             ),
             "AgenticIO registers find in the workspace tool set"
         )

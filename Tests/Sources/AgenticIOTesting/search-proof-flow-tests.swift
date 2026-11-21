@@ -29,7 +29,7 @@ extension AgenticIOFlowTesting {
             try Expect.contains(
                 schema,
                 field,
-                "prove_search_results schema exposes \(field)"
+                "io_tool_prove_search_results schema exposes \(field)"
             )
         }
 
@@ -39,9 +39,9 @@ extension AgenticIOFlowTesting {
 
         _ = try Expect.notNil(
             registry.registeredTool(
-                named: "prove_search_results"
+                named: "io_tool_prove_search_results"
             ),
-            "AgenticIO registers prove_search_results"
+            "AgenticIO registers io_tool_prove_search_results"
         )
 
         let searchOutput = try await SystemIO.Tools.Search().call(

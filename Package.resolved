@@ -7,7 +7,7 @@
       "location" : "https://github.com/leviouwendijk/Agentic.git",
       "state" : {
         "branch" : "master",
-        "revision" : "f92ab91aaa4128c6d474f12f419e4776b2e5d195"
+        "revision" : "6afecce4f7517cdfc19bd3f965fee232a706e996"
       }
     },
     {
@@ -52,7 +52,7 @@
       "location" : "https://github.com/leviouwendijk/Concatenation.git",
       "state" : {
         "branch" : "master",
-        "revision" : "58bccd02e5b4b0b28be65b7360cc202e5f57f45d"
+        "revision" : "4e1e8a57da7dd622a8281212cdf0e026e4e8b970"
       }
     },
     {
@@ -349,7 +349,7 @@
       "location" : "https://github.com/leviouwendijk/Sensitivity.git",
       "state" : {
         "branch" : "master",
-        "revision" : "67a91fbbdb0eeed41cbe9cde6ab0ca7874ef5837"
+        "revision" : "f68fea54e1fa6edcb5af82bbc77d7d1f23de96ca"
       }
     },
     {

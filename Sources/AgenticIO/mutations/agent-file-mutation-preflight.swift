@@ -20,7 +20,7 @@ public extension FileMutationIntentAction {
             return SystemIO.Tools.Mutate.identifier.rawValue
 
         case .rollback:
-            return "rollback_mutation"
+            return "io_tool_rollback_mutation"
         }
     }
 

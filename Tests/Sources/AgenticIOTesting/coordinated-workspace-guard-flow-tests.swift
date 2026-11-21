@@ -267,9 +267,9 @@ extension AgenticIOFlowTesting {
                 in: recoveringContext
             )
         } catch let error as PreparedWritersPublicationError {
-            named = error.localizedDescription.contains("recover_mutations")
+            named = error.localizedDescription.contains("io_tool_recover_mutations")
         }
-        try Expect.true(named, "blocked mutate names recover_mutations")
+        try Expect.true(named, "blocked mutate names io_tool_recover_mutations")
 
         let review = try await recover.preflight(recoverInput, in: recoveringContext)
         try Expect.equal(review.risk, .privileged, "recovery is always reviewed")
