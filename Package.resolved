@@ -52,7 +52,7 @@
       "location" : "https://github.com/leviouwendijk/Concatenation.git",
       "state" : {
         "branch" : "master",
-        "revision" : "e5812d3f5bc31496fd983327ea5ad6cfc9a6b1ad"
+        "revision" : "829357e513c9bf4e19d4b9f6963020e1385a37e3"
       }
     },
     {
@@ -160,7 +160,7 @@
       "location" : "https://github.com/leviouwendijk/IO.git",
       "state" : {
         "branch" : "master",
-        "revision" : "4b512aca41c5a14c7381f7aa540d8c3b339b1f36"
+        "revision" : "a793815ec4e1a536bbc606bcc0f91bdf2df26938"
       }
     },
     {
@@ -295,7 +295,7 @@
       "location" : "https://github.com/leviouwendijk/Readers.git",
       "state" : {
         "branch" : "master",
-        "revision" : "e7d3b31a5bed16a83432fa6864c24248fdc925c4"
+        "revision" : "66c24cb5d8f2a3794408fbae231e9a9d266457e7"
       }
     },
     {
@@ -439,7 +439,7 @@
       "location" : "https://github.com/leviouwendijk/Writers.git",
       "state" : {
         "branch" : "master",
-        "revision" : "1f36c58525c798b1aecac4b4546129605716bfda"
+        "revision" : "a2ab13474556bf85406766f1bcc9c10c2562dae9"
       }
     }
   ],
