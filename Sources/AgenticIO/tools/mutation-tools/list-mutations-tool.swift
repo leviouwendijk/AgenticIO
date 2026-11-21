@@ -14,8 +14,6 @@ public extension SystemIO.Tools {
         public struct Input: HashableSource {
             /// Optional workspace path used to filter mutation history.
             public let path: String?
-            /// Optional prepared intent identifier used to filter mutation history.
-            public let preparedIntentID: String?
             /// Whether to return only rollbackable mutations.
             public let rollbackableOnly: Bool
             /// Whether to include recorded mutations that produced no content change.
@@ -27,14 +25,12 @@ public extension SystemIO.Tools {
 
             public init(
                 path: String? = nil,
-                preparedIntentID: String? = nil,
                 rollbackableOnly: Bool = false,
                 includeUnchanged: Bool = true,
                 latestFirst: Bool = true,
                 limit: Int? = nil
             ) {
                 self.path = path
-                self.preparedIntentID = preparedIntentID
                 self.rollbackableOnly = rollbackableOnly
                 self.includeUnchanged = includeUnchanged
                 self.latestFirst = latestFirst
@@ -83,7 +79,6 @@ public extension SystemIO.Tools {
             let result = try await history.list(
                 .init(
                     path: input.normalizedPath,
-                    preparedIntentID: input.normalizedPreparedIntentID,
                     rollbackableOnly: input.rollbackableOnly,
                     includeUnchanged: input.includeUnchanged,
                     latestFirst: input.latestFirst,
@@ -108,12 +103,6 @@ private extension SystemIO.Tools.ListMutations {
         if let path = input.normalizedPath {
             parts.append(
                 "path: \(path)"
-            )
-        }
-
-        if let preparedIntentID = input.normalizedPreparedIntentID {
-            parts.append(
-                "preparedIntentID: \(preparedIntentID.rawValue)"
             )
         }
 
@@ -144,14 +133,6 @@ private extension SystemIO.Tools.ListMutations.Input {
         normalized(
             path
         )
-    }
-
-    var normalizedPreparedIntentID: PreparedIntentIdentifier? {
-        normalized(
-            preparedIntentID
-        ).map {
-            .init($0)
-        }
     }
 
     var clampedLimit: Int {

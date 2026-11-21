@@ -8,7 +8,6 @@ public struct AgentFileMutationDraft: Sendable, Hashable {
     public let id: UUID
     public let sessionID: String
     public let callID: String?
-    public let preparedIntentID: PreparedIntentIdentifier?
     public let createdAt: Date
     public let rootID: PathAccessRootIdentifier?
     public let path: DescendantPath?
@@ -20,7 +19,6 @@ public struct AgentFileMutationDraft: Sendable, Hashable {
         id: UUID = UUID(),
         sessionID: String,
         callID: String? = nil,
-        preparedIntentID: PreparedIntentIdentifier? = nil,
         createdAt: Date = Date(),
         rootID: PathAccessRootIdentifier? = nil,
         path: DescendantPath? = nil,
@@ -31,7 +29,6 @@ public struct AgentFileMutationDraft: Sendable, Hashable {
         self.id = id
         self.sessionID = sessionID
         self.callID = callID
-        self.preparedIntentID = preparedIntentID
         self.createdAt = createdAt
         self.rootID = rootID
         self.path = path
@@ -45,7 +42,6 @@ public struct AgentFileMutationRecord: Sendable, Codable, Hashable, Identifiable
     public let id: UUID
     public let sessionID: String
     public let callID: String?
-    public let preparedIntentID: PreparedIntentIdentifier?
     public let createdAt: Date
     public let rootID: PathAccessRootIdentifier?
     public let path: DescendantPath?
@@ -63,7 +59,6 @@ public struct AgentFileMutationRecord: Sendable, Codable, Hashable, Identifiable
         id: UUID = UUID(),
         sessionID: String,
         callID: String? = nil,
-        preparedIntentID: PreparedIntentIdentifier? = nil,
         createdAt: Date = Date(),
         rootID: PathAccessRootIdentifier? = nil,
         path: DescendantPath? = nil,
@@ -78,7 +73,6 @@ public struct AgentFileMutationRecord: Sendable, Codable, Hashable, Identifiable
         self.id = id
         self.sessionID = sessionID
         self.callID = callID
-        self.preparedIntentID = preparedIntentID
         self.createdAt = createdAt
         self.rootID = rootID
         self.path = path
@@ -118,7 +112,6 @@ public extension AgentFileMutationRecord {
             id: id,
             sessionID: sessionID,
             callID: callID,
-            preparedIntentID: preparedIntentID,
             createdAt: createdAt,
             rootID: rootID,
             path: path,

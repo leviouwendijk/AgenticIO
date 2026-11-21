@@ -88,21 +88,6 @@ enum AgenticIOFlowSuite: TestFlowRegistry {
             try await AgenticIOFlowTesting
                 .runMutateFilesRelativeInsertion()
         },
-/* FROZEN: independent durable prepared-intent queue is not required by the conversation or ToolPlan bridge.
-        TestFlow(
-            "prepared-file-mutation-intent-invocation",
-            tags: [
-                "agentic-io",
-                "mutation",
-                "prepared-intent",
-                "tool-invocation",
-                "approval",
-            ]
-        ) {
-            try await AgenticIOFlowTesting
-                .runPreparedFileMutationIntentInvocation()
-        },
-*/
         TestFlow(
             "path-search",
             tags: [

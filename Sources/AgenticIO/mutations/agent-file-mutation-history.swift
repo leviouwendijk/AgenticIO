@@ -21,7 +21,6 @@ public enum AgentFileMutationHistoryError: Error, Sendable, LocalizedError {
 
 public struct AgentFileMutationHistoryQuery: Sendable, Codable, Hashable {
     public var path: String?
-    public var preparedIntentID: PreparedIntentIdentifier?
     public var rollbackableOnly: Bool
     public var includeUnchanged: Bool
     public var latestFirst: Bool
@@ -29,14 +28,12 @@ public struct AgentFileMutationHistoryQuery: Sendable, Codable, Hashable {
 
     public init(
         path: String? = nil,
-        preparedIntentID: PreparedIntentIdentifier? = nil,
         rollbackableOnly: Bool = false,
         includeUnchanged: Bool = true,
         latestFirst: Bool = true,
         limit: Int? = nil
     ) {
         self.path = path
-        self.preparedIntentID = preparedIntentID
         self.rollbackableOnly = rollbackableOnly
         self.includeUnchanged = includeUnchanged
         self.latestFirst = latestFirst
@@ -90,7 +87,6 @@ public struct AgentFileMutationSummary: Sendable, Codable, Hashable, Identifiabl
     public let id: UUID
     public let sessionID: String
     public let callID: String?
-    public let preparedIntentID: PreparedIntentIdentifier?
     public let createdAt: Date
     public let rootID: String?
     public let path: String
@@ -109,7 +105,6 @@ public struct AgentFileMutationSummary: Sendable, Codable, Hashable, Identifiabl
         id: UUID,
         sessionID: String,
         callID: String?,
-        preparedIntentID: PreparedIntentIdentifier?,
         createdAt: Date,
         rootID: String?,
         path: String,
@@ -127,7 +122,6 @@ public struct AgentFileMutationSummary: Sendable, Codable, Hashable, Identifiabl
         self.id = id
         self.sessionID = sessionID
         self.callID = callID
-        self.preparedIntentID = preparedIntentID
         self.createdAt = createdAt
         self.rootID = rootID
         self.path = path
@@ -150,7 +144,6 @@ public struct AgentFileMutationSummary: Sendable, Codable, Hashable, Identifiabl
             id: mutation.id,
             sessionID: mutation.sessionID,
             callID: mutation.callID,
-            preparedIntentID: mutation.preparedIntentID,
             createdAt: mutation.createdAt,
             rootID: mutation.rootID?.rawValue,
             path: mutation.relativePath ?? mutation.target.lastPathComponent,
@@ -237,7 +230,6 @@ public struct AgentFileMutationHistory: Sendable {
     ) async throws -> AgentFileMutationHistoryList {
         var records = try await store.list(
             .init(
-                preparedIntentID: query.preparedIntentID,
                 latestFirst: query.latestFirst
             )
         )

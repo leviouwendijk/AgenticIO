@@ -77,7 +77,6 @@ public struct AgentFileMutationRecorder: Sendable {
         let draft = AgentFileMutationDraft(
             sessionID: sessionID,
             callID: context.callID,
-            preparedIntentID: context.preparedIntentID,
             rootID: rootID ?? context.rootID,
             path: path,
             writerRecord: writerRecord,
