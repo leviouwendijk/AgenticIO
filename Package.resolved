@@ -52,7 +52,7 @@
       "location" : "https://github.com/leviouwendijk/Concatenation.git",
       "state" : {
         "branch" : "master",
-        "revision" : "4e1e8a57da7dd622a8281212cdf0e026e4e8b970"
+        "revision" : "e5812d3f5bc31496fd983327ea5ad6cfc9a6b1ad"
       }
     },
     {
@@ -160,7 +160,7 @@
       "location" : "https://github.com/leviouwendijk/IO.git",
       "state" : {
         "branch" : "master",
-        "revision" : "a6f284a47e31a3d904f97b825763657135abbfa1"
+        "revision" : "4b512aca41c5a14c7381f7aa540d8c3b339b1f36"
       }
     },
     {
