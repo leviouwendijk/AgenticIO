@@ -263,8 +263,6 @@ private extension ContextComposer {
             includeSourceLineNumbers: source.includeSourceLineNumbers,
             includeSourceModifiedAt: false,
             obscureMap: [:],
-            verbose: false,
-            location: metadata.title,
             protectSecrets: true,
             allowSecrets: false,
             failOnBlockedFiles: false,
