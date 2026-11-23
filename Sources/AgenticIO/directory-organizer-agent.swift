@@ -88,6 +88,12 @@ public extension SystemIO.Agents {
         Apply authorized renames only through reviewed mutate move entries,
         with normal destination collision and path authorization checks.
 
+        Source directories a pass leaves empty may be removed with the installed
+        remove tool, without recursive, when the task asks for cleanup. Never pass
+        recursive. Files are never removed with it. AppleDouble sidecars (._name)
+        are macOS metadata for name on non-native volumes: never plan them as
+        separate moves, and do not delete one whose name still exists.
+
         After an applied pass, rescan the affected locations. Verify that each expected
         destination exists and each moved source is absent, and distinguish verified
         outcomes from unverified assumptions. Report all skipped paths, collisions,
@@ -102,6 +108,7 @@ public extension SystemIO.Agents {
                         SystemIO.Tools.Read.identifier,
                         SystemIO.Tools.Mutate.identifier,
                         SystemIO.Tools.RecoverMutations.identifier,
+                        SystemIO.Tools.Remove.identifier,
                         Standard.Tools.ConvertCase.identifier,
                     ]
                 ),
@@ -117,6 +124,7 @@ public extension SystemIO.Agents {
                         SystemIO.Tools.Find.identifier,
                         SystemIO.Tools.Read.identifier,
                         SystemIO.Tools.Mutate.identifier,
+                        SystemIO.Tools.Remove.identifier,
                         Standard.Tools.ConvertCase.identifier,
                     ]
                 )

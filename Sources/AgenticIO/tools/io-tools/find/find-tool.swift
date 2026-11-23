@@ -108,6 +108,21 @@ public struct FindEvidence: Sendable, Codable, Hashable {
     }
 }
 
+/// Paths the access policy denied, left out of a find result, counted per
+/// reason. Their names are not returned; reading them stays denied.
+public struct FindWithheld: Sendable, Codable, Hashable {
+    public let reason: String
+    public let count: Int
+
+    public init(
+        reason: String,
+        count: Int
+    ) {
+        self.reason = reason
+        self.count = count
+    }
+}
+
 public struct FindEntry: Sendable, Codable, Hashable {
     public let path: String
     public let isDirectory: Bool
@@ -365,6 +380,8 @@ public extension SystemIO.Tools {
             public let searchedPathCount: Int?
             /// Paths that matched before maxEntries, for a query.
             public let candidateCount: Int?
+            /// Paths the access policy denied, left out and counted by reason; nil when none.
+            public let withheld: [FindWithheld]?
 
             public init(
                 rootID: String,
@@ -372,7 +389,8 @@ public extension SystemIO.Tools {
                 entries: [FindEntry],
                 truncated: Bool,
                 searchedPathCount: Int? = nil,
-                candidateCount: Int? = nil
+                candidateCount: Int? = nil,
+                withheld: [FindWithheld]? = nil
             ) {
                 self.rootID = rootID
                 self.directory = directory
@@ -380,6 +398,13 @@ public extension SystemIO.Tools {
                 self.truncated = truncated
                 self.searchedPathCount = searchedPathCount
                 self.candidateCount = candidateCount
+                self.withheld = withheld
+            }
+
+            public var withheldCount: Int {
+                (withheld ?? []).reduce(0) {
+                    $0 + $1.count
+                }
             }
 
             /// Whether this lists paths rather than ranking matches.
@@ -515,21 +540,35 @@ public extension SystemIO.Tools {
                     directoryState: input.directoryState
                 )
             )
+            // A path a deny rule covers (a .key deep in a tree) is withheld and
+            // counted, not an error for the whole scan.
+            var denials: [PathAccessEvaluation] = []
             let entries = try scan.matches.compactMap { match -> FindScannedEntry? in
                 guard match.url.standardizedFileURL != directory.absoluteURL.standardizedFileURL else {
                     return nil
                 }
 
-                let authorized = try workspace.authorize(
-                    match.url.path,
-                    capability: .scan
-                ).authorizedPath
+                let authorized: AuthorizedPath
+                do {
+                    authorized = try workspace.authorize(
+                        match.url.path,
+                        capability: .scan
+                    ).authorizedPath
+                } catch PathAccessError.denied(let evaluation) {
+                    denials.append(
+                        evaluation
+                    )
+                    return nil
+                }
 
                 return FindScannedEntry(
                     path: authorized.presentationPath,
                     isDirectory: match.type == .directory
                 )
             }
+            let withheld = Self.withheld(
+                denials
+            )
             let rootID = workspace.rootIdentifier.rawValue
             let directoryName = directoryPath.map { _ in
                 directory.presentationPath
@@ -558,7 +597,8 @@ public extension SystemIO.Tools {
                             isDirectory: $0.isDirectory
                         )
                     },
-                    truncated: truncated
+                    truncated: truncated,
+                    withheld: withheld
                 )
             }
 
@@ -607,7 +647,8 @@ public extension SystemIO.Tools {
                 },
                 truncated: result.candidateCount > result.hits.count,
                 searchedPathCount: result.searchedDocumentCount,
-                candidateCount: result.candidateCount
+                candidateCount: result.candidateCount,
+                withheld: withheld
             )
         }
 
@@ -633,9 +674,72 @@ public extension SystemIO.Tools {
                             output.entries.count
                         )
                     ),
-                ]
+                ] + (output.withheldCount > 0
+                    ? [
+                        .init(
+                            label: "withheld",
+                            value: String(
+                                output.withheldCount
+                            )
+                        ),
+                    ]
+                    : [])
             )
         }
+    }
+}
+
+extension SystemIO.Tools.Find {
+    /// Denials grouped by their rule's reason, in first-seen order; nil when none.
+    static func withheld(
+        _ denials: [PathAccessEvaluation]
+    ) -> [FindWithheld]? {
+        guard !denials.isEmpty else {
+            return nil
+        }
+
+        var order: [String] = []
+        var counts: [String: Int] = [:]
+
+        for evaluation in denials {
+            let reason = evaluation.matchedRule?.reason.flatMap {
+                $0.isEmpty ? nil : $0
+            } ?? "Denied by the access policy."
+
+            if counts[reason] == nil {
+                order.append(
+                    reason
+                )
+            }
+
+            counts[reason, default: 0] += 1
+        }
+
+        return order.map {
+            .init(
+                reason: $0,
+                count: counts[$0] ?? 0
+            )
+        }
+    }
+
+    /// One bracketed line naming how many paths the policy withheld and why.
+    static func withheldNote(
+        _ output: Output
+    ) -> String? {
+        guard let withheld = output.withheld,
+              !withheld.isEmpty
+        else {
+            return nil
+        }
+
+        let reasons = withheld.map {
+            "\($0.count) × \($0.reason)"
+        }
+
+        return "[\(output.withheldCount) path(s) withheld by the access policy, not listed and not readable: "
+            + reasons.joined(separator: "; ")
+            + "]"
     }
 }
 

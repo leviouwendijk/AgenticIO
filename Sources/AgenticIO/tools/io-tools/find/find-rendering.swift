@@ -99,6 +99,11 @@ private extension SystemIO.Tools.Find {
                 "[Directories with counts are not expanded. Find one by path, or pass expand: true, to list everything.]"
             )
         }
+        if let note = Self.withheldNote(output) {
+            lines.append(
+                note
+            )
+        }
         return lines.joined(separator: "\n")
     }
 
@@ -125,6 +130,7 @@ private extension SystemIO.Tools.Find {
             }
             return line
         }
-        return ([header] + lines).joined(separator: "\n")
+        let note = Self.withheldNote(output).map { [$0] } ?? []
+        return ([header] + lines + note).joined(separator: "\n")
     }
 }

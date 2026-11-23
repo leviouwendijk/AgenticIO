@@ -377,6 +377,75 @@ extension AgenticIOFlowTesting {
         )
         try Expect.true(!rankedText.contains("{"), "No JSON reaches the model")
 
+        // A credential file deep in the tree is withheld and counted, not an
+        // error for the whole listing (a .key inside a mirrored home folder).
+        let secrets = fixture.root
+            .appendingPathComponent("Archive", isDirectory: true)
+            .appendingPathComponent("Downloads", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: secrets,
+            withIntermediateDirectories: true
+        )
+        for name in [
+            "signing.key",
+            "server.pem",
+            "notes.txt",
+        ] {
+            try "x".write(
+                to: secrets.appendingPathComponent(name),
+                atomically: true,
+                encoding: .utf8
+            )
+        }
+
+        let withheldListing = try await SystemIO.Tools.Find().call(
+            SystemIO.Tools.Find.Input(
+                recursive: true
+            ),
+            in: ToolContext(workspace: fixture.workspace)
+        )
+        let withheldPaths = withheldListing.entries.map(\.path)
+
+        try Expect.true(
+            withheldPaths.contains("Archive/Downloads/notes.txt"),
+            "a recursive listing still lists the rest of a tree that holds a denied file"
+        )
+        try Expect.true(
+            !withheldPaths.contains { $0.hasSuffix(".key") || $0.hasSuffix(".pem") },
+            "denied paths are not listed"
+        )
+        try Expect.equal(
+            withheldListing.withheldCount,
+            2,
+            "both denied paths are counted as withheld"
+        )
+        try Expect.equal(
+            withheldListing.withheld?.count,
+            1,
+            "denials group by their rule's reason"
+        )
+
+        let withheldText = SystemIO.Tools.Find().render(
+            withheldListing,
+            input: .init(recursive: true)
+        ) ?? ""
+        try Expect.true(
+            withheldText.contains("2 path(s) withheld by the access policy"),
+            "the rendering tells the model paths were withheld: \(withheldText)"
+        )
+
+        let withheldQuery = try await SystemIO.Tools.Find().call(
+            SystemIO.Tools.Find.Input(
+                query: "notes"
+            ),
+            in: ToolContext(workspace: fixture.workspace)
+        )
+        try Expect.equal(
+            withheldQuery.withheldCount,
+            2,
+            "a query over a tree with denied files withholds them too"
+        )
+
         return [
             .message(
                 "find lists shallowly by default, searches below with a query or includes, and keeps flatcase maxdepth as bounded depth control"
