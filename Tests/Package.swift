@@ -17,7 +17,7 @@ let package = Package(
     ],
     dependencies: [
         .package(
-            url: "https://github.com/leviouwendijk/Agentic.git",
+            url: "https://github.com/swift-agentic/Agentic.git",
             branch: "master"
         ),
         .package(
