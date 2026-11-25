@@ -65,7 +65,7 @@ let package = Package(
             branch: "master"
         ),
         .package(
-            url: "https://github.com/leviouwendijk/Testing.git",
+            url: "https://github.com/swift-tooling/Testing.git",
             branch: "master"
         ),
         .package(path: ".."),
