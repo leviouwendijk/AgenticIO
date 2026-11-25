@@ -81,7 +81,7 @@ let package = Package(
             branch: "master"
         ),
         .package(
-            url: "https://github.com/leviouwendijk/Parsing.git",
+            url: "https://github.com/swift-langs/Parsing.git",
             branch: "master"
         ),
         .package(
