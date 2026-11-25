@@ -21,47 +21,47 @@ let package = Package(
             branch: "master"
         ),
         .package(
-            url: "https://github.com/leviouwendijk/IO.git",
+            url: "https://github.com/swift-lco/IO.git",
             branch: "master"
         ),
         .package(
-            url: "https://github.com/leviouwendijk/Workspace.git",
+            url: "https://github.com/swift-lco/Workspace.git",
             branch: "master"
         ),
         .package(
-            url: "https://github.com/leviouwendijk/Primitives.git",
+            url: "https://github.com/swift-lco/Primitives.git",
             branch: "master"
         ),
         .package(
-            url: "https://github.com/leviouwendijk/Schema.git",
+            url: "https://github.com/swift-lco/Schema.git",
             branch: "master"
         ),
         .package(
-            url: "https://github.com/leviouwendijk/Writers.git",
+            url: "https://github.com/swift-lco/Writers.git",
             branch: "master"
         ),
         .package(
-            url: "https://github.com/leviouwendijk/Errors.git",
+            url: "https://github.com/swift-lco/Errors.git",
             branch: "master"
         ),
         .package(
-            url: "https://github.com/leviouwendijk/Path.git",
+            url: "https://github.com/swift-lco/Path.git",
             branch: "master"
         ),
         .package(
-            url: "https://github.com/leviouwendijk/Selection.git",
+            url: "https://github.com/swift-lco/Selection.git",
             branch: "master"
         ),
         .package(
-            url: "https://github.com/leviouwendijk/Position.git",
+            url: "https://github.com/swift-lco/Position.git",
             branch: "master"
         ),
         .package(
-            url: "https://github.com/leviouwendijk/Concatenation.git",
+            url: "https://github.com/swift-lco/Concatenation.git",
             branch: "master"
         ),
         .package(
-            url: "https://github.com/leviouwendijk/Search.git",
+            url: "https://github.com/swift-lco/Search.git",
             branch: "master"
         ),
         .package(

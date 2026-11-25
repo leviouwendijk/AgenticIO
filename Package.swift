@@ -21,63 +21,63 @@ let package = Package(
             branch: "master"
         ),
         .package(
-            url: "https://github.com/leviouwendijk/Workspace.git",
+            url: "https://github.com/swift-lco/Workspace.git",
             branch: "master"
         ),
         .package(
-            url: "https://github.com/leviouwendijk/Primitives.git",
+            url: "https://github.com/swift-lco/Primitives.git",
             branch: "master"
         ),
         .package(
-            url: "https://github.com/leviouwendijk/Version.git",
+            url: "https://github.com/swift-lco/Version.git",
             branch: "master"
         ),
         .package(
-            url: "https://github.com/leviouwendijk/Schema.git",
+            url: "https://github.com/swift-lco/Schema.git",
             branch: "master"
         ),
         .package(
-            url: "https://github.com/leviouwendijk/Macros.git",
+            url: "https://github.com/swift-lco/Macros.git",
             branch: "master"
         ),
         .package(
-            url: "https://github.com/leviouwendijk/IO.git",
+            url: "https://github.com/swift-lco/IO.git",
             branch: "master"
         ),
         .package(
-            url: "https://github.com/leviouwendijk/Writers.git",
+            url: "https://github.com/swift-lco/Writers.git",
             branch: "master"
         ),
         .package(
-            url: "https://github.com/leviouwendijk/Readers.git",
+            url: "https://github.com/swift-lco/Readers.git",
             branch: "master"
         ),
         .package(
-            url: "https://github.com/leviouwendijk/Path.git",
+            url: "https://github.com/swift-lco/Path.git",
             branch: "master"
         ),
         .package(
-            url: "https://github.com/leviouwendijk/FileTypes.git",
+            url: "https://github.com/swift-lco/FileTypes.git",
             branch: "master"
         ),
         .package(
-            url: "https://github.com/leviouwendijk/Selection.git",
+            url: "https://github.com/swift-lco/Selection.git",
             branch: "master"
         ),
         .package(
-            url: "https://github.com/leviouwendijk/Position.git",
+            url: "https://github.com/swift-lco/Position.git",
             branch: "master"
         ),
         .package(
-            url: "https://github.com/leviouwendijk/Difference.git",
+            url: "https://github.com/swift-lco/Difference.git",
             branch: "master"
         ),
         .package(
-            url: "https://github.com/leviouwendijk/Concatenation.git",
+            url: "https://github.com/swift-lco/Concatenation.git",
             branch: "master"
         ),
         .package(
-            url: "https://github.com/leviouwendijk/Search.git",
+            url: "https://github.com/swift-lco/Search.git",
             branch: "master"
         ),
         .package(
@@ -85,11 +85,11 @@ let package = Package(
             branch: "master"
         ),
         .package(
-            url: "https://github.com/leviouwendijk/Reporting.git",
+            url: "https://github.com/swift-lco/Reporting.git",
             branch: "master"
         ),
         .package(
-            url: "https://github.com/leviouwendijk/Errors.git",
+            url: "https://github.com/swift-lco/Errors.git",
             branch: "master"
         ),
     ],
