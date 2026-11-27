@@ -92,6 +92,10 @@ let package = Package(
             url: "https://github.com/swift-lco/Errors.git",
             branch: "master"
         ),
+        .package(
+            url: "https://github.com/swift-lco/Clipboard.git",
+            branch: "master"
+        ),
     ],
     targets: [
         .target(
@@ -180,6 +184,10 @@ let package = Package(
                 .product(
                     name: "Parsing",
                     package: "Parsing"
+                ),
+                .product(
+                    name: "Clipboard",
+                    package: "Clipboard"
                 ),
             ]
         ),
