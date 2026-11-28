@@ -62,7 +62,7 @@ extension AgenticIOFlowTesting {
                                 mergeDistanceLines: 0,
                                 maximumCandidates: 8
                             ),
-            in: ToolContext(workspace: fixture.workspace)
+            in: CapabilityContext(workspace: fixture.workspace)
         )
         let search = searchOutput
 
@@ -103,7 +103,7 @@ extension AgenticIOFlowTesting {
         let tool = SystemIO.Tools.ProveSearchResults()
         let output = try await tool.call(
             input,
-            in: ToolContext(workspace: fixture.workspace)
+            in: CapabilityContext(workspace: fixture.workspace)
         )
         let proof = output
 
@@ -180,7 +180,7 @@ extension AgenticIOFlowTesting {
                     count: 0
                 )
             ),
-            in: ToolContext(
+            in: CapabilityContext(
                 workspace: fixture.workspace
             )
         )
@@ -221,7 +221,7 @@ extension AgenticIOFlowTesting {
         do {
             _ = try await tool.call(
                 input,
-                in: ToolContext(workspace: fixture.workspace)
+                in: CapabilityContext(workspace: fixture.workspace)
             )
         } catch let error as SourceContextLoadError {
             switch error {

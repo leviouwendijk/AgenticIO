@@ -122,7 +122,7 @@ public extension SystemIO.Tools {
 
         public func preflight(
             _ input: Input,
-            in context: ToolContext
+            in context: CapabilityContext
         ) async throws -> ToolPreflight {
             let renders = input.mode != .inspect
 
@@ -176,7 +176,7 @@ public extension SystemIO.Tools {
 
         public func call(
             _ input: Input,
-            in context: ToolContext
+            in context: CapabilityContext
         ) async throws -> Output {
             let inspection = ContextToolSupport.inspect(
                 input.plan

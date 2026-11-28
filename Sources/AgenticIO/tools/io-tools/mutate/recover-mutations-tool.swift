@@ -66,7 +66,7 @@ public extension SystemIO.Tools {
 
         public func preflight(
             _ input: Input,
-            in context: ToolContext
+            in context: CapabilityContext
         ) async throws -> ToolPreflight {
             let (_, cause) = try await blocked(in: context)
             let target = cause.target.map { relative($0, in: context) }
@@ -98,7 +98,7 @@ public extension SystemIO.Tools {
 
         public func call(
             _ input: Input,
-            in context: ToolContext
+            in context: CapabilityContext
         ) async throws -> Output {
             let (submission, cause) = try await blocked(in: context)
             let recovered = try await submission.recover()
@@ -122,7 +122,7 @@ public extension SystemIO.Tools {
         }
 
         private func blocked(
-            in context: ToolContext
+            in context: CapabilityContext
         ) async throws -> (WorkspaceCoordinatedSubmission, StandardMutationRecoveryCause) {
             let workspace = try FileToolSupport.requireWorkspace(
                 context.workspace,
@@ -142,7 +142,7 @@ public extension SystemIO.Tools {
 
         private func relative(
             _ url: URL,
-            in context: ToolContext
+            in context: CapabilityContext
         ) -> String {
             guard let root = context.workspace?.rootURL.standardizedFileURL.path else {
                 return url.path

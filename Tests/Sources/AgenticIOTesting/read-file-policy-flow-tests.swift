@@ -22,7 +22,7 @@ extension AgenticIOFlowTesting {
             SystemIO.Tools.Read.Input(
                                 path: "Sources/example.swift"
                             ),
-            in: ToolContext(workspace: fixture.workspace)
+            in: CapabilityContext(workspace: fixture.workspace)
         )
 
         try Expect.equal(
@@ -39,7 +39,7 @@ extension AgenticIOFlowTesting {
             SystemIO.Tools.Read.Input(
                                 path: "notes/private-notes.txt"
                             ),
-            in: ToolContext(workspace: fixture.workspace)
+            in: CapabilityContext(workspace: fixture.workspace)
         )
 
         try Expect.equal(
@@ -63,7 +63,7 @@ extension AgenticIOFlowTesting {
             SystemIO.Tools.Read.Input(
                                 path: "notes/do-not-read.txt"
                             ),
-            in: ToolContext(workspace: fixture.workspace)
+            in: CapabilityContext(workspace: fixture.workspace)
         )
 
         try Expect.equal(
@@ -85,7 +85,7 @@ extension AgenticIOFlowTesting {
 
         // The model reads the file text once, under a header.
         let plainInput = SystemIO.Tools.Read.Input(path: "Sources/example.swift")
-        let plainOutput = try await tool.call(plainInput, in: ToolContext(workspace: fixture.workspace))
+        let plainOutput = try await tool.call(plainInput, in: CapabilityContext(workspace: fixture.workspace))
         let plain = try Expect.notNil(plainOutput.files.first, "one read, one file")
         let plainText = try Expect.notNil(tool.render(plainOutput, input: plainInput), "read renders")
         try Expect.equal(
@@ -99,7 +99,7 @@ extension AgenticIOFlowTesting {
             maxLines: 1,
             includeLineNumbers: true
         )
-        let numberedOutput = try await tool.call(numberedInput, in: ToolContext(workspace: fixture.workspace))
+        let numberedOutput = try await tool.call(numberedInput, in: CapabilityContext(workspace: fixture.workspace))
         let numbered = try Expect.notNil(numberedOutput.files.first, "one window, one file")
         let numberedText = try Expect.notNil(tool.render(numberedOutput, input: numberedInput), "read renders a window")
         try Expect.true(

@@ -53,7 +53,7 @@ public extension SystemIO.Tools {
 
         public func preflight(
             _ input: Input,
-            in context: ToolContext
+            in context: CapabilityContext
         ) async throws -> ToolPreflight {
 
             return .init(
@@ -71,7 +71,7 @@ public extension SystemIO.Tools {
 
         public func call(
             _ input: Input,
-            in context: ToolContext
+            in context: CapabilityContext
         ) async throws -> Output {
             let history = AgentFileMutationHistory(
                 store: store

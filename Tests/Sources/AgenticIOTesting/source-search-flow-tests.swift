@@ -193,7 +193,7 @@ private extension AgenticIOFlowTesting {
 
         let output = try await tool.call(
             input,
-            in: ToolContext(workspace: fixture.workspace)
+            in: CapabilityContext(workspace: fixture.workspace)
         )
         let result = output
 
@@ -274,7 +274,7 @@ private extension AgenticIOFlowTesting {
         try Expect.true(!rendered.contains("{"), "No JSON reaches the model when nothing pages")
 
         // The short form: literal text, a pattern, context lines.
-        let context = ToolContext(workspace: fixture.workspace)
+        let context = CapabilityContext(workspace: fixture.workspace)
         let literal = try await tool.call(
             .init(includes: ["Sources/**"], query: "NEEDLE beta", contextLines: 1),
             in: context
@@ -418,7 +418,7 @@ private extension AgenticIOFlowTesting {
                 caseSensitive: true,
                 maximumCandidates: 8
             ),
-            in: ToolContext(
+            in: CapabilityContext(
                 workspace: fixture.workspace
             )
         )
@@ -479,7 +479,7 @@ private extension AgenticIOFlowTesting {
                 caseSensitive: true,
                 maximumCandidates: 8
             ),
-            in: ToolContext(
+            in: CapabilityContext(
                 workspace: fixture.workspace
             )
         )
@@ -509,7 +509,7 @@ private extension AgenticIOFlowTesting {
                 mergeDistanceLines: 0,
                 maximumCandidates: 8
             ),
-            in: ToolContext(
+            in: CapabilityContext(
                 workspace: fixture.workspace
             )
         )
@@ -532,7 +532,7 @@ private extension AgenticIOFlowTesting {
                 caseSensitive: true,
                 maximumCandidates: 8
             ),
-            in: ToolContext(
+            in: CapabilityContext(
                 workspace: fixture.workspace
             )
         )
@@ -610,7 +610,7 @@ private extension AgenticIOFlowTesting {
                                 mergeDistanceLines: 0,
                                 maximumCandidates: 3
                             ),
-            in: ToolContext(workspace: fixture.workspace)
+            in: CapabilityContext(workspace: fixture.workspace)
         )
         let result = output
 
@@ -872,7 +872,7 @@ private extension AgenticIOFlowTesting {
                                 maximumCandidates: 16,
                                 maximumCandidatesPerDocument: 16
                             ),
-            in: ToolContext(workspace: fixture.workspace)
+            in: CapabilityContext(workspace: fixture.workspace)
         )
         let result = output
 
@@ -1071,7 +1071,7 @@ private extension AgenticIOFlowTesting {
                 mergeDistanceLines: 0,
                 maximumCandidates: 8
             ),
-            in: ToolContext(workspace: fixture.workspace)
+            in: CapabilityContext(workspace: fixture.workspace)
         )
         let candidate = try Expect.notNil(
             broad.candidates.first {
@@ -1103,7 +1103,7 @@ private extension AgenticIOFlowTesting {
                 mergeDistanceLines: 0,
                 maximumCandidates: 8
             ),
-            in: ToolContext(workspace: fixture.workspace)
+            in: CapabilityContext(workspace: fixture.workspace)
         )
 
         try Expect.equal(
@@ -1154,7 +1154,7 @@ private extension AgenticIOFlowTesting {
                 mergeDistanceLines: 0,
                 maximumCandidates: 8
             ),
-            in: ToolContext(workspace: fixture.workspace)
+            in: CapabilityContext(workspace: fixture.workspace)
         )
 
         try Expect.equal(
@@ -1202,7 +1202,7 @@ private extension AgenticIOFlowTesting {
                     mergeDistanceLines: 0,
                     maximumCandidates: 8
                 ),
-                in: ToolContext(workspace: fixture.workspace)
+                in: CapabilityContext(workspace: fixture.workspace)
             )
         } catch let error as SourceContextLoadError {
             switch error {
@@ -1244,7 +1244,7 @@ private extension AgenticIOFlowTesting {
                 mergeDistanceLines: 0,
                 maximumCandidates: 8
             ),
-            in: ToolContext(
+            in: CapabilityContext(
                 workspace: fixture.workspace
             )
         )
@@ -1280,7 +1280,7 @@ private extension AgenticIOFlowTesting {
                     mergeDistanceLines: 0,
                     maximumCandidates: 8
                 ),
-                in: ToolContext(
+                in: CapabilityContext(
                     workspace: fixture.workspace
                 )
             )
@@ -1334,7 +1334,7 @@ private extension AgenticIOFlowTesting {
                     mergeDistanceLines: 0,
                     maximumCandidates: 8
                 ),
-                in: ToolContext(
+                in: CapabilityContext(
                     workspace: fixture.workspace
                 )
             )
@@ -1389,7 +1389,7 @@ private extension AgenticIOFlowTesting {
                     mergeDistanceLines: 0,
                     maximumCandidates: 8
                 ),
-                in: ToolContext(
+                in: CapabilityContext(
                     workspace: fixture.workspace
                 )
             )

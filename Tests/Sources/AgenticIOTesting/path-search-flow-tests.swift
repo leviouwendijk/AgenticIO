@@ -86,7 +86,7 @@ extension AgenticIOFlowTesting {
                 caseSensitive: true,
                 maxEntries: 8
             ),
-            in: ToolContext(workspace: fixture.workspace)
+            in: CapabilityContext(workspace: fixture.workspace)
         )
         let ranked = rankedOutput
 
@@ -144,7 +144,7 @@ extension AgenticIOFlowTesting {
                 includeFiles: true,
                 includeDirectories: false
             ),
-            in: ToolContext(workspace: fixture.workspace)
+            in: CapabilityContext(workspace: fixture.workspace)
         )
 
         try Expect.equal(
@@ -173,7 +173,7 @@ extension AgenticIOFlowTesting {
                 strategy: .contains,
                 caseSensitive: true
             ),
-            in: ToolContext(workspace: fixture.workspace)
+            in: CapabilityContext(workspace: fixture.workspace)
         )
         let excluded = excludedOutput
 
@@ -199,7 +199,7 @@ extension AgenticIOFlowTesting {
                 includeDirectories: false,
                 strategy: .contains
             ),
-            in: ToolContext(workspace: fixture.workspace)
+            in: CapabilityContext(workspace: fixture.workspace)
         )
 
         try Expect.equal(
@@ -219,7 +219,7 @@ extension AgenticIOFlowTesting {
                 includeDirectories: false,
                 strategy: .contains
             ),
-            in: ToolContext(workspace: fixture.workspace)
+            in: CapabilityContext(workspace: fixture.workspace)
         )
 
         try Expect.equal(
@@ -235,7 +235,7 @@ extension AgenticIOFlowTesting {
                 query: "A.swift",
                 includeDirectories: false
             ),
-            in: ToolContext(workspace: fixture.workspace)
+            in: CapabilityContext(workspace: fixture.workspace)
         )
 
         try Expect.equal(
@@ -248,7 +248,7 @@ extension AgenticIOFlowTesting {
 
         let defaultListing = try await SystemIO.Tools.Find().call(
             SystemIO.Tools.Find.Input(),
-            in: ToolContext(workspace: fixture.workspace)
+            in: CapabilityContext(workspace: fixture.workspace)
         )
 
         try Expect.equal(
@@ -267,7 +267,7 @@ extension AgenticIOFlowTesting {
             SystemIO.Tools.Find.Input(
                 path: "Sources"
             ),
-            in: ToolContext(workspace: fixture.workspace)
+            in: CapabilityContext(workspace: fixture.workspace)
         )
 
         try Expect.equal(
@@ -290,7 +290,7 @@ extension AgenticIOFlowTesting {
                     "**/*.swift",
                 ]
             ),
-            in: ToolContext(workspace: fixture.workspace)
+            in: CapabilityContext(workspace: fixture.workspace)
         )
 
         try Expect.equal(
@@ -309,7 +309,7 @@ extension AgenticIOFlowTesting {
                 includeFiles: true,
                 includeDirectories: true
             ),
-            in: ToolContext(workspace: fixture.workspace)
+            in: CapabilityContext(workspace: fixture.workspace)
         )
 
         try Expect.equal(
@@ -327,7 +327,7 @@ extension AgenticIOFlowTesting {
                 includeFiles: true,
                 includeDirectories: true
             ),
-            in: ToolContext(workspace: fixture.workspace)
+            in: CapabilityContext(workspace: fixture.workspace)
         )
 
         try Expect.equal(
@@ -402,7 +402,7 @@ extension AgenticIOFlowTesting {
             SystemIO.Tools.Find.Input(
                 recursive: true
             ),
-            in: ToolContext(workspace: fixture.workspace)
+            in: CapabilityContext(workspace: fixture.workspace)
         )
         let withheldPaths = withheldListing.entries.map(\.path)
 
@@ -438,7 +438,7 @@ extension AgenticIOFlowTesting {
             SystemIO.Tools.Find.Input(
                 query: "notes"
             ),
-            in: ToolContext(workspace: fixture.workspace)
+            in: CapabilityContext(workspace: fixture.workspace)
         )
         try Expect.equal(
             withheldQuery.withheldCount,

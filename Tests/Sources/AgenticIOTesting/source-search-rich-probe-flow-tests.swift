@@ -83,7 +83,7 @@ extension AgenticIOFlowTesting {
                                 maximumCandidates: 16,
                                 maximumCandidatesPerDocument: 16
                             ),
-            in: ToolContext(workspace: fixture.workspace)
+            in: CapabilityContext(workspace: fixture.workspace)
         )
         let result = output
 

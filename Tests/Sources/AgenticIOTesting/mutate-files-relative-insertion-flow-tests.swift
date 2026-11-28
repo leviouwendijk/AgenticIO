@@ -84,7 +84,7 @@ extension AgenticIOFlowTesting {
 
         let prepared = try await tool.prepare(
             input,
-            in: ToolContext(workspace: workspace)
+            in: CapabilityContext(workspace: workspace)
         )
         let preflight = prepared.review
 
@@ -99,7 +99,7 @@ extension AgenticIOFlowTesting {
         _ = try await tool.call(
             input,
             prepared: prepared.operation,
-            in: ToolContext(workspace: workspace)
+            in: CapabilityContext(workspace: workspace)
         )
 
         try Expect.equal(
@@ -135,7 +135,7 @@ extension AgenticIOFlowTesting {
         do {
             _ = try await tool.preflight(
                 invalid,
-                in: ToolContext(workspace: workspace)
+                in: CapabilityContext(workspace: workspace)
             )
         } catch {
             invalidLineRejected = true

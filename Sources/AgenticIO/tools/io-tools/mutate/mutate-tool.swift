@@ -464,7 +464,7 @@ public extension SystemIO.Tools {
 
         public func prepare(
             _ input: Input,
-            in context: ToolContext
+            in context: CapabilityContext
         ) async throws -> CapabilityPreparation<ToolPreflight> {
             let (rooted, workspace) = try targeting(
                 input,
@@ -501,7 +501,7 @@ public extension SystemIO.Tools {
 
         public func preflight(
             _ input: Input,
-            in context: ToolContext
+            in context: CapabilityContext
         ) async throws -> ToolPreflight {
             try await prepare(input, in: context).review
         }
@@ -552,7 +552,7 @@ public extension SystemIO.Tools {
         /// Tool authors cannot bypass the reviewed-plan execution seam.
         public func call(
             _ input: Input,
-            in context: ToolContext
+            in context: CapabilityContext
         ) async throws -> Output {
             throw ToolPreparationError.prepared_operation_required
         }
@@ -560,7 +560,7 @@ public extension SystemIO.Tools {
         public func call(
             _ input: Input,
             prepared operation: PreparedOperation.Envelope?,
-            in context: ToolContext
+            in context: CapabilityContext
         ) async throws -> Output {
             guard let operation else {
                 throw ToolPreparationError.prepared_operation_required

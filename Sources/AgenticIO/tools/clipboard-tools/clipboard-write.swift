@@ -44,7 +44,7 @@ extension SystemIO.Tools {
 
         public func preflight(
             _ input: Input,
-            in context: ToolContext
+            in context: CapabilityContext
         ) async throws -> ToolPreflight {
             ToolPreflight(
                 tool: Self.definition.identifier,
@@ -86,7 +86,7 @@ extension SystemIO.Tools {
 
         public func call(
             _ input: Input,
-            in context: ToolContext
+            in context: CapabilityContext
         ) async throws -> Output {
             let register: Clipboard.Channel
 

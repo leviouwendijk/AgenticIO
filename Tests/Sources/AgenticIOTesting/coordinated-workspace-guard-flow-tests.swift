@@ -47,7 +47,7 @@ extension AgenticIOFlowTesting {
             .init(kind: .replace_text, path: "sample.txt", content: "modified\n")
         ])
 
-        let tool_context = ToolContext(workspace: context)
+        let tool_context = CapabilityContext(workspace: context)
         let preparation = try await tool.prepare(input, in: tool_context)
 
         let multiInput = SystemIO.Tools.Mutate.Input(entries: [
@@ -200,7 +200,7 @@ extension AgenticIOFlowTesting {
         ) { id in
             try await coordinator.publish(submissions: [id])
         }
-        let grantedContext = ToolContext(workspace: try authority.context(
+        let grantedContext = CapabilityContext(workspace: try authority.context(
             execution: .init(io: .blocking, mutations: .coordinated(granted))
         ))
         let rootInput = SystemIO.Tools.Mutate.Input(entries: [
@@ -231,7 +231,7 @@ extension AgenticIOFlowTesting {
                 recover: { await coordinator.recover() }
             )
         )
-        let recoveringContext = ToolContext(workspace: try authority.context(
+        let recoveringContext = CapabilityContext(workspace: try authority.context(
             execution: .init(io: .blocking, mutations: .coordinated(recovering))
         ))
         let recover = SystemIO.Tools.RecoverMutations()
@@ -317,7 +317,7 @@ extension AgenticIOFlowTesting {
             grants: [grant]
         )
         let workspace = try authority.context(execution: .init(io: .blocking, mutations: .immediate))
-        let context = ToolContext(workspace: workspace)
+        let context = CapabilityContext(workspace: workspace)
         let tool = SystemIO.Tools.Mutate()
         let input = SystemIO.Tools.Mutate.Input(entries: [
             .init(kind: .replace_text, path: "approved.txt", content: "approved\n")

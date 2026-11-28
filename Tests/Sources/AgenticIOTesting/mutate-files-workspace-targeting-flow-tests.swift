@@ -25,7 +25,7 @@ extension AgenticIOFlowTesting {
 
         let prepared = try await tool.prepare(
             input,
-            in: ToolContext(workspace: fixture.workspace)
+            in: CapabilityContext(workspace: fixture.workspace)
         )
 
         let moveOnly = SystemIO.Tools.Mutate(
@@ -37,7 +37,7 @@ extension AgenticIOFlowTesting {
         do {
             _ = try await moveOnly.prepare(
                 deniedInput,
-                in: ToolContext(workspace: fixture.workspace)
+                in: CapabilityContext(workspace: fixture.workspace)
             )
             try Expect.true(false, "move-only policy must reject replacement at preparation")
         } catch FileMutationOperationPolicyError.operation_not_allowed(let kind) {
@@ -56,7 +56,7 @@ extension AgenticIOFlowTesting {
             _ = try await moveOnly.call(
                 input,
                 prepared: prepared.operation,
-                in: ToolContext(workspace: fixture.workspace)
+                in: CapabilityContext(workspace: fixture.workspace)
             )
             try Expect.true(false, "restricted execution must reject an earlier prepared replacement")
         } catch FileMutationOperationPolicyError.operation_not_allowed(let kind) {
@@ -74,7 +74,7 @@ extension AgenticIOFlowTesting {
         do {
             _ = try await moveOnly.prepare(
                 mixedInput,
-                in: ToolContext(workspace: fixture.workspace)
+                in: CapabilityContext(workspace: fixture.workspace)
             )
             try Expect.true(false, "a mixed batch must be denied as a whole")
         } catch FileMutationOperationPolicyError.operation_not_allowed(let kind) {
@@ -139,7 +139,7 @@ extension AgenticIOFlowTesting {
         _ = try await tool.call(
             input,
             prepared: prepared.operation,
-            in: ToolContext(workspace: fixture.workspace)
+            in: CapabilityContext(workspace: fixture.workspace)
         )
 
         try Expect.equal(
@@ -200,7 +200,7 @@ extension AgenticIOFlowTesting {
         )
         let copyPrepared = try await tool.prepare(
             copyInput,
-            in: ToolContext(workspace: fixture.workspace)
+            in: CapabilityContext(workspace: fixture.workspace)
         )
         let copyPreflight = copyPrepared.review
 
@@ -223,7 +223,7 @@ extension AgenticIOFlowTesting {
         let copyOutput = try await tool.call(
             copyInput,
             prepared: copyPrepared.operation,
-            in: ToolContext(workspace: fixture.workspace)
+            in: CapabilityContext(workspace: fixture.workspace)
         )
 
         try Expect.equal(
@@ -272,7 +272,7 @@ extension AgenticIOFlowTesting {
         )
         let movePrepared = try await moveOnly.prepare(
             moveInput,
-            in: ToolContext(workspace: fixture.workspace)
+            in: CapabilityContext(workspace: fixture.workspace)
         )
         try Expect.equal(
             movePrepared.review.access.targets,
@@ -320,7 +320,7 @@ extension AgenticIOFlowTesting {
         let moveOutput = try await moveOnly.call(
             moveInput,
             prepared: movePrepared.operation,
-            in: ToolContext(workspace: fixture.workspace)
+            in: CapabilityContext(workspace: fixture.workspace)
         )
         try Expect.equal(
             moveOutput.status,
@@ -346,7 +346,7 @@ extension AgenticIOFlowTesting {
         ])
         let fileMovePrepared = try await tool.prepare(
             fileMoveInput,
-            in: ToolContext(workspace: fixture.workspace)
+            in: CapabilityContext(workspace: fixture.workspace)
         )
         let fileMoveLine = fileMovePrepared.review.preview.differences.first?
             .tree_layout?.lines.first { $0.change == .moved }
@@ -379,7 +379,7 @@ extension AgenticIOFlowTesting {
         do {
             _ = try await tool.preflight(
                 escapingInput,
-                in: ToolContext(workspace: fixture.workspace)
+                in: CapabilityContext(workspace: fixture.workspace)
             )
         } catch {
             escapeRejected = true

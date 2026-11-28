@@ -14,7 +14,7 @@ extension AgenticIOFlowTesting {
             fixture.remove()
         }
 
-        let context = ToolContext(workspace: fixture.workspace)
+        let context = CapabilityContext(workspace: fixture.workspace)
 
         let output = try await SystemIO.Tools.Read().call(
             .init(
@@ -113,7 +113,7 @@ extension AgenticIOFlowTesting {
             fixture.remove()
         }
 
-        let context = ToolContext(workspace: fixture.workspace)
+        let context = CapabilityContext(workspace: fixture.workspace)
         let tool = SystemIO.Tools.Remove()
 
         let emptyPreflight = try await tool.preflight(

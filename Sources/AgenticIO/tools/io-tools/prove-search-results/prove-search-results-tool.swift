@@ -455,7 +455,7 @@ public extension SystemIO.Tools {
 
         public func preflight(
             _ input: Input,
-            in context: ToolContext
+            in context: CapabilityContext
         ) async throws -> ToolPreflight {
             let workspace = try FileToolSupport.requireWorkspace(
                 context.workspace,
@@ -524,7 +524,7 @@ public extension SystemIO.Tools {
 
         public func call(
             _ input: Input,
-            in context: ToolContext
+            in context: CapabilityContext
         ) async throws -> Output {
             let workspace = try FileToolSupport.requireWorkspace(
                 context.workspace,

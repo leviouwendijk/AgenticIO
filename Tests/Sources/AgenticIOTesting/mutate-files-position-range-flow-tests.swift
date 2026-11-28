@@ -131,11 +131,11 @@ extension AgenticIOFlowTesting {
             ]
         )
 
-        let prepared_input = try await tool.prepare(input, in: ToolContext(workspace: workspace))
+        let prepared_input = try await tool.prepare(input, in: CapabilityContext(workspace: workspace))
         _ = try await tool.call(
             input,
             prepared: prepared_input.operation,
-            in: ToolContext(workspace: workspace)
+            in: CapabilityContext(workspace: workspace)
         )
 
         try Expect.equal(
@@ -173,11 +173,11 @@ extension AgenticIOFlowTesting {
             ]
         )
 
-        let prepared_multiline = try await tool.prepare(multiline, in: ToolContext(workspace: workspace))
+        let prepared_multiline = try await tool.prepare(multiline, in: CapabilityContext(workspace: workspace))
         _ = try await tool.call(
             multiline,
             prepared: prepared_multiline.operation,
-            in: ToolContext(workspace: workspace)
+            in: CapabilityContext(workspace: workspace)
         )
 
         try Expect.equal(
@@ -219,7 +219,7 @@ extension AgenticIOFlowTesting {
         do {
             _ = try await tool.preflight(
                 invalid,
-                in: ToolContext(
+                in: CapabilityContext(
                     workspace: workspace
                 )
             )
@@ -268,7 +268,7 @@ extension AgenticIOFlowTesting {
         do {
             _ = try await tool.preflight(
                 mixed,
-                in: ToolContext(
+                in: CapabilityContext(
                     workspace: workspace
                 )
             )

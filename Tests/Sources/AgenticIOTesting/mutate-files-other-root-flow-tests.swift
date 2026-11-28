@@ -50,8 +50,8 @@ extension AgenticIOFlowTesting {
         let input = SystemIO.Tools.Mutate.Input(entries: [
             .init(kind: .replace_text, path: note.path, content: "after\n"),
         ])
-        let prepared = try await tool.prepare(input, in: ToolContext(workspace: context))
-        _ = try await tool.call(input, prepared: prepared.operation, in: ToolContext(workspace: context))
+        let prepared = try await tool.prepare(input, in: CapabilityContext(workspace: context))
+        _ = try await tool.call(input, prepared: prepared.operation, in: CapabilityContext(workspace: context))
         try Expect.equal(try String(contentsOf: note, encoding: .utf8), "after\n", "written in the other root")
 
         // Coordinated: staged under the other root, published by the owner.
@@ -64,8 +64,8 @@ extension AgenticIOFlowTesting {
         let second = SystemIO.Tools.Mutate.Input(entries: [
             .init(kind: .replace_text, path: note.path, content: "staged\n"),
         ])
-        let preparedStaged = try await tool.prepare(second, in: ToolContext(workspace: staged))
-        _ = try await tool.call(second, prepared: preparedStaged.operation, in: ToolContext(workspace: staged))
+        let preparedStaged = try await tool.prepare(second, in: CapabilityContext(workspace: staged))
+        _ = try await tool.call(second, prepared: preparedStaged.operation, in: CapabilityContext(workspace: staged))
         try Expect.equal(try String(contentsOf: note, encoding: .utf8), "after\n", "staged, not yet written")
         let pending = await coordinator.pending_submission_ids()
         try Expect.equal(pending.count, 1, "one staged unit")
@@ -79,7 +79,7 @@ extension AgenticIOFlowTesting {
             _ = try await tool.prepare(.init(entries: [
                 .init(kind: .replace_text, path: note.path, content: "x\n"),
                 .init(kind: .replace_text, path: "p.txt", content: "y\n"),
-            ]), in: ToolContext(workspace: context))
+            ]), in: CapabilityContext(workspace: context))
             try Expect.true(false, "targets in two roots are refused")
         } catch {
             try Expect.true(String(describing: error).contains("several workspace roots"), "\(error)")
